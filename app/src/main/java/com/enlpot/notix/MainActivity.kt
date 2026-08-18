@@ -10,6 +10,7 @@ import android.content.IntentFilter
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -47,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -474,6 +476,8 @@ class MainActivity : ComponentActivity() {
     ) {
         val context = LocalContext.current // Get context inside Composable
         val coroutineScope = rememberCoroutineScope()
+        // v7.37：底部"历史"tab 双击检测（300ms 内二次点击返回本周）
+        var lastHistoryTabClickTime by remember { mutableLongStateOf(0L) }
         val tabTitles = listOf(
             stringResource(R.string.tab_history),
             stringResource(R.string.tab_rules),
@@ -496,7 +500,15 @@ class MainActivity : ComponentActivity() {
                             onClick = {
                                 // v7.5：已在历史页时再次点击底部"历史"tab 则回到顶部
                                 if (index == 0 && pagerState.currentPage == 0) {
-                                    onHistoryTabClick()
+                                    val now = SystemClock.uptimeMillis()
+                                    // v7.37：300ms 内快速双击返回本周（与点击"通知历史"一致）
+                                    if (now - lastHistoryTabClickTime <= 300L) {
+                                        lastHistoryTabClickTime = 0L
+                                        onBackToCurrentWeek()
+                                    } else {
+                                        lastHistoryTabClickTime = now
+                                        onHistoryTabClick()
+                                    }
                                 } else {
                                     coroutineScope.launch { pagerState.animateScrollToPage(index) }
                                 }

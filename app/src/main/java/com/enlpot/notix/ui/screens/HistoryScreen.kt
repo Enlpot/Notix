@@ -38,13 +38,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -159,15 +160,18 @@ fun HistoryScreen(
     val expandedRuleIds = remember { mutableStateOf(setOf<String>()) }
 
     // --- v7.5：列表滚动状态 / 吸顶搜索区 / 下拉刷新 / 回顶 / 权限掉线提示 ---
-    val listState = rememberLazyListState()
+    // v7.37：三 tab 页各自独立滚动状态（滑动切换后保留各自位置）
+    val tabListStates = remember { List(HistoryTab.entries.size) { LazyListState() } }
+    // v7.37：三 tab 滑动切换 Pager（页序与 HistoryTab 枚举一致）
+    val tabPagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { HistoryTab.entries.size })
     var searchExpanded by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     var showPermissionLostDialog by remember { mutableStateOf(false) }
 
-    // 单击底部"历史"tab 回顶
+    // 单击底部"历史"tab 回顶（作用于当前显示的 tab 页）
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > 0) {
-            listState.animateScrollToItem(0)
+            tabListStates[tabPagerState.settledPage].animateScrollToItem(0)
         }
     }
 
@@ -207,15 +211,21 @@ fun HistoryScreen(
         }
     }
     val chartMax = remember(chartCounts) { chartCounts.values.maxOrNull()?.coerceAtLeast(1) ?: 1 }
-    val chartPagerState = rememberPagerState(initialPage = currentWeekPage, pageCount = { totalPages })
+    // v7.37：三 tab 页各自持有图表 PagerState（一个 PagerState 不能同时绑定多个 pager）
+    val chartPagerStates = rememberChartPagerStates(HistoryTab.entries.size, currentWeekPage) { totalPages }
     val coroutineScope = rememberCoroutineScope()
 
-    // 点击顶部"通知历史"返回本周
+    // 点击顶部"通知历史"返回本周（作用于当前显示的 tab 页）
     LaunchedEffect(backToCurrentWeekTrigger) {
         if (backToCurrentWeekTrigger > 0) {
             selectedDay = null
-            coroutineScope.launch { chartPagerState.animateScrollToPage(currentWeekPage) }
+            coroutineScope.launch { chartPagerStates[tabPagerState.settledPage].animateScrollToPage(currentWeekPage) }
         }
+    }
+
+    // v7.37：滑动切页后同步 selectedTab（tab 选择器高亮跟随）
+    LaunchedEffect(tabPagerState.settledPage) {
+        selectedTab = HistoryTab.entries[tabPagerState.settledPage]
     }
 
     // --- Stop monitoring dialog ---
@@ -396,7 +406,9 @@ fun HistoryScreen(
                     // v7.7：常规与吸顶统一紧凑样式——小字号 tab、紧凑高度、搜索按钮在 tab 行最右侧
                     HistorySubTabs(
                         selectedTab = selectedTab,
-                        onTabSelected = { selectedTab = it },
+                        onTabSelected = { tab ->
+                            coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
+                        },
                         modifier = Modifier.weight(1f),
                         compact = true
                     )
@@ -469,11 +481,19 @@ fun HistoryScreen(
             },
             modifier = Modifier.fillMaxSize()
         ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = WindowInsets.navigationBars.asPaddingValues()
-            ) {
+            // v7.37：三 tab 滑动切换——HorizontalPager 承载，每页独立 LazyColumn + 独立滚动状态
+            val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            HorizontalPager(
+                state = tabPagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val tab = HistoryTab.entries[page]
+                LazyColumn(
+                    state = tabListStates[page],
+                    modifier = Modifier.fillMaxSize(),
+                    // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
+                    contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                ) {
             // v7.7：标题行作为列表项随内容滑出（"通知历史" + 通知监听铃铛）
             item(key = "history_title") {
                 HistoryTitleRow(
@@ -504,9 +524,9 @@ fun HistoryScreen(
                 }
             }
 
-            item(key = "chart") {
+                item(key = "chart") {
                 StatsBarChart(
-                    pagerState = chartPagerState,
+                    pagerState = chartPagerStates[page],
                     firstWeekStart = firstWeekStart,
                     countsByDay = chartCounts,
                     chartMax = chartMax,
@@ -525,7 +545,7 @@ fun HistoryScreen(
                 }
             }
 
-            when (selectedTab) {
+            when (tab) {
                 HistoryTab.BY_TIME -> {
                     if (entries.isEmpty()) {
                         item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
@@ -583,6 +603,12 @@ fun HistoryScreen(
                     }
                 }
             }
+
+            // v7.37：内容不足时撑满视口，配合底部滚动余量保证任意内容量均可上滑
+            item(key = "scroll_room") {
+                Spacer(modifier = Modifier.fillParentMaxHeight())
+            }
+            }
         }
         }
     }
@@ -591,6 +617,14 @@ fun HistoryScreen(
 private fun isSameDay(timestamp: Long, day: LocalDate): Boolean {
     return LocalDate.ofInstant(java.time.Instant.ofEpochMilli(timestamp), ZoneId.systemDefault()) == day
 }
+
+// --- v7.37：创建多个独立图表 PagerState（一个 PagerState 不能同时绑定多个 pager） ---
+@Composable
+private fun rememberChartPagerStates(
+    count: Int,
+    initialPage: Int,
+    pageCount: () -> Int
+): List<PagerState> = List(count) { rememberPagerState(initialPage = initialPage, pageCount = pageCount) }
 
 // --- v7.5：通知监听权限是否掉线 ---
 private fun isNotificationListenerEnabled(context: Context): Boolean {
