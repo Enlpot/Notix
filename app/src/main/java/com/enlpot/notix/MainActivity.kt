@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -17,12 +18,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Rule
@@ -55,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -70,7 +79,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import com.enlpot.notix.setup.SetupState
+import java.time.LocalDate
 import com.enlpot.notix.ui.screens.HistoryScreen
+import com.enlpot.notix.ui.screens.ChartPanel
 import com.enlpot.notix.ui.screens.RulesScreen
 import com.enlpot.notix.ui.screens.RuleWizardScreen
 import com.enlpot.notix.ui.screens.SettingsScreen
@@ -503,36 +514,227 @@ class MainActivity : ComponentActivity() {
             Icons.Default.Settings
         )
 
+        // v7.41：横屏通用布局——selectedDay 状态提升至此（ChartPanel 与 HistoryScreen 共用，旋转保持）
+        var selectedDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
+        // v7.41：横屏左栏图表铃铛的暂停/恢复二次确认（竖屏仍由 HistoryScreen 内部负责）
+        var showListenerPauseConfirm by rememberSaveable { mutableStateOf(false) }
+        // v7.41：返回本周触发时全局清除选中日（左栏 ChartPanel 同步生效）
+        LaunchedEffect(backToCurrentWeekTrigger) {
+            if (backToCurrentWeekTrigger > 0) {
+                selectedDay = null
+            }
+        }
+        // v7.41：底部三 tab 导航（竖屏 bottomBar / 横屏右半复用）
+        val bottomNav: @Composable () -> Unit = {
+            NavigationBar {
+                tabTitles.forEachIndexed { index, title ->
+                    NavigationBarItem(
+                        selected = currentTab == index,
+                        onClick = {
+                            // v7.5：已在历史页时再次点击底部"历史"tab 则回到顶部
+                            if (index == 0 && currentTab == 0) {
+                                val now = SystemClock.uptimeMillis()
+                                // v7.37：300ms 内快速双击返回本周（与点击"通知历史"一致）
+                                if (now - lastHistoryTabClickTime <= 300L) {
+                                    lastHistoryTabClickTime = 0L
+                                    onBackToCurrentWeek()
+                                } else {
+                                    lastHistoryTabClickTime = now
+                                    onHistoryTabClick()
+                                }
+                            } else {
+                                onTabSelected(index)
+                            }
+                        },
+                        icon = { Icon(tabIcons[index], contentDescription = title) },
+                        label = { Text(title) }
+                    )
+                }
+            }
+        }
+        // v7.41：当前 tab 页面内容（横屏右半 / 竖屏内容区共用）
+        val screenContent: @Composable () -> Unit = {
+            when (currentTab) {
+                0 -> PagerScreenContent(
+                    page = 0,
+                    historyEntries = historyEntries,
+                    pastNotifications = pastNotifications,
+                    rules = rules,
+                    unmonitoredApps = unmonitoredApps,
+                    listenerPaused = listenerPaused,
+                    backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                    scrollToTopTrigger = scrollToTopTrigger,
+                    onRefreshHistory = onRefreshHistory,
+                    onEntryHistoryClick = onEntryHistoryClick,
+                    onOpenNotification = onOpenNotification,
+                    onRestoreNotification = onRestoreNotification,
+                    onCreateRuleFromNotification = onCreateRuleFromNotification,
+                    onClearHistory = onClearHistory,
+                    onClearBlockedHistory = onClearBlockedHistory,
+                    onRuleClick = onRuleClick,
+                    onCreateRuleClick = onCreateRuleClick,
+                    onDeleteHistoryNotificationClick = onDeleteHistoryNotificationClick,
+                    onToggleListenerPaused = onToggleListenerPaused,
+                    onToggleAllRules = onToggleAllRules,
+                    onStopMonitoring = onStopMonitoring,
+                    onResumeMonitoring = onResumeMonitoring,
+                    onDeleteRule = onDeleteRule,
+                    onToggleRule = onToggleRule,
+                    onResetHitCount = onResetHitCount,
+                    onRescanRule = onRescanRule,
+                    onClearHistoryByDate = onClearHistoryByDate,
+                    onClearHistoryByPackages = onClearHistoryByPackages,
+                    onSettingsClose = { onTabSelected(0) },
+                    onBackToCurrentWeek = onBackToCurrentWeek,
+                    selectedDay = selectedDay,
+                    onSelectedDayChange = { selectedDay = it }
+                )
+                1 -> PagerScreenContent(
+                    page = 1,
+                    historyEntries = historyEntries,
+                    pastNotifications = pastNotifications,
+                    rules = rules,
+                    unmonitoredApps = unmonitoredApps,
+                    listenerPaused = listenerPaused,
+                    backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                    scrollToTopTrigger = scrollToTopTrigger,
+                    onRefreshHistory = onRefreshHistory,
+                    onEntryHistoryClick = onEntryHistoryClick,
+                    onOpenNotification = onOpenNotification,
+                    onRestoreNotification = onRestoreNotification,
+                    onCreateRuleFromNotification = onCreateRuleFromNotification,
+                    onClearHistory = onClearHistory,
+                    onClearBlockedHistory = onClearBlockedHistory,
+                    onRuleClick = onRuleClick,
+                    onCreateRuleClick = onCreateRuleClick,
+                    onDeleteHistoryNotificationClick = onDeleteHistoryNotificationClick,
+                    onToggleListenerPaused = onToggleListenerPaused,
+                    onToggleAllRules = onToggleAllRules,
+                    onStopMonitoring = onStopMonitoring,
+                    onResumeMonitoring = onResumeMonitoring,
+                    onDeleteRule = onDeleteRule,
+                    onToggleRule = onToggleRule,
+                    onResetHitCount = onResetHitCount,
+                    onRescanRule = onRescanRule,
+                    onClearHistoryByDate = onClearHistoryByDate,
+                    onClearHistoryByPackages = onClearHistoryByPackages,
+                    onSettingsClose = { onTabSelected(0) },
+                    onBackToCurrentWeek = onBackToCurrentWeek,
+                    selectedDay = selectedDay,
+                    onSelectedDayChange = { selectedDay = it }
+                )
+                else -> PagerScreenContent(
+                    page = 2,
+                    historyEntries = historyEntries,
+                    pastNotifications = pastNotifications,
+                    rules = rules,
+                    unmonitoredApps = unmonitoredApps,
+                    listenerPaused = listenerPaused,
+                    backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                    scrollToTopTrigger = scrollToTopTrigger,
+                    onRefreshHistory = onRefreshHistory,
+                    onEntryHistoryClick = onEntryHistoryClick,
+                    onOpenNotification = onOpenNotification,
+                    onRestoreNotification = onRestoreNotification,
+                    onCreateRuleFromNotification = onCreateRuleFromNotification,
+                    onClearHistory = onClearHistory,
+                    onClearBlockedHistory = onClearBlockedHistory,
+                    onRuleClick = onRuleClick,
+                    onCreateRuleClick = onCreateRuleClick,
+                    onDeleteHistoryNotificationClick = onDeleteHistoryNotificationClick,
+                    onToggleListenerPaused = onToggleListenerPaused,
+                    onToggleAllRules = onToggleAllRules,
+                    onStopMonitoring = onStopMonitoring,
+                    onResumeMonitoring = onResumeMonitoring,
+                    onDeleteRule = onDeleteRule,
+                    onToggleRule = onToggleRule,
+                    onResetHitCount = onResetHitCount,
+                    onRescanRule = onRescanRule,
+                    onClearHistoryByDate = onClearHistoryByDate,
+                    onClearHistoryByPackages = onClearHistoryByPackages,
+                    onSettingsClose = { onTabSelected(0) },
+                    onBackToCurrentWeek = onBackToCurrentWeek,
+                    selectedDay = selectedDay,
+                    onSelectedDayChange = { selectedDay = it }
+                )
+            }
+        }
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (isLandscape) {
+            // v7.41：横屏——左半图表(50%) + 竖线 + 右半内容(50%)，底部三 tab 仅占右半（叠加）
+            Box(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // 左半：通用图表面板（三 tab 共用同一图表，延伸至屏幕底）
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        ChartPanel(
+                            entries = historyEntries,
+                            selectedDay = selectedDay,
+                            onDayClick = { day ->
+                                selectedDay = if (selectedDay == day) null else day
+                            },
+                            onClearDay = { selectedDay = null },
+                            listenerPaused = listenerPaused,
+                            onToggleListenerPaused = { showListenerPauseConfirm = true },
+                            onBackToCurrentWeek = { onBackToCurrentWeek() },
+                            backToCurrentWeekTrigger = backToCurrentWeekTrigger
+                        )
+                    }
+                    // 中间竖线分割
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .fillMaxHeight()
+                            .background(MaterialTheme.colorScheme.outlineVariant)
+                    )
+                    // 右半：当前 tab 页面内容（底部预留 NavigationBar 高度，避免被遮挡）
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(bottom = 80.dp)
+                    ) {
+                        screenContent()
+                    }
+                }
+                // 底部三 tab：横屏仅占右半（叠加在右半底部，左半图表延伸到底）
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .fillMaxWidth(0.5f)
+                ) {
+                    bottomNav()
+                }
+            }
+            // v7.41：横屏左栏图表铃铛的暂停/恢复二次确认
+            if (showListenerPauseConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showListenerPauseConfirm = false },
+                    title = { Text(stringResource(if (listenerPaused) R.string.listener_resume_confirm_title else R.string.listener_pause_confirm_title)) },
+                    text = { Text(stringResource(if (listenerPaused) R.string.listener_resume_confirm_message else R.string.listener_pause_confirm_message)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showListenerPauseConfirm = false
+                            onToggleListenerPaused(!listenerPaused)
+                        }) {
+                            Text(stringResource(if (listenerPaused) R.string.listener_resume else R.string.listener_pause))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showListenerPauseConfirm = false }) { Text(stringResource(R.string.cancel)) }
+                    }
+                )
+            }
+        } else {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                NavigationBar {
-                    tabTitles.forEachIndexed { index, title ->
-                        NavigationBarItem(
-                            selected = currentTab == index,
-                            onClick = {
-                                // v7.5：已在历史页时再次点击底部"历史"tab 则回到顶部
-                                if (index == 0 && currentTab == 0) {
-                                    val now = SystemClock.uptimeMillis()
-                                    // v7.37：300ms 内快速双击返回本周（与点击"通知历史"一致）
-                                    if (now - lastHistoryTabClickTime <= 300L) {
-                                        lastHistoryTabClickTime = 0L
-                                        onBackToCurrentWeek()
-                                    } else {
-                                        lastHistoryTabClickTime = now
-                                        onHistoryTabClick()
-                                    }
-                                } else {
-                                    onTabSelected(index)
-                                }
-                            },
-                            icon = { Icon(tabIcons[index], contentDescription = title) },
-                            label = { Text(title) }
-                        )
-                    }
-                }
-            }
+            bottomBar = { bottomNav() }
         ) { innerPadding ->
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -571,7 +773,9 @@ class MainActivity : ComponentActivity() {
                             onClearHistoryByDate = onClearHistoryByDate,
                             onClearHistoryByPackages = onClearHistoryByPackages,
                             onSettingsClose = { onTabSelected(0) },
-                            onBackToCurrentWeek = onBackToCurrentWeek
+                            onBackToCurrentWeek = onBackToCurrentWeek,
+                            selectedDay = selectedDay,
+                            onSelectedDayChange = { selectedDay = it }
                         )
                         1 -> PagerScreenContent(
                             page = 1,
@@ -603,7 +807,9 @@ class MainActivity : ComponentActivity() {
                             onClearHistoryByDate = onClearHistoryByDate,
                             onClearHistoryByPackages = onClearHistoryByPackages,
                             onSettingsClose = { onTabSelected(0) },
-                            onBackToCurrentWeek = onBackToCurrentWeek
+                            onBackToCurrentWeek = onBackToCurrentWeek,
+                            selectedDay = selectedDay,
+                            onSelectedDayChange = { selectedDay = it }
                         )
                         else -> PagerScreenContent(
                             page = 2,
@@ -635,11 +841,14 @@ class MainActivity : ComponentActivity() {
                             onClearHistoryByDate = onClearHistoryByDate,
                             onClearHistoryByPackages = onClearHistoryByPackages,
                             onSettingsClose = { onTabSelected(0) },
-                            onBackToCurrentWeek = onBackToCurrentWeek
+                            onBackToCurrentWeek = onBackToCurrentWeek,
+                            selectedDay = selectedDay,
+                            onSelectedDayChange = { selectedDay = it }
                         )
                     }
                 }
             }
+        }
         }
     }
 
@@ -674,7 +883,10 @@ class MainActivity : ComponentActivity() {
         onClearHistoryByDate: (Long, Long) -> Unit,
         onClearHistoryByPackages: (Set<String>) -> Unit,
         onSettingsClose: () -> Unit,
-        onBackToCurrentWeek: () -> Unit
+        onBackToCurrentWeek: () -> Unit,
+        // v7.41：横屏通用图表面板——选中日状态透传 HistoryScreen
+        selectedDay: LocalDate? = null,
+        onSelectedDayChange: (LocalDate?) -> Unit = {}
     ) {
         when (page) {
             0 -> HistoryScreen(
@@ -695,7 +907,9 @@ class MainActivity : ComponentActivity() {
                 onStopMonitoring = onStopMonitoring,
                 onResumeMonitoring = onResumeMonitoring,
                 onClearBlockedHistory = onClearBlockedHistory,
-                rules = rules
+                rules = rules,
+                selectedDay = selectedDay,
+                onSelectedDayChange = onSelectedDayChange
             )
 
             1 -> RulesScreen(rules, onRuleClick, onCreateRuleClick, onToggleAllRules,

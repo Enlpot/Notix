@@ -150,7 +150,10 @@ fun HistoryScreen(
     listenerPaused: Boolean,
     onClearBlockedHistory: () -> Unit = {},
     // v7.36：规则列表（Filtered tab 按规则分组依据；规则被删除后条目归「未知规则」组）
-    rules: List<BlockerRule> = emptyList()
+    rules: List<BlockerRule> = emptyList(),
+    // v7.41：横屏通用图表面板——selectedDay 状态提升至 TabbedScreen 层，竖屏/横屏共用
+    selectedDay: LocalDate? = null,
+    onSelectedDayChange: (LocalDate?) -> Unit = {}
 ) {
     // v7.40：旋转恢复——三 tab 及弹窗/搜索/展开等 UI 状态
     var selectedTab by rememberSaveable { mutableStateOf(HistoryTab.BY_TIME) }
@@ -195,33 +198,11 @@ fun HistoryScreen(
     }
 
     // --- 柱状图状态：以周为单位分页（前26周 + 本周 + 后26周），一屏一周 ---
-    // v7.40：旋转恢复——selectedDay 持久化（LocalDate 为 Serializable）
-    var selectedDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
-    val nowDate = LocalDate.now()
-    val thisMonday = nowDate.with(DayOfWeek.MONDAY)
+    // v7.41：图表数据计算与 selectedDay 已上移 ChartPanel（通用图表面板），此处仅保留页码常量
     val weeksBefore = 26
     val weeksAfter = 26
     val totalPages = weeksBefore + 1 + weeksAfter
     val currentWeekPage = weeksBefore
-    val firstWeekStart = thisMonday.minusWeeks(weeksBefore.toLong())
-    // v7.15：柱状图与今日计数/日期详情统一口径——按历史聚合组内每条 change 的时间戳归属日期统计，
-    // 不再使用 StatsStorage 独立统计，避免三处数字不一致
-    val chartCounts = remember(entries, firstWeekStart) {
-        val dayCounts = mutableMapOf<LocalDate, Int>()
-        entries.forEach { e ->
-            e.changes.forEach { c ->
-                val d = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(c.timestamp), ZoneId.systemDefault())
-                dayCounts[d] = (dayCounts[d] ?: 0) + 1
-            }
-        }
-        buildMap {
-            for (i in 0 until totalPages * 7) {
-                val day = firstWeekStart.plusDays(i.toLong())
-                put(day, dayCounts[day] ?: 0)
-            }
-        }
-    }
-    val chartMax = remember(chartCounts) { chartCounts.values.maxOrNull()?.coerceAtLeast(1) ?: 1 }
     // v7.37：三 tab 页各自持有图表 PagerState（一个 PagerState 不能同时绑定多个 pager）
     val chartPagerStates = rememberChartPagerStates(HistoryTab.entries.size, currentWeekPage) { totalPages }
     val coroutineScope = rememberCoroutineScope()
@@ -229,7 +210,7 @@ fun HistoryScreen(
     // 点击顶部"通知历史"返回本周（作用于当前显示的 tab 页）
     LaunchedEffect(backToCurrentWeekTrigger) {
         if (backToCurrentWeekTrigger > 0) {
-            selectedDay = null
+            onSelectedDayChange(null)
             coroutineScope.launch { chartPagerStates[tabPagerState.settledPage].animateScrollToPage(currentWeekPage) }
         }
     }
@@ -377,13 +358,9 @@ fun HistoryScreen(
         }
     }
 
-    val totalCount = remember(entries) { entries.sumOf { it.count } }
+    // v7.41：totalCount/todayCount 计算已移至 ChartPanel（通用图表面板）
     // v7.36：未知规则组名（在 composable 上下文解析，供 LazyListScope 扩展使用）
     val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
-    // v7.15：今日计数与柱状图/日期详情统一口径——按聚合组内 change 时间戳归属今日计数
-    val todayCount = remember(entries, nowDate) {
-        entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, nowDate) } }
-    }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         // --- v7.7 吸顶搜索区：常规与吸顶统一紧凑样式（无动态缩放），仅区分展开/收起 ---
@@ -503,87 +480,50 @@ fun HistoryScreen(
                 val tab = HistoryTab.entries[page]
                 // v7.40：横屏时图表固定左栏、通知列表右栏；竖屏保持原滚动结构
                 val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-                // 图表头部块：标题行 + 统计 + 柱状图 + 日期筛选行
+                // 图表头部块：标题行 + 统计 + 柱状图 + 日期筛选行（v7.41：抽为 ChartPanel 通用图表面板）
                 val headerBlock: @Composable () -> Unit = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        HistoryTitleRow(
-                            listenerPaused = listenerPaused,
-                            onToggleListenerPaused = { showListenerPauseConfirm = true },
-                            onBackToCurrentWeek = onBackToCurrentWeek
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Spacer(modifier = Modifier.weight(1f))
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = stringResource(R.string.history_total, totalCount),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = stringResource(R.string.history_today, todayCount),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        StatsBarChart(
-                            pagerState = chartPagerStates[page],
-                            firstWeekStart = firstWeekStart,
-                            countsByDay = chartCounts,
-                            chartMax = chartMax,
-                            currentWeekStart = thisMonday,
-                            selectedDay = selectedDay,
-                            onDayClick = { day ->
-                                selectedDay = if (selectedDay == day) null else day
-                            }
-                        )
-                        val filterDay = selectedDay
-                        if (filterDay != null) {
-                            FilteredDayRow(day = filterDay, onClear = { selectedDay = null })
-                        }
-                    }
+                    ChartPanel(
+                        entries = entries,
+                        selectedDay = selectedDay,
+                        onDayClick = { day ->
+                            onSelectedDayChange(if (selectedDay == day) null else day)
+                        },
+                        onClearDay = { onSelectedDayChange(null) },
+                        listenerPaused = listenerPaused,
+                        onToggleListenerPaused = { showListenerPauseConfirm = true },
+                        onBackToCurrentWeek = onBackToCurrentWeek,
+                        backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                        pagerState = chartPagerStates[page]
+                    )
                 }
                 if (isLandscape) {
-                    // v7.40：横屏——图表固定左栏（可独立滚动），通知列表右栏独立 LazyColumn
-                    Row(modifier = Modifier.fillMaxSize()) {
-                        Column(
-                            modifier = Modifier
-                                .width(360.dp)
-                                .fillMaxHeight()
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            headerBlock()
-                        }
-                        LazyColumn(
-                            state = tabListStates[page],
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
-                        ) {
-                            historyListItems(
-                                tab = tab,
-                                entries = entries,
-                                filteredEntries = filteredEntries,
-                                filteredBlocked = filteredBlocked,
-                                unmonitoredApps = unmonitoredApps,
-                                expandedApps = expandedApps,
-                                expandedRuleIds = expandedRuleIds,
-                                rules = rules,
-                                unknownRuleLabel = unknownRuleLabel,
-                                onEntryHistoryClick = onEntryHistoryClick,
-                                onOpenNotification = onOpenNotification,
-                                onRestoreNotification = onRestoreNotification,
-                                onCreateRuleFromNotification = onCreateRuleFromNotification,
-                                onDeleteNotification = onDeleteNotification,
-                                onResumeMonitoring = onResumeMonitoring,
-                                onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
-                                context = context
-                            )
-                            item(key = "scroll_room") {
-                                Spacer(modifier = Modifier.fillParentMaxHeight())
-                            }
+                    // v7.41：横屏——图表已由外层 TabbedScreen 左栏渲染（ChartPanel），此处仅渲染通知列表
+                    LazyColumn(
+                        state = tabListStates[page],
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                    ) {
+                        historyListItems(
+                            tab = tab,
+                            entries = entries,
+                            filteredEntries = filteredEntries,
+                            filteredBlocked = filteredBlocked,
+                            unmonitoredApps = unmonitoredApps,
+                            expandedApps = expandedApps,
+                            expandedRuleIds = expandedRuleIds,
+                            rules = rules,
+                            unknownRuleLabel = unknownRuleLabel,
+                            onEntryHistoryClick = onEntryHistoryClick,
+                            onOpenNotification = onOpenNotification,
+                            onRestoreNotification = onRestoreNotification,
+                            onCreateRuleFromNotification = onCreateRuleFromNotification,
+                            onDeleteNotification = onDeleteNotification,
+                            onResumeMonitoring = onResumeMonitoring,
+                            onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
+                            context = context
+                        )
+                        item(key = "scroll_room") {
+                            Spacer(modifier = Modifier.fillParentMaxHeight())
                         }
                     }
                 } else {
@@ -729,6 +669,98 @@ private fun rememberChartPagerStates(
         }
     }
     return states
+}
+
+// --- v7.41：通用图表面板（标题行+统计+柱状图+日期筛选行），横屏左栏与竖屏列表头部共用 ---
+@Composable
+internal fun ChartPanel(
+    entries: List<NotificationHistoryEntry>,
+    selectedDay: LocalDate?,
+    onDayClick: (LocalDate) -> Unit,
+    onClearDay: () -> Unit,
+    listenerPaused: Boolean,
+    onToggleListenerPaused: () -> Unit,
+    onBackToCurrentWeek: () -> Unit,
+    backToCurrentWeekTrigger: Int,
+    pagerState: PagerState? = null,
+    modifier: Modifier = Modifier
+) {
+    val nowDate = LocalDate.now()
+    val thisMonday = nowDate.with(DayOfWeek.MONDAY)
+    val weeksBefore = 26
+    val weeksAfter = 26
+    val totalPages = weeksBefore + 1 + weeksAfter
+    val currentWeekPage = weeksBefore
+    val firstWeekStart = thisMonday.minusWeeks(weeksBefore.toLong())
+    // v7.15：柱状图与今日计数/日期详情统一口径——按历史聚合组内每条 change 的时间戳归属日期统计
+    val chartCounts = remember(entries, firstWeekStart) {
+        val dayCounts = mutableMapOf<LocalDate, Int>()
+        entries.forEach { e ->
+            e.changes.forEach { c ->
+                val d = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(c.timestamp), ZoneId.systemDefault())
+                dayCounts[d] = (dayCounts[d] ?: 0) + 1
+            }
+        }
+        buildMap {
+            for (i in 0 until totalPages * 7) {
+                val day = firstWeekStart.plusDays(i.toLong())
+                put(day, dayCounts[day] ?: 0)
+            }
+        }
+    }
+    val chartMax = remember(chartCounts) { chartCounts.values.maxOrNull()?.coerceAtLeast(1) ?: 1 }
+    // 未传入外部 PagerState（横屏通用面板）时内部自建，页码随旋转保持；竖屏由 HistoryScreen 按页传入独立实例
+    val internalPagerState = rememberPagerState(initialPage = currentWeekPage, pageCount = { totalPages })
+    val chartPager = pagerState ?: internalPagerState
+    // 返回本周：仅内部实例自行滚动（竖屏每页实例由 HistoryScreen 的 LaunchedEffect 驱动）
+    LaunchedEffect(pagerState == null, backToCurrentWeekTrigger) {
+        if (pagerState == null && backToCurrentWeekTrigger > 0) {
+            chartPager.animateScrollToPage(currentWeekPage)
+        }
+    }
+    val totalCount = remember(entries) { entries.sumOf { it.count } }
+    // v7.15：今日计数与柱状图/日期详情统一口径——按聚合组内 change 时间戳归属今日计数
+    val todayCount = remember(entries, nowDate) {
+        entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, nowDate) } }
+    }
+    Column(modifier = modifier.fillMaxWidth()) {
+        HistoryTitleRow(
+            listenerPaused = listenerPaused,
+            onToggleListenerPaused = onToggleListenerPaused,
+            onBackToCurrentWeek = onBackToCurrentWeek
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = stringResource(R.string.history_total, totalCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = stringResource(R.string.history_today, todayCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        StatsBarChart(
+            pagerState = chartPager,
+            firstWeekStart = firstWeekStart,
+            countsByDay = chartCounts,
+            chartMax = chartMax,
+            currentWeekStart = thisMonday,
+            selectedDay = selectedDay,
+            onDayClick = onDayClick
+        )
+        val filterDay = selectedDay
+        if (filterDay != null) {
+            FilteredDayRow(day = filterDay, onClear = onClearDay)
+        }
+    }
 }
 
 // --- v7.5：通知监听权限是否掉线 ---
