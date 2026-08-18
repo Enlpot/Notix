@@ -1,0 +1,17 @@
+﻿<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <!-- v7.15：通知小图标白色单色——三条左对齐圆角横线（上长下短） -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M 3.5,5 L 12.5,5 Q 14,5 14,6.5 L 14,6.5 Q 14,8 12.5,8 L 3.5,8 Q 2,8 2,6.5 L 2,6.5 Q 2,5 3.5,5 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M 3.5,11 L 9.5,11 Q 11,11 11,12.5 L 11,12.5 Q 11,14 9.5,14 L 3.5,14 Q 2,14 2,12.5 L 2,12.5 Q 2,11 3.5,11 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M 3.5,17 L 6.5,17 Q 8,17 8,18.5 L 8,18.5 Q 8,20 6.5,20 L 3.5,20 Q 2,20 2,18.5 L 2,18.5 Q 2,17 3.5,17 Z" />
+</vector>

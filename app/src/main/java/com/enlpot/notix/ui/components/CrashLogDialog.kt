@@ -1,0 +1,233 @@
+package com.enlpot.notix.ui.components
+
+import android.content.Context
+import android.content.Intent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import com.enlpot.notix.CrashLogManager
+import com.enlpot.notix.R
+
+/**
+ * v7.13 崩溃日志弹窗（设置页 / 长按历史搜索按钮双入口共用）。
+ * 包含：日志抓取开关、查看日志内容（只读可滚动）、打开日志存放位置。
+ *
+ * @param onEnabledChanged 开关状态变化回调（设置页用于刷新入口卡片状态）
+ */
+@Composable
+fun CrashLogDialog(
+    onDismiss: () -> Unit,
+    onEnabledChanged: (Boolean) -> Unit = {},
+) {
+    val context = LocalContext.current
+    var showContent by remember { mutableStateOf(false) }
+    var enabled by remember { mutableStateOf(CrashLogManager.isEnabled(context)) }
+    // v7.24：打开日志位置失败时在弹窗内展示路径（不再使用系统 Toast）
+    var openError by remember { mutableStateOf<String?>(null) }
+    // v7.29：清空日志二次确认
+    var showClearConfirm by remember { mutableStateOf(false) }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text(stringResource(R.string.crash_log_clear_title)) },
+            text = { Text(stringResource(R.string.crash_log_clear_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    CrashLogManager.clearLogs(context)
+                    showClearConfirm = false
+                    openError = context.getString(R.string.crash_log_cleared)
+                }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showContent) {
+        CrashLogContentDialog(onBack = { showContent = false })
+    } else {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(R.string.crash_log_title)) },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.crash_log_capture_state),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(
+                                    if (enabled) R.string.crash_log_capture_enabled
+                                    else R.string.crash_log_capture_disabled
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (enabled) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = enabled,
+                            onCheckedChange = {
+                                enabled = it
+                                CrashLogManager.setEnabled(context, it)
+                                onEnabledChanged(it)
+                            }
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { showContent = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Visibility,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.crash_log_view))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                openError = openLogLocation(context)
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FolderOpen,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.crash_log_open_location))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    // v7.29：清空日志（二次确认后删除全部日志）
+                    OutlinedButton(
+                        onClick = { showClearConfirm = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            stringResource(R.string.crash_log_clear),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    // v7.24：打开失败时在弹窗内展示日志路径（不再使用系统 Toast）
+                    openError?.let { err ->
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = err,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.close))
+                }
+            }
+        )
+    }
+}
+
+/** 只读日志内容对话框（可滚动）。 */
+@Composable
+private fun CrashLogContentDialog(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val logs = remember { CrashLogManager.readLogs(context) }
+    AlertDialog(
+        onDismissRequest = onBack,
+        title = { Text(stringResource(R.string.crash_log_view)) },
+        text = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 320.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = logs.ifEmpty { stringResource(R.string.crash_log_empty) },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onBack) {
+                Text(stringResource(R.string.close))
+            }
+        }
+    )
+}
+
+/** 通过 FileProvider 打开日志文件；失败时返回可在弹窗内展示的提示文本（v7.24 起不再弹系统 Toast）。 */
+private fun openLogLocation(context: Context): String? {
+    val file = CrashLogManager.logFile(context)
+    return try {
+        val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "text/plain")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(intent)
+        null
+    } catch (e: Exception) {
+        context.getString(R.string.crash_log_path_toast, file.absolutePath)
+    }
+}

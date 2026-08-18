@@ -1,0 +1,2010 @@
+package com.enlpot.notix.ui.screens
+
+import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import com.enlpot.notix.ActionSpec
+import com.enlpot.notix.AppInfoStorage
+import com.enlpot.notix.BlockerRule
+import com.enlpot.notix.BluetoothState
+import com.enlpot.notix.ChargingState
+import com.enlpot.notix.ClickButtonParams
+import com.enlpot.notix.CopyMode
+import com.enlpot.notix.CopyParams
+import com.enlpot.notix.DelayParams
+import com.enlpot.notix.DndState
+import com.enlpot.notix.ExtraCondition
+import com.enlpot.notix.KnownApp
+import com.enlpot.notix.MatchMode
+import com.enlpot.notix.TtsParams
+import com.enlpot.notix.R
+import com.enlpot.notix.RuleAction
+import com.enlpot.notix.RuleCondition
+import com.enlpot.notix.RuleWizardSupport
+import com.enlpot.notix.ScreenState
+import com.enlpot.notix.SimpleNotification
+import com.enlpot.notix.toParamsJson
+import com.enlpot.notix.SourceApp
+import com.enlpot.notix.TimeCondition
+import com.enlpot.notix.paramsGson
+import com.enlpot.notix.ui.components.EmptyState
+import com.enlpot.notix.ui.components.RealAppIcon
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * 规则创建/编辑页（v7.11 全新界面）：
+ * 1. 来源 App（多选，仅历史通知 App，从通知卡片创建时默认当前 App）
+ * 2. 匹配条件（纯关键字标签输入 + 匹配模式）
+ * 3. 手机状态额外条件（屏幕/充电/时间日期）
+ * 4. 动作单选 7 种（含参数）
+ * 5. 描述（可选）
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun RuleWizardScreen(
+    existingRules: List<BlockerRule>,
+    pastNotifications: List<SimpleNotification>,
+    onClose: () -> Unit,
+    onCreateRule: (BlockerRule) -> Unit,
+    editingRule: BlockerRule? = null,
+    onUpdateRule: ((BlockerRule, BlockerRule) -> Unit)? = null,
+    onDeleteRule: ((BlockerRule) -> Unit)? = null,
+    prefillNotification: SimpleNotification? = null,
+) {
+    val isEditMode = editingRule != null
+    val context = LocalContext.current
+    val view = LocalView.current
+
+    // v7.24：应用内 Snackbar 提示（替代系统 Toast）
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    fun showMessage(message: String) {
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
+    // ===== 1. 来源 App（多选） =====
+    var showAppPicker by rememberSaveable { mutableStateOf(false) }
+    var selectedPackages by rememberSaveable {
+        mutableStateOf(
+            editingRule?.sourcePackages?.map { it.packageName }
+                ?: listOfNotNull(prefillNotification?.packageName)
+        )
+    }
+    var selectedAppNames by remember {
+        mutableStateOf(
+            buildMap {
+                editingRule?.sourcePackages?.forEach { src ->
+                    src.appName?.takeIf { it != src.packageName }?.let { put(src.packageName, it) }
+                }
+                prefillNotification?.packageName?.let { pkg ->
+                    prefillNotification?.appLabel?.takeIf { it != pkg }?.let { put(pkg, it) }
+                }
+            }
+        )
+    }
+
+    // ===== 2. 匹配条件 =====
+    var matchMode by rememberSaveable { mutableStateOf(editingRule?.condition?.mode ?: MatchMode.CONTAINS_ANY) }
+    var includeKeywords by rememberSaveable {
+        mutableStateOf<List<String>>(
+            if (editingRule != null) {
+                editingRule?.condition?.includeKeywords ?: emptyList()
+            } else {
+                // v7.14：从通知卡片进入创建规则时，自动把完整标题+完整内容填入关键字集合（去重）
+                listOfNotNull(
+                    prefillNotification?.title?.takeIf { it.isNotBlank() },
+                    prefillNotification?.text?.takeIf { it.isNotBlank() }
+                ).distinct()
+            }
+        )
+    }
+    var excludeKeywords by rememberSaveable {
+        mutableStateOf<List<String>>(
+            editingRule?.condition?.excludeKeywords ?: emptyList()
+        )
+    }
+    var keywordInput by rememberSaveable { mutableStateOf("") }
+    var excludeKeywordInput by rememberSaveable { mutableStateOf("") }
+
+    // ===== 3. 额外条件 =====
+    var screenState by rememberSaveable {
+        mutableStateOf(editingRule?.extraCondition?.screenState ?: ScreenState.ANY)
+    }
+    var chargingState by rememberSaveable {
+        mutableStateOf(editingRule?.extraCondition?.chargingState ?: ChargingState.ANY)
+    }
+    var dndState by rememberSaveable {
+        mutableStateOf(editingRule?.extraCondition?.dndState ?: DndState.ANY)
+    }
+    var bluetoothState by rememberSaveable {
+        mutableStateOf(editingRule?.extraCondition?.bluetoothState ?: BluetoothState.ANY)
+    }
+    var bluetoothDeviceNames by rememberSaveable {
+        mutableStateOf(editingRule?.extraCondition?.bluetoothDeviceNames ?: emptyList())
+    }
+    var timeEnabled by rememberSaveable { mutableStateOf(editingRule?.extraCondition?.time?.enabled ?: false) }
+    var startHour by rememberSaveable { mutableIntStateOf(editingRule?.extraCondition?.time?.startHour ?: 0) }
+    var startMinute by rememberSaveable { mutableIntStateOf(editingRule?.extraCondition?.time?.startMinute ?: 0) }
+    var endHour by rememberSaveable { mutableIntStateOf(editingRule?.extraCondition?.time?.endHour ?: 23) }
+    var endMinute by rememberSaveable { mutableIntStateOf(editingRule?.extraCondition?.time?.endMinute ?: 59) }
+    var selectedWeekdays by rememberSaveable {
+        mutableStateOf(editingRule?.extraCondition?.time?.weekdays?.toSet() ?: emptySet())
+    }
+
+    // ===== 4. Action Flow =====
+    // 阶段3A：UI 只维护一个 List<ActionSpec> 作为 Action Flow 唯一编辑状态，
+    // 添加/删除/上移/下移/编辑均产生新 list；UI 顺序 == actions 顺序。
+    var actionFlow by rememberSaveable(stateSaver = actionSpecListSaver) {
+        mutableStateOf(editingRule?.actions.orEmpty())
+    }
+    // 正在编辑的 Action 下标（-1 = 无）；添加有参数的 Action 后自动指向新卡片
+    var editingActionIndex by rememberSaveable { mutableIntStateOf(-1) }
+
+    // 已知 App（仅历史通知 App，禁止读取已安装应用列表）
+    val knownApps by produceState<List<KnownApp>?>(initialValue = null) {
+        value = withContext(Dispatchers.IO) {
+            val appInfoRows = AppInfoStorage(context).getAllApps()
+            val historyRows = pastNotifications
+                .mapNotNull { n -> n.packageName?.let { it to n.appLabel } }
+            val ruleRows = existingRules.mapNotNull { r ->
+                r.sourcePackages.orEmpty().firstOrNull()?.let { src -> src.packageName to src.appName }
+            }
+            RuleWizardSupport.mergeKnownApps(
+                appInfoRows = appInfoRows,
+                historyRows = historyRows,
+                queryableInstalled = emptyMap(),
+                prebuiltNames = emptyMap(),
+                ruleRows = ruleRows,
+            )
+        }
+    }
+
+    val effectivePackages = selectedPackages
+    fun appDisplayName(pkg: String): String =
+        selectedAppNames[pkg] ?: knownApps?.find { it.packageName == pkg }?.appName ?: pkg
+
+    fun hideIme() {
+        ViewCompat.getWindowInsetsController(view)?.hide(WindowInsetsCompat.Type.ime())
+    }
+
+    BackHandler {
+        val imeVisible = ViewCompat.getRootWindowInsets(view)
+            ?.isVisible(WindowInsetsCompat.Type.ime()) == true
+        if (imeVisible) hideIme() else onClose()
+    }
+
+    val hasKeywords = includeKeywords.isNotEmpty() ||
+        matchMode == MatchMode.MIXED && excludeKeywords.isNotEmpty()
+    val hasApp = effectivePackages.isNotEmpty()
+    // 阶段3A：空 Flow 不允许保存（保存按钮 disabled + “至少添加一个动作”提示）
+    val canSave = hasApp && hasKeywords && RuleWizardSupport.canSaveFlow(actionFlow)
+
+    val submitRule: () -> Unit = {
+        val rule = buildNewRule(
+            editingRule = editingRule,
+            selectedPackages = effectivePackages,
+            appNameOf = ::appDisplayName,
+            matchMode = matchMode,
+            includeKeywords = includeKeywords,
+            excludeKeywords = excludeKeywords,
+            screenState = screenState,
+            chargingState = chargingState,
+            dndState = dndState,
+            bluetoothState = bluetoothState,
+            bluetoothDeviceNames = bluetoothDeviceNames,
+            timeEnabled = timeEnabled,
+            startHour = startHour,
+            startMinute = startMinute,
+            endHour = endHour,
+            endMinute = endMinute,
+            selectedWeekdays = selectedWeekdays,
+            actions = actionFlow,
+        )
+        if (isEditMode && onUpdateRule != null) {
+            onUpdateRule(editingRule!!, rule)
+        } else {
+            onCreateRule(rule)
+        }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Scaffold(
+            // v7.24：应用内 Snackbar 提示（替代系统 Toast）
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(if (isEditMode) R.string.rule_wizard_title_edit_rule else R.string.rule_wizard_title_new_rule)) },
+                    navigationIcon = {
+                        IconButton(onClick = onClose) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = submitRule,
+                            enabled = canSave,
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = stringResource(if (isEditMode) R.string.save else R.string.rule_wizard_create),
+                                tint = if (canSave) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                    ),
+                )
+            },
+            bottomBar = {
+                if (isEditMode && onDeleteRule != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 3.dp,
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .safeDrawingPadding()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        ) {
+                            OutlinedButton(
+                                onClick = { onDeleteRule(editingRule!!) },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.delete))
+                            }
+                        }
+                    }
+                }
+            },
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(horizontal = 16.dp),
+            ) {
+                // ===== 1. 来源 =====
+                SectionHeader(title = stringResource(R.string.rule_wizard_section_source))
+                Spacer(Modifier.height(8.dp))
+
+                if (!showAppPicker) {
+                    AppChip(
+                        appNames = effectivePackages.map { appDisplayName(it) },
+                        selectedCount = effectivePackages.size,
+                        packageNames = effectivePackages,
+                        placeholder = stringResource(R.string.rule_wizard_select_app),
+                        onClick = { showAppPicker = true },
+                    )
+                } else {
+                    AppPickerPanel(
+                        knownApps = knownApps,
+                        selectedPackages = effectivePackages,
+                        onAppToggle = { pkg ->
+                            selectedPackages = if (pkg in effectivePackages) {
+                                effectivePackages - pkg
+                            } else {
+                                effectivePackages + pkg
+                            }
+                        },
+                        onDone = { showAppPicker = false },
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // ===== 2. 匹配条件 =====
+                SectionHeader(title = stringResource(R.string.rule_wizard_section_conditions))
+                if (!hasKeywords) {
+                    Text(
+                        text = stringResource(R.string.rule_wizard_save_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+
+                MatchModePicker(
+                    mode = matchMode,
+                    onModeSelected = { matchMode = it },
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                when (matchMode) {
+                    MatchMode.ADVANCED -> {
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.rule_wizard_advanced_unavailable),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(12.dp),
+                            )
+                        }
+                    }
+                    MatchMode.MIXED -> {
+                        KeywordChipInput(
+                            label = stringResource(R.string.rule_wizard_keyword_contains_a),
+                            keywords = includeKeywords,
+                            input = keywordInput,
+                            onInputChange = { keywordInput = it },
+                            onAdd = {
+                                val k = keywordInput.trim()
+                                if (k.isNotEmpty() && k !in includeKeywords) {
+                                    includeKeywords = includeKeywords + k
+                                }
+                                keywordInput = ""
+                            },
+                            onRemove = { k -> includeKeywords = includeKeywords - k },
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        KeywordChipInput(
+                            label = stringResource(R.string.rule_wizard_keyword_not_contains_b),
+                            keywords = excludeKeywords,
+                            input = excludeKeywordInput,
+                            onInputChange = { excludeKeywordInput = it },
+                            onAdd = {
+                                val k = excludeKeywordInput.trim()
+                                if (k.isNotEmpty() && k !in excludeKeywords) {
+                                    excludeKeywords = excludeKeywords + k
+                                }
+                                excludeKeywordInput = ""
+                            },
+                            onRemove = { k -> excludeKeywords = excludeKeywords - k },
+                        )
+                    }
+                    MatchMode.NOT_CONTAINS_ANY, MatchMode.NOT_CONTAINS_ALL -> {
+                        KeywordChipInput(
+                            label = stringResource(R.string.rule_wizard_keyword_exclude),
+                            keywords = includeKeywords,
+                            input = keywordInput,
+                            onInputChange = { keywordInput = it },
+                            onAdd = {
+                                val k = keywordInput.trim()
+                                if (k.isNotEmpty() && k !in includeKeywords) {
+                                    includeKeywords = includeKeywords + k
+                                }
+                                keywordInput = ""
+                            },
+                            onRemove = { k -> includeKeywords = includeKeywords - k },
+                        )
+                    }
+                    else -> {
+                        KeywordChipInput(
+                            label = stringResource(R.string.rule_wizard_keyword_include),
+                            keywords = includeKeywords,
+                            input = keywordInput,
+                            onInputChange = { keywordInput = it },
+                            onAdd = {
+                                val k = keywordInput.trim()
+                                if (k.isNotEmpty() && k !in includeKeywords) {
+                                    includeKeywords = includeKeywords + k
+                                }
+                                keywordInput = ""
+                            },
+                            onRemove = { k -> includeKeywords = includeKeywords - k },
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // ===== 3. 手机状态额外条件 =====
+                SectionHeader(title = stringResource(R.string.rule_wizard_section_extra))
+                Spacer(Modifier.height(8.dp))
+
+                ExtraConditionCard(
+                    screenState = screenState,
+                    onScreenStateChange = { screenState = it },
+                    chargingState = chargingState,
+                    onChargingStateChange = { chargingState = it },
+                    dndState = dndState,
+                    onDndStateChange = { dndState = it },
+                    bluetoothState = bluetoothState,
+                    onBluetoothStateChange = { bluetoothState = it },
+                    bluetoothDeviceNames = bluetoothDeviceNames,
+                    onBluetoothDeviceNamesChange = { bluetoothDeviceNames = it },
+                    timeEnabled = timeEnabled,
+                    onTimeEnabledChange = { timeEnabled = it },
+                    startHour = startHour,
+                    startMinute = startMinute,
+                    endHour = endHour,
+                    endMinute = endMinute,
+                    onStartChange = { h, m -> startHour = h; startMinute = m },
+                    onEndChange = { h, m -> endHour = h; endMinute = m },
+                    selectedWeekdays = selectedWeekdays,
+                    onWeekdayToggle = { day ->
+                        selectedWeekdays = if (day in selectedWeekdays) selectedWeekdays - day
+                        else selectedWeekdays + day
+                    },
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                // ===== 4. Action Flow =====
+                SectionHeader(title = stringResource(R.string.rule_wizard_section_action_flow))
+                Spacer(Modifier.height(8.dp))
+
+                ActionFlowSection(
+                    actions = actionFlow,
+                    editingIndex = editingActionIndex,
+                    onEditIndex = { editingActionIndex = it },
+                    onAdd = { type ->
+                        actionFlow = RuleWizardSupport.actionFlowAdd(actionFlow, type)
+                        if (RuleWizardSupport.hasActionParams(type)) {
+                            editingActionIndex = actionFlow.lastIndex
+                        }
+                    },
+                    onRemove = { index ->
+                        actionFlow = RuleWizardSupport.actionFlowRemoveAt(actionFlow, index)
+                        if (editingActionIndex == index) editingActionIndex = -1
+                        else if (editingActionIndex > index) editingActionIndex--
+                    },
+                    onMoveUp = { index ->
+                        actionFlow = RuleWizardSupport.actionFlowMoveUp(actionFlow, index)
+                        if (editingActionIndex == index) editingActionIndex = index - 1
+                        else if (editingActionIndex == index - 1) editingActionIndex = index
+                    },
+                    onMoveDown = { index ->
+                        actionFlow = RuleWizardSupport.actionFlowMoveDown(actionFlow, index)
+                        if (editingActionIndex == index) editingActionIndex = index + 1
+                        else if (editingActionIndex == index + 1) editingActionIndex = index
+                    },
+                    onUpdate = { index, spec ->
+                        actionFlow = RuleWizardSupport.actionFlowUpdate(actionFlow, index, spec)
+                    },
+                    onCloseEdit = { editingActionIndex = -1 },
+                )
+
+                if (actionFlow.isEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.rule_wizard_at_least_one_action),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // -- Duplicate warning --
+                val duplicate = RuleWizardSupport.isDuplicate(
+                    existingRules,
+                    effectivePackages,
+                    RuleCondition(
+                        mode = matchMode,
+                        includeKeywords = includeKeywords,
+                        excludeKeywords = excludeKeywords,
+                    ),
+                    actionFlow,
+                ) && !(isEditMode && editingRule?.let { e ->
+                    // v7.13：空安全兜底——旧数据可能残留 null 字段
+                    e.sourcePackages.orEmpty().map { it.packageName }.toSet() == effectivePackages.toSet() &&
+                        (e.condition ?: RuleCondition()).mode == matchMode &&
+                        (e.condition ?: RuleCondition()).includeKeywords == includeKeywords &&
+                        (e.condition ?: RuleCondition()).excludeKeywords == excludeKeywords &&
+                        e.actions == actionFlow
+                } == true)
+                if (duplicate) {
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.small,
+                            )
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.rule_wizard_duplicate_warning),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+/** 从当前 UI 状态构建新模型规则 */
+private fun buildNewRule(
+    editingRule: BlockerRule?,
+    selectedPackages: List<String>,
+    appNameOf: (String) -> String,
+    matchMode: MatchMode,
+    includeKeywords: List<String>,
+    excludeKeywords: List<String>,
+    screenState: ScreenState,
+    chargingState: ChargingState,
+    dndState: DndState,
+    bluetoothState: BluetoothState,
+    bluetoothDeviceNames: List<String>,
+    timeEnabled: Boolean,
+    startHour: Int,
+    startMinute: Int,
+    endHour: Int,
+    endMinute: Int,
+    selectedWeekdays: Set<Int>,
+    actions: List<ActionSpec>,
+): BlockerRule {
+    val now = System.currentTimeMillis()
+    return BlockerRule(
+        id = editingRule?.id ?: "",
+        isEnabled = editingRule?.isEnabled ?: true,
+        hitCount = editingRule?.hitCount ?: 0,
+        sourcePackages = selectedPackages.map { pkg ->
+            SourceApp(packageName = pkg, appName = appNameOf(pkg).ifBlank { pkg }.takeIf { it != pkg })
+        },
+        condition = RuleCondition(
+            mode = matchMode,
+            includeKeywords = includeKeywords.distinct(),
+            excludeKeywords = excludeKeywords.distinct(),
+        ),
+        extraCondition = ExtraCondition(
+            screenState = screenState,
+            chargingState = chargingState,
+            dndState = dndState,
+            bluetoothState = bluetoothState,
+            bluetoothDeviceNames = bluetoothDeviceNames.distinct(),
+            time = TimeCondition(
+                enabled = timeEnabled,
+                startHour = startHour,
+                startMinute = startMinute,
+                endHour = endHour,
+                endMinute = endMinute,
+                weekdays = selectedWeekdays.sorted(),
+            ),
+        ),
+        // 阶段3A：直接保存 UI 唯一状态 actionFlow（顺序 == actions 顺序）
+        actions = actions,
+        createdAt = editingRule?.createdAt ?: now,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Section header
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 2.dp),
+    )
+}
+
+// ---------------------------------------------------------------------------
+// App chip (collapsed source state)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun AppChip(
+    appNames: List<String>,
+    selectedCount: Int,
+    packageNames: List<String>,
+    placeholder: String,
+    onClick: () -> Unit,
+) {
+    val hasSelection = selectedCount > 0
+    val bg = if (hasSelection) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val textColor = if (hasSelection) MaterialTheme.colorScheme.onPrimaryContainer
+    else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasSelection) {
+            val shown = packageNames.take(4)
+            shown.forEachIndexed { index, pkg ->
+                if (index > 0) Spacer(Modifier.width(2.dp))
+                RealAppIcon(
+                    packageName = pkg,
+                    appName = appNames.getOrNull(index),
+                    size = 28.dp,
+                    shape = CircleShape,
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(
+            text = if (hasSelection) {
+                if (selectedCount == 1) appNames.first() else "${appNames.first()} 等 $selectedCount 个应用"
+            } else placeholder,
+            color = textColor,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = Icons.Default.ArrowDropDown,
+            contentDescription = null,
+            tint = textColor,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// App picker panel (notification-history apps only)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun AppPickerPanel(
+    knownApps: List<KnownApp>?,
+    selectedPackages: List<String>,
+    onAppToggle: (String) -> Unit,
+    onDone: () -> Unit,
+) {
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    if (knownApps == null) {
+        Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text(stringResource(R.string.search_apps)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_search))
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                ),
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            val filtered = remember(knownApps, searchQuery) {
+                if (searchQuery.isBlank()) knownApps.take(50)
+                else {
+                    val q = searchQuery.lowercase()
+                    knownApps.filter {
+                        it.appName?.lowercase()?.contains(q) == true ||
+                                it.packageName.lowercase().contains(q)
+                    }
+                }
+            }
+
+            if (filtered.isEmpty()) {
+                EmptyState(
+                    icon = Icons.Outlined.Apps,
+                    title = stringResource(R.string.rule_wizard_no_known_apps_title),
+                )
+            }
+
+            // v7.14：应用列表限高（约 5~6 项），多余项列表内部滚动，避免撑长整个界面
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                items(filtered) { app ->
+                    val selected = app.packageName in selectedPackages
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .then(
+                                if (selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+                                else Modifier
+                            )
+                            .clickable { onAppToggle(app.packageName) }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .then(
+                                    if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
+                                    else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (selected) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        RealAppIcon(
+                            packageName = app.packageName,
+                            appName = app.appName,
+                            size = 32.dp,
+                            shape = CircleShape,
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = app.appName ?: app.packageName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (app.appName != null) {
+                                Text(
+                                    text = app.packageName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDone) {
+                    Text(
+                        text = if (selectedPackages.isEmpty()) {
+                            stringResource(R.string.rule_wizard_app_picker_done)
+                        } else {
+                            "${stringResource(R.string.rule_wizard_app_picker_done)}（${selectedPackages.size}）"
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Match mode picker (dropdown menu)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun MatchModePicker(
+    mode: MatchMode,
+    onModeSelected: (MatchMode) -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+
+    // v7.12：Box 显式包裹，DropdownMenu 锚定按钮，避免菜单偏移
+    Box {
+        OutlinedButton(
+            onClick = { menuOpen = true },
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = stringResource(R.string.rule_wizard_mode_label) + "：" + matchModeLabel(mode),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+        }
+
+        DropdownMenu(
+            expanded = menuOpen,
+            onDismissRequest = { menuOpen = false },
+        ) {
+            MatchMode.entries.forEach { m ->
+                val disabled = m == MatchMode.ADVANCED
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(matchModeLabel(m))
+                            if (m == MatchMode.ADVANCED) {
+                                Text(
+                                    text = stringResource(R.string.rule_wizard_mode_advanced_hint),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        if (!disabled) {
+                            onModeSelected(m)
+                            menuOpen = false
+                        }
+                    },
+                    enabled = !disabled,
+                    trailingIcon = {
+                        if (m == mode) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun matchModeLabel(mode: MatchMode): String = when (mode) {
+    MatchMode.CONTAINS_ANY -> stringResource(R.string.rule_wizard_mode_contains_any)
+    MatchMode.CONTAINS_ALL -> stringResource(R.string.rule_wizard_mode_contains_all)
+    MatchMode.NOT_CONTAINS_ANY -> stringResource(R.string.rule_wizard_mode_not_contains_any)
+    MatchMode.NOT_CONTAINS_ALL -> stringResource(R.string.rule_wizard_mode_not_contains_all)
+    MatchMode.MIXED -> stringResource(R.string.rule_wizard_mode_mixed)
+    MatchMode.ADVANCED -> stringResource(R.string.rule_wizard_mode_advanced)
+}
+
+// ---------------------------------------------------------------------------
+// Keyword chip input
+// ---------------------------------------------------------------------------
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun KeywordChipInput(
+    label: String,
+    keywords: List<String>,
+    input: String,
+    onInputChange: (String) -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    Column {
+        // v7.12：标签 chip 显示在输入框上方；点击 chip 主体进入编辑（回填输入框并移除原词），尾部关闭图标删除
+        if (keywords.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                keywords.forEach { keyword ->
+                    InputChip(
+                        selected = false,
+                        onClick = {
+                            onInputChange(keyword)
+                            onRemove(keyword)
+                        },
+                        label = { Text(keyword) },
+                        trailingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onRemove(keyword) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.remove),
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+        OutlinedTextField(
+            value = input,
+            onValueChange = onInputChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(label) },
+            placeholder = { Text(stringResource(R.string.rule_wizard_keyword_hint)) },
+            singleLine = true,
+            shape = RoundedCornerShape(8.dp),
+            trailingIcon = {
+                IconButton(onClick = onAdd) {
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.rule_wizard_add_keyword))
+                }
+            },
+            // v7.12：回车（Done）添加关键字
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onAdd() }),
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Extra condition card (screen / charging / time)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ExtraConditionCard(
+    screenState: ScreenState,
+    onScreenStateChange: (ScreenState) -> Unit,
+    chargingState: ChargingState,
+    onChargingStateChange: (ChargingState) -> Unit,
+    dndState: DndState,
+    onDndStateChange: (DndState) -> Unit,
+    bluetoothState: BluetoothState,
+    onBluetoothStateChange: (BluetoothState) -> Unit,
+    bluetoothDeviceNames: List<String>,
+    onBluetoothDeviceNamesChange: (List<String>) -> Unit,
+    timeEnabled: Boolean,
+    onTimeEnabledChange: (Boolean) -> Unit,
+    startHour: Int,
+    startMinute: Int,
+    endHour: Int,
+    endMinute: Int,
+    onStartChange: (Int, Int) -> Unit,
+    onEndChange: (Int, Int) -> Unit,
+    selectedWeekdays: Set<Int>,
+    onWeekdayToggle: (Int) -> Unit,
+) {
+    // v7.12：默认折叠，点击区块头展开/收起
+    var extraExpanded by remember { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { extraExpanded = !extraExpanded },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.rule_wizard_section_extra),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = stringResource(if (extraExpanded) R.string.rule_wizard_section_extra_expanded else R.string.rule_wizard_section_extra_collapsed),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(if (extraExpanded) 180f else 0f),
+                )
+            }
+            AnimatedVisibility(visible = extraExpanded) {
+                Column {
+                    Spacer(Modifier.height(4.dp))
+                    // 屏幕状态
+                    Text(
+                        text = stringResource(R.string.rule_wizard_extra_screen),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ScreenState.entries.forEach { s ->
+                            FilterChip(
+                                selected = screenState == s,
+                                onClick = { onScreenStateChange(s) },
+                                label = { Text(screenStateLabel(s)) },
+                                shape = FilterChipDefaults.shape,
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // 充电状态
+                    Text(
+                        text = stringResource(R.string.rule_wizard_extra_charging),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        ChargingState.entries.forEach { c ->
+                            FilterChip(
+                                selected = chargingState == c,
+                                onClick = { onChargingStateChange(c) },
+                                label = { Text(chargingStateLabel(c)) },
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // 勿扰模式状态
+                    Text(
+                        text = stringResource(R.string.rule_wizard_extra_dnd),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DndState.entries.forEach { d ->
+                            FilterChip(
+                                selected = dndState == d,
+                                onClick = { onDndStateChange(d) },
+                                label = { Text(dndStateLabel(d)) },
+                                shape = FilterChipDefaults.shape,
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // 蓝牙耳机连接状态
+                    Text(
+                        text = stringResource(R.string.rule_wizard_extra_bluetooth),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        BluetoothState.entries.forEach { b ->
+                            FilterChip(
+                                selected = bluetoothState == b,
+                                onClick = { onBluetoothStateChange(b) },
+                                label = { Text(bluetoothStateLabel(b)) },
+                                shape = FilterChipDefaults.shape,
+                            )
+                        }
+                    }
+
+                    // v7.20：指定设备多选（从当前已连接蓝牙音频设备 productName 列表选择，任一命中即成立）
+                    Spacer(Modifier.height(10.dp))
+                    BluetoothDevicePicker(
+                        selectedNames = bluetoothDeviceNames,
+                        onNamesChange = onBluetoothDeviceNamesChange,
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // 时间日期
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.rule_wizard_extra_time),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(checked = timeEnabled, onCheckedChange = onTimeEnabledChange)
+                    }
+                    AnimatedVisibility(visible = timeEnabled) {
+                        Column {
+                            Spacer(Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TimeField(
+                                    value = String.format("%02d:%02d", startHour, startMinute),
+                                    onValueChange = { v -> parseTime(v)?.let { onStartChange(it.first, it.second) } },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = "至",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                )
+                                TimeField(
+                                    value = String.format("%02d:%02d", endHour, endMinute),
+                                    onValueChange = { v -> parseTime(v)?.let { onEndChange(it.first, it.second) } },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                (1..7).forEach { day ->
+                                    FilterChip(
+                                        selected = day in selectedWeekdays,
+                                        onClick = { onWeekdayToggle(day) },
+                                        label = { Text(weekdayLabel(day)) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun TimeField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        shape = RoundedCornerShape(8.dp),
+    )
+}
+
+private fun parseTime(s: String): Pair<Int, Int>? {
+    val parts = s.split(":")
+    if (parts.size != 2) return null
+    val h = parts[0].toIntOrNull() ?: return null
+    val m = parts[1].toIntOrNull() ?: return null
+    if (h !in 0..23 || m !in 0..59) return null
+    return h to m
+}
+
+@Composable
+private fun screenStateLabel(s: ScreenState): String = when (s) {
+    ScreenState.ANY -> stringResource(R.string.rule_wizard_screen_any)
+    ScreenState.SCREEN_ON -> stringResource(R.string.rule_wizard_screen_on)
+    ScreenState.SCREEN_OFF -> stringResource(R.string.rule_wizard_screen_off)
+}
+
+@Composable
+private fun chargingStateLabel(c: ChargingState): String = when (c) {
+    ChargingState.ANY -> stringResource(R.string.rule_wizard_charging_any)
+    ChargingState.WIRED -> stringResource(R.string.rule_wizard_charging_wired)
+    ChargingState.WIRELESS -> stringResource(R.string.rule_wizard_charging_wireless)
+    ChargingState.BATTERY -> stringResource(R.string.rule_wizard_charging_battery)
+}
+
+@Composable
+private fun dndStateLabel(d: DndState): String = when (d) {
+    DndState.ANY -> stringResource(R.string.rule_wizard_dnd_any)
+    DndState.ON -> stringResource(R.string.rule_wizard_dnd_on)
+    DndState.OFF -> stringResource(R.string.rule_wizard_dnd_off)
+}
+
+@Composable
+private fun bluetoothStateLabel(b: BluetoothState): String = when (b) {
+    BluetoothState.ANY -> stringResource(R.string.rule_wizard_bt_any)
+    BluetoothState.CONNECTED -> stringResource(R.string.rule_wizard_bt_connected)
+    BluetoothState.DISCONNECTED -> stringResource(R.string.rule_wizard_bt_disconnected)
+}
+
+/**
+ * v7.20：蓝牙指定设备多选面板（仿 AppPickerPanel）。
+ * 从当前已连接蓝牙音频设备（A2DP/SCO）的 productName 列表选择，多选任一命中即成立。
+ */
+@Composable
+private fun BluetoothDevicePicker(
+    selectedNames: List<String>,
+    onNamesChange: (List<String>) -> Unit,
+) {
+    val context = LocalContext.current
+    var availableDevices by remember { mutableStateOf<List<String>?>(null) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        availableDevices = withContext(Dispatchers.IO) {
+            try {
+                val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+                val devices = am?.getDevices(AudioManager.GET_DEVICES_OUTPUTS).orEmpty()
+                devices.filter { d ->
+                    d.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        d.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                }.mapNotNull { d -> d.productName?.toString()?.trim()?.takeIf { it.isNotEmpty() } }
+                    .distinct()
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.rule_wizard_extra_bt_devices),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            if (selectedNames.isNotEmpty()) {
+                TextButton(onClick = { onNamesChange(emptyList()) }) {
+                    Text(stringResource(R.string.rule_wizard_bt_devices_clear))
+                }
+            }
+        }
+        if (selectedNames.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.rule_wizard_bt_devices_selected, selectedNames.size) +
+                    "：" + selectedNames.joinToString("、"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
+        }
+        TextButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.align(Alignment.Start),
+        ) {
+            Text(
+                stringResource(
+                    if (expanded) R.string.rule_wizard_bt_devices_collapse
+                    else R.string.rule_wizard_bt_devices_expand
+                )
+            )
+        }
+        if (expanded) {
+            val devices = availableDevices
+            when {
+                devices == null -> {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(80.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                devices.isEmpty() -> {
+                    Text(
+                        text = stringResource(R.string.rule_wizard_bt_devices_none),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 6.dp),
+                    )
+                }
+                else -> {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(R.string.rule_wizard_bt_devices_hint)) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = null)
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent,
+                        ),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    val q = searchQuery.trim().lowercase()
+                    val filtered = remember(devices, q) {
+                        if (q.isEmpty()) devices else devices.filter { it.lowercase().contains(q) }
+                    }
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        items(filtered) { name ->
+                            val selected = name in selectedNames
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .then(
+                                        if (selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+                                        else Modifier
+                                    )
+                                    .clickable {
+                                        onNamesChange(
+                                            if (selected) selectedNames - name else selectedNames + name
+                                        )
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .then(
+                                            if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
+                                            else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (selected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun weekdayLabel(day: Int): String = when (day) {
+    1 -> "一"; 2 -> "二"; 3 -> "三"; 4 -> "四"; 5 -> "五"; 6 -> "六"; 7 -> "日"; else -> ""
+}
+
+// ---------------------------------------------------------------------------
+// Action Flow 编辑器（阶段3A）
+// 唯一状态：List<ActionSpec>，所有转换走 RuleWizardSupport 纯函数。
+// ---------------------------------------------------------------------------
+
+/** ActionSpec 列表的 rememberSaveable Saver：按 Json 字符串序列化（Bundle 可存）。 */
+private val actionSpecListSaver = Saver<List<ActionSpec>, List<String>>(
+    save = { list -> list.map { paramsGson.toJson(it) } },
+    restore = { saved ->
+        saved.mapNotNull { json ->
+            runCatching { paramsGson.fromJson(json, ActionSpec::class.java) }.getOrNull()
+        }.filter { it.type != null && it.isValid }
+    },
+)
+
+@Composable
+private fun ActionFlowSection(
+    actions: List<ActionSpec>,
+    editingIndex: Int,
+    onEditIndex: (Int) -> Unit,
+    onAdd: (RuleAction) -> Unit,
+    onRemove: (Int) -> Unit,
+    onMoveUp: (Int) -> Unit,
+    onMoveDown: (Int) -> Unit,
+    onUpdate: (Int, ActionSpec) -> Unit,
+    onCloseEdit: () -> Unit,
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (actions.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+            ) {
+                Text(
+                    text = stringResource(R.string.rule_wizard_action_flow_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.rule_wizard_action_flow_order_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+            actions.forEachIndexed { index, spec ->
+                ActionCard(
+                    index = index,
+                    total = actions.size,
+                    spec = spec,
+                    isEditing = editingIndex == index,
+                    onEdit = { onEditIndex(index) },
+                    onMoveUp = { onMoveUp(index) },
+                    onMoveDown = { onMoveDown(index) },
+                    onDelete = { onRemove(index) },
+                )
+                // CLICK_BUTTON 后存在 DISMISS 时的组合风险提示（动态对应当前 Flow）
+                if (spec.type == RuleAction.CLICK_BUTTON &&
+                    actions.drop(index + 1).any { it.type == RuleAction.DISMISS }
+                ) {
+                    Text(
+                        text = stringResource(R.string.rule_wizard_click_dismiss_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                // OPEN_NOTIFICATION 后存在 DISMISS 时的组合风险提示（阶段 4C-C-B P2-6，样式复用 CLICK→DISMISS 警告）
+                if (spec.type == RuleAction.OPEN_NOTIFICATION &&
+                    actions.drop(index + 1).any { it.type == RuleAction.DISMISS }
+                ) {
+                    Text(
+                        text = stringResource(R.string.rule_wizard_open_dismiss_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                if (editingIndex == index) {
+                    Spacer(Modifier.height(8.dp))
+                    ActionParamEditor(
+                        spec = spec,
+                        onCommit = { updated ->
+                            onUpdate(index, updated)
+                            onCloseEdit()
+                        },
+                        onCancel = onCloseEdit,
+                    )
+                }
+                // 顺序连接箭头：卡片之间必须有明显顺序表达
+                if (index < actions.lastIndex) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 2.dp),
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = { showPicker = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.rule_wizard_action_flow_add))
+        }
+    }
+    if (showPicker) {
+        ActionPickerDialog(
+            onDismiss = { showPicker = false },
+            onSelect = { type ->
+                showPicker = false
+                onAdd(type)
+            },
+        )
+    }
+}
+
+@Composable
+private fun ActionCard(
+    index: Int,
+    total: Int,
+    spec: ActionSpec,
+    isEditing: Boolean,
+    onEdit: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val accent = actionAccent(spec.type)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isEditing) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                else Modifier
+            ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isEditing) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // 序号
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(accent.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "${index + 1}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = accent,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = actionIcon(spec.type),
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = actionLabel(spec.type),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onEdit) {
+                    Text(stringResource(R.string.rule_wizard_action_flow_edit))
+                }
+                IconButton(
+                    onClick = onMoveUp,
+                    enabled = RuleWizardSupport.canMoveUp(index, total),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = stringResource(R.string.rule_wizard_action_flow_move_up),
+                    )
+                }
+                IconButton(
+                    onClick = onMoveDown,
+                    enabled = RuleWizardSupport.canMoveDown(index, total),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = stringResource(R.string.rule_wizard_action_flow_move_down),
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.rule_wizard_action_flow_delete),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = RuleWizardSupport.actionFlowSummary(spec),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActionParamEditor(
+    spec: ActionSpec,
+    onCommit: (ActionSpec) -> Unit,
+    onCancel: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            when (spec.type) {
+                RuleAction.CLICK_BUTTON -> {
+                    var label by remember(spec) {
+                        mutableStateOf(spec.params?.get("buttonLabel")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
+                    }
+                    OutlinedTextField(
+                        value = label,
+                        onValueChange = { label = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.rule_wizard_button_label)) },
+                        placeholder = { Text(stringResource(R.string.rule_wizard_button_label_hint)) },
+                        singleLine = true,
+                    )
+                    Text(
+                        text = stringResource(R.string.rule_wizard_click_button_match_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.rule_wizard_click_fail_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
+                        Button(
+                            onClick = { onCommit(RuleWizardSupport.clickButtonSpec(label)) },
+                            enabled = label.isNotBlank(),
+                        ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
+                    }
+                }
+                RuleAction.COPY -> {
+                    var mode by remember(spec) {
+                        mutableStateOf(
+                            runCatching { CopyMode.valueOf(spec.params?.get("mode")?.asString ?: "") }
+                                .getOrDefault(CopyMode.TITLE_AND_TEXT)
+                        )
+                    }
+                    CopyMode.entries.forEach { m ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { mode = m }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Switch(checked = mode == m, onCheckedChange = { mode = m })
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = copyModeLabel(m),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
+                        Button(onClick = { onCommit(RuleWizardSupport.copySpec(mode)) }) {
+                            Text(stringResource(R.string.rule_wizard_action_flow_save))
+                        }
+                    }
+                }
+                RuleAction.TTS -> {
+                    var template by remember(spec) {
+                        mutableStateOf(spec.params?.get("template")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
+                    }
+                    OutlinedTextField(
+                        value = template,
+                        onValueChange = { template = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.rule_wizard_action_tts_template)) },
+                        placeholder = { Text(stringResource(R.string.rule_wizard_action_tts_template_hint)) },
+                        supportingText = { Text(stringResource(R.string.rule_wizard_action_tts_template_default)) },
+                        minLines = 2,
+                    )
+                    Text(
+                        text = stringResource(R.string.rule_wizard_tts_wait_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.rule_wizard_tts_fail_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
+                        Button(onClick = { onCommit(RuleWizardSupport.ttsSpec(template)) }) {
+                            Text(stringResource(R.string.rule_wizard_action_flow_save))
+                        }
+                    }
+                }
+                RuleAction.DELAY -> {
+                    var msText by remember(spec) {
+                        mutableStateOf(
+                            (spec.params?.get("durationMs")?.takeIf { it.isJsonPrimitive }?.asLong ?: 1000L).toString()
+                        )
+                    }
+                    val ms = msText.toLongOrNull()
+                    val valid = ms != null && ms > 0L
+                    OutlinedTextField(
+                        value = msText,
+                        onValueChange = { msText = it.filter(Char::isDigit) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.rule_wizard_delay_duration)) },
+                        suffix = { Text("ms") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        isError = !valid,
+                        supportingText = {
+                            if (!valid) {
+                                Text(stringResource(R.string.rule_wizard_delay_invalid))
+                            } else {
+                                Column {
+                                    Text(stringResource(R.string.rule_wizard_delay_desc))
+                                    Text(stringResource(R.string.rule_wizard_delay_units_hint))
+                                }
+                            }
+                        },
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
+                        Button(
+                            onClick = { if (ms != null) onCommit(RuleWizardSupport.delaySpec(ms)) },
+                            enabled = valid,
+                        ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
+                    }
+                }
+                else -> {
+                    // DISMISS / SILENT / OPEN_NOTIFICATION：无参数，只显示说明
+                    Text(
+                        text = actionDescription(spec.type),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        Button(onClick = onCancel) {
+                            Text(stringResource(R.string.rule_wizard_action_flow_done))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionPickerDialog(
+    onDismiss: () -> Unit,
+    onSelect: (RuleAction) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rule_wizard_action_flow_pick_title)) },
+        text = {
+            Column {
+                RuleAction.entries.forEach { action ->
+                    val accent = actionAccent(action)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onSelect(action) }
+                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(accent.copy(alpha = 0.12f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = actionIcon(action),
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = actionLabel(action),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = actionDescription(action),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.rule_wizard_action_flow_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun copyModeLabel(mode: CopyMode): String = when (mode) {
+    CopyMode.TITLE -> stringResource(R.string.rule_wizard_copy_title)
+    CopyMode.TEXT -> stringResource(R.string.rule_wizard_copy_text)
+    CopyMode.TITLE_AND_TEXT -> stringResource(R.string.rule_wizard_copy_title_and_text)
+}
+
+@Composable
+private fun actionAccent(action: RuleAction): Color = when (action) {
+    RuleAction.DISMISS -> MaterialTheme.colorScheme.error
+    RuleAction.SILENT -> MaterialTheme.colorScheme.tertiary
+    RuleAction.CLICK_BUTTON -> MaterialTheme.colorScheme.secondary
+    RuleAction.OPEN_NOTIFICATION -> MaterialTheme.colorScheme.primary
+    RuleAction.COPY -> MaterialTheme.colorScheme.secondary
+    RuleAction.TTS -> MaterialTheme.colorScheme.tertiary
+    RuleAction.DELAY -> MaterialTheme.colorScheme.primary
+}
+
+@Composable
+private fun actionIcon(action: RuleAction): ImageVector = when (action) {
+    RuleAction.DISMISS -> Icons.Default.NotificationsOff
+    RuleAction.SILENT -> Icons.Default.Notifications
+    RuleAction.CLICK_BUTTON -> Icons.Default.TouchApp
+    RuleAction.OPEN_NOTIFICATION -> Icons.Default.OpenInNew
+    RuleAction.COPY -> Icons.Default.ContentCopy
+    RuleAction.TTS -> Icons.Default.VolumeUp
+    RuleAction.DELAY -> Icons.Default.DateRange
+}
+
+@Composable
+private fun actionLabel(action: RuleAction): String = when (action) {
+    RuleAction.DISMISS -> stringResource(R.string.rule_action_dismiss)
+    RuleAction.SILENT -> stringResource(R.string.rule_action_silent)
+    RuleAction.CLICK_BUTTON -> stringResource(R.string.rule_action_click_button)
+    RuleAction.OPEN_NOTIFICATION -> stringResource(R.string.rule_action_open_notification)
+    RuleAction.COPY -> stringResource(R.string.rule_action_copy)
+    RuleAction.TTS -> stringResource(R.string.rule_action_tts)
+    RuleAction.DELAY -> stringResource(R.string.rule_action_wait)
+}
+
+@Composable
+private fun actionDescription(action: RuleAction): String = when (action) {
+    RuleAction.DISMISS -> stringResource(R.string.rule_action_desc_dismiss)
+    RuleAction.SILENT -> stringResource(R.string.rule_action_desc_silent)
+    RuleAction.CLICK_BUTTON -> stringResource(R.string.rule_action_desc_click_button)
+    RuleAction.OPEN_NOTIFICATION -> stringResource(R.string.rule_action_desc_open_notification)
+    RuleAction.COPY -> stringResource(R.string.rule_action_desc_copy)
+    RuleAction.TTS -> stringResource(R.string.rule_action_desc_tts)
+    RuleAction.DELAY -> stringResource(R.string.rule_action_desc_wait)
+}

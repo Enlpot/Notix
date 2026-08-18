@@ -1,0 +1,21 @@
+package com.enlpot.notix
+
+import android.os.Parcelable
+import androidx.annotation.Keep
+import kotlinx.parcelize.Parcelize
+import java.util.UUID
+
+@Keep
+@Parcelize
+data class SimpleNotification(
+    val appLabel: String?,
+    val packageName: String?,
+    val title: String?,
+    val text: String?,
+    val timestamp: Long,
+    val wasOngoing: Boolean = false,
+    val id: String? = UUID.randomUUID().toString(),
+    // v7.15：标识"同一条通知"（服务层防抖与存储层去重依据），旧数据为 null 时不做重复回调去重
+    val sbnKey: String? = null,
+    val postTime: Long? = null
+) : Parcelable

@@ -1,0 +1,42 @@
+*.iml
+.gradle
+.kotlin
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Signing
+*.jks
+*.keystore
+signing.properties
+keystore.properties
+
+# IDE
+/.idea/
+
+# APK/AAB outputs
+*.apk
+*.aab
+
+# JVM crash / error logs
+hs_err_pid*.log
+
+# Gradle / Kotlin daemon replay logs
+replay_pid*.log
+
+# Internal planning / agent docs (not part of public release)
+AGENTS.md
+CLAUDE.md
+改造方案Notix.md
+LessNotice_改造方案.md
+GitHub全自动发布流程.md
