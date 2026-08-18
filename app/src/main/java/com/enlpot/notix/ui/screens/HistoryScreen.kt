@@ -3,6 +3,7 @@ package com.enlpot.notix.ui.screens
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.provider.Settings
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
@@ -50,6 +51,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -94,6 +96,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -498,91 +501,111 @@ fun HistoryScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val tab = HistoryTab.entries[page]
-                LazyColumn(
-                    state = tabListStates[page],
-                    modifier = Modifier.fillMaxSize(),
-                    // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
-                    contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
-                ) {
-            // v7.7：标题行作为列表项随内容滑出（"通知历史" + 通知监听铃铛）
-            item(key = "history_title") {
-                HistoryTitleRow(
-                    listenerPaused = listenerPaused,
-                    onToggleListenerPaused = { showListenerPauseConfirm = true },
-                    onBackToCurrentWeek = onBackToCurrentWeek
-                )
-            }
-
-            item(key = "stats_header") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Spacer(modifier = Modifier.weight(1f))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = stringResource(R.string.history_total, totalCount),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                // v7.40：横屏时图表固定左栏、通知列表右栏；竖屏保持原滚动结构
+                val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+                // 图表头部块：标题行 + 统计 + 柱状图 + 日期筛选行
+                val headerBlock: @Composable () -> Unit = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        HistoryTitleRow(
+                            listenerPaused = listenerPaused,
+                            onToggleListenerPaused = { showListenerPauseConfirm = true },
+                            onBackToCurrentWeek = onBackToCurrentWeek
                         )
-                        Text(
-                            text = stringResource(R.string.history_today, todayCount),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Spacer(modifier = Modifier.weight(1f))
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = stringResource(R.string.history_total, totalCount),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = stringResource(R.string.history_today, todayCount),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        StatsBarChart(
+                            pagerState = chartPagerStates[page],
+                            firstWeekStart = firstWeekStart,
+                            countsByDay = chartCounts,
+                            chartMax = chartMax,
+                            currentWeekStart = thisMonday,
+                            selectedDay = selectedDay,
+                            onDayClick = { day ->
+                                selectedDay = if (selectedDay == day) null else day
+                            }
                         )
+                        val filterDay = selectedDay
+                        if (filterDay != null) {
+                            FilteredDayRow(day = filterDay, onClear = { selectedDay = null })
+                        }
                     }
                 }
-            }
-
-                item(key = "chart") {
-                StatsBarChart(
-                    pagerState = chartPagerStates[page],
-                    firstWeekStart = firstWeekStart,
-                    countsByDay = chartCounts,
-                    chartMax = chartMax,
-                    currentWeekStart = thisMonday,
-                    selectedDay = selectedDay,
-                    onDayClick = { day ->
-                        selectedDay = if (selectedDay == day) null else day
+                if (isLandscape) {
+                    // v7.40：横屏——图表固定左栏（可独立滚动），通知列表右栏独立 LazyColumn
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier
+                                .width(360.dp)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            headerBlock()
+                        }
+                        LazyColumn(
+                            state = tabListStates[page],
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                        ) {
+                            historyListItems(
+                                tab = tab,
+                                entries = entries,
+                                filteredEntries = filteredEntries,
+                                filteredBlocked = filteredBlocked,
+                                unmonitoredApps = unmonitoredApps,
+                                expandedApps = expandedApps,
+                                expandedRuleIds = expandedRuleIds,
+                                rules = rules,
+                                unknownRuleLabel = unknownRuleLabel,
+                                onEntryHistoryClick = onEntryHistoryClick,
+                                onOpenNotification = onOpenNotification,
+                                onRestoreNotification = onRestoreNotification,
+                                onCreateRuleFromNotification = onCreateRuleFromNotification,
+                                onDeleteNotification = onDeleteNotification,
+                                onResumeMonitoring = onResumeMonitoring,
+                                onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
+                                context = context
+                            )
+                            item(key = "scroll_room") {
+                                Spacer(modifier = Modifier.fillParentMaxHeight())
+                            }
+                        }
                     }
-                )
-            }
-
-            val filterDay = selectedDay
-            if (filterDay != null) {
-                item(key = "filter_day") {
-                    FilteredDayRow(day = filterDay, onClear = { selectedDay = null })
-                }
-            }
-
-            when (tab) {
-                HistoryTab.BY_TIME -> {
-                    if (entries.isEmpty()) {
-                        item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
-                    } else if (filteredEntries.isEmpty()) {
-                        item { EmptyStateBox(Icons.Outlined.SearchOff, stringResource(R.string.no_results_found), stringResource(R.string.no_results_found_desc)) }
-                    } else {
-                        byTimeItems(
-                            entries = filteredEntries.sortedByDescending { it.lastTimestamp },
-                            onEntryHistoryClick = onEntryHistoryClick,
-                            onOpenNotification = onOpenNotification,
-                            onRestoreNotification = onRestoreNotification,
-                            onCreateRuleFromNotification = onCreateRuleFromNotification,
-                            onDeleteNotification = onDeleteNotification,
-                            context = context
-                        )
-                    }
-                }
-                HistoryTab.BY_APP -> {
-                    if (entries.isEmpty()) {
-                        item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
-                    } else if (filteredEntries.isEmpty()) {
-                        item { EmptyStateBox(Icons.Outlined.SearchOff, stringResource(R.string.no_results_found), stringResource(R.string.no_results_found_desc)) }
-                    } else {
-                        byAppItems(
-                            entries = filteredEntries,
+                } else {
+                    LazyColumn(
+                        state = tabListStates[page],
+                        modifier = Modifier.fillMaxSize(),
+                        // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
+                        contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                    ) {
+                        item(key = "history_header") {
+                            headerBlock()
+                        }
+                        historyListItems(
+                            tab = tab,
+                            entries = entries,
+                            filteredEntries = filteredEntries,
+                            filteredBlocked = filteredBlocked,
                             unmonitoredApps = unmonitoredApps,
                             expandedApps = expandedApps,
+                            expandedRuleIds = expandedRuleIds,
+                            rules = rules,
+                            unknownRuleLabel = unknownRuleLabel,
                             onEntryHistoryClick = onEntryHistoryClick,
                             onOpenNotification = onOpenNotification,
                             onRestoreNotification = onRestoreNotification,
@@ -592,34 +615,93 @@ fun HistoryScreen(
                             onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
                             context = context
                         )
+                        item(key = "scroll_room") {
+                            Spacer(modifier = Modifier.fillParentMaxHeight())
+                        }
                     }
                 }
-                HistoryTab.FILTERED -> {
-                    if (filteredBlocked.isEmpty()) {
-                        item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
-                    } else {
-                        byRuleItems(
-                            entries = filteredBlocked,
-                            rules = rules,
-                            expandedRuleIds = expandedRuleIds,
-                            unknownGroupLabel = unknownRuleLabel,
-                            onEntryHistoryClick = onEntryHistoryClick,
-                            onOpenNotification = onOpenNotification,
-                            onRestoreNotification = onRestoreNotification,
-                            onCreateRuleFromNotification = onCreateRuleFromNotification,
-                            onDeleteNotification = onDeleteNotification,
-                            context = context
-                        )
-                    }
-                }
-            }
+        }
+        }
+    }
+}
 
-            // v7.37：内容不足时撑满视口，配合底部滚动余量保证任意内容量均可上滑
-            item(key = "scroll_room") {
-                Spacer(modifier = Modifier.fillParentMaxHeight())
-            }
+// --- v7.40：历史页三 tab 列表内容（竖屏/横屏共用） ---
+@OptIn(ExperimentalFoundationApi::class)
+private fun LazyListScope.historyListItems(
+    tab: HistoryTab,
+    entries: List<NotificationHistoryEntry>,
+    filteredEntries: List<NotificationHistoryEntry>,
+    filteredBlocked: List<NotificationHistoryEntry>,
+    unmonitoredApps: Set<String>,
+    expandedApps: MutableState<Set<String>>,
+    expandedRuleIds: MutableState<Set<String>>,
+    rules: List<BlockerRule>,
+    unknownRuleLabel: String,
+    onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
+    onOpenNotification: (SimpleNotification) -> Unit,
+    onRestoreNotification: (SimpleNotification) -> Unit,
+    onCreateRuleFromNotification: (SimpleNotification) -> Unit,
+    onDeleteNotification: (SimpleNotification) -> Unit,
+    onResumeMonitoring: (String) -> Unit,
+    onShowStopMonitoringDialog: (Pair<String, String>?) -> Unit,
+    context: android.content.Context
+) {
+    when (tab) {
+        HistoryTab.BY_TIME -> {
+            if (entries.isEmpty()) {
+                item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
+            } else if (filteredEntries.isEmpty()) {
+                item { EmptyStateBox(Icons.Outlined.SearchOff, stringResource(R.string.no_results_found), stringResource(R.string.no_results_found_desc)) }
+            } else {
+                byTimeItems(
+                    entries = filteredEntries.sortedByDescending { it.lastTimestamp },
+                    onEntryHistoryClick = onEntryHistoryClick,
+                    onOpenNotification = onOpenNotification,
+                    onRestoreNotification = onRestoreNotification,
+                    onCreateRuleFromNotification = onCreateRuleFromNotification,
+                    onDeleteNotification = onDeleteNotification,
+                    context = context
+                )
             }
         }
+        HistoryTab.BY_APP -> {
+            if (entries.isEmpty()) {
+                item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
+            } else if (filteredEntries.isEmpty()) {
+                item { EmptyStateBox(Icons.Outlined.SearchOff, stringResource(R.string.no_results_found), stringResource(R.string.no_results_found_desc)) }
+            } else {
+                byAppItems(
+                    entries = filteredEntries,
+                    unmonitoredApps = unmonitoredApps,
+                    expandedApps = expandedApps,
+                    onEntryHistoryClick = onEntryHistoryClick,
+                    onOpenNotification = onOpenNotification,
+                    onRestoreNotification = onRestoreNotification,
+                    onCreateRuleFromNotification = onCreateRuleFromNotification,
+                    onDeleteNotification = onDeleteNotification,
+                    onResumeMonitoring = onResumeMonitoring,
+                    onShowStopMonitoringDialog = onShowStopMonitoringDialog,
+                    context = context
+                )
+            }
+        }
+        HistoryTab.FILTERED -> {
+            if (filteredBlocked.isEmpty()) {
+                item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
+            } else {
+                byRuleItems(
+                    entries = filteredBlocked,
+                    rules = rules,
+                    expandedRuleIds = expandedRuleIds,
+                    unknownGroupLabel = unknownRuleLabel,
+                    onEntryHistoryClick = onEntryHistoryClick,
+                    onOpenNotification = onOpenNotification,
+                    onRestoreNotification = onRestoreNotification,
+                    onCreateRuleFromNotification = onCreateRuleFromNotification,
+                    onDeleteNotification = onDeleteNotification,
+                    context = context
+                )
+            }
         }
     }
 }
