@@ -490,9 +490,11 @@ fun HistoryScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             // v7.37：三 tab 滑动切换——HorizontalPager 承载，每页独立 LazyColumn + 独立滚动状态
+            // v7.40：beyondViewportPageCount=1 预组合相邻页，消除 FILTERED 切回空白
             val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             HorizontalPager(
                 state = tabPagerState,
+                beyondViewportPageCount = 1,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val tab = HistoryTab.entries[page]
