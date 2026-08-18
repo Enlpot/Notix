@@ -5,6 +5,6 @@
          scheme (md_theme_dark_background). Screens that don't paint their own
          Surface would otherwise show the light window background through. -->
     <style name="Theme.Notix" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:windowBackground">#2B2D30</item>
+        <item name="android:windowBackground">#000000</item>
     </style>
 </resources>

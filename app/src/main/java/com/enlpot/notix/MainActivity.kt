@@ -19,6 +19,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,8 +29,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -62,11 +65,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -77,6 +84,7 @@ import com.enlpot.notix.health.HealthCheckWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.enlpot.notix.setup.SetupState
 import java.time.LocalDate
@@ -524,31 +532,92 @@ class MainActivity : ComponentActivity() {
                 selectedDay = null
             }
         }
-        // v7.41：底部三 tab 导航（竖屏 bottomBar / 横屏右半复用）
+        // v7.42：底部三 tab 导航（竖屏 bottomBar / 横屏右半复用）
+        // 高度降至 56dp、仅图标，长按显示文字气泡（横竖屏一致）
         val bottomNav: @Composable () -> Unit = {
-            NavigationBar {
+            val density = LocalDensity.current
+            var longPressedTab by remember { mutableStateOf<Int?>(null) }
+            // 长按气泡 1.5s 后自动消失
+            LaunchedEffect(longPressedTab) {
+                if (longPressedTab != null) {
+                    delay(1500)
+                    longPressedTab = null
+                }
+            }
+            NavigationBar(
+                modifier = Modifier.height(56.dp),
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
                 tabTitles.forEachIndexed { index, title ->
-                    NavigationBarItem(
-                        selected = currentTab == index,
-                        onClick = {
-                            // v7.5：已在历史页时再次点击底部"历史"tab 则回到顶部
-                            if (index == 0 && currentTab == 0) {
-                                val now = SystemClock.uptimeMillis()
-                                // v7.37：300ms 内快速双击返回本周（与点击"通知历史"一致）
-                                if (now - lastHistoryTabClickTime <= 300L) {
-                                    lastHistoryTabClickTime = 0L
-                                    onBackToCurrentWeek()
-                                } else {
-                                    lastHistoryTabClickTime = now
-                                    onHistoryTabClick()
-                                }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .combinedClickable(
+                                onClick = {
+                                    // v7.5：已在历史页时再次点击底部"历史"tab 则回到顶部
+                                    if (index == 0 && currentTab == 0) {
+                                        val now = SystemClock.uptimeMillis()
+                                        // v7.37：300ms 内快速双击返回本周（与点击"通知历史"一致）
+                                        if (now - lastHistoryTabClickTime <= 300L) {
+                                            lastHistoryTabClickTime = 0L
+                                            onBackToCurrentWeek()
+                                        } else {
+                                            lastHistoryTabClickTime = now
+                                            onHistoryTabClick()
+                                        }
+                                    } else {
+                                        onTabSelected(index)
+                                    }
+                                },
+                                onLongClick = { longPressedTab = index },
+                                onClickLabel = title
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // 选中指示条（替代 NavigationBarItem 默认 pill）
+                        if (currentTab == index) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 4.dp)
+                                    .width(32.dp)
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(1.5.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                        Icon(
+                            imageVector = tabIcons[index],
+                            contentDescription = title,
+                            tint = if (currentTab == index) {
+                                MaterialTheme.colorScheme.primary
                             } else {
-                                onTabSelected(index)
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // 长按显示文字气泡（图标上方）
+                        if (longPressedTab == index) {
+                            Popup(
+                                alignment = Alignment.TopCenter,
+                                offset = IntOffset(0, with(density) { (-46).dp.roundToPx() })
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.inverseSurface,
+                                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                                    shadowElevation = 4.dp
+                                ) {
+                                    Text(
+                                        text = title,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
                             }
-                        },
-                        icon = { Icon(tabIcons[index], contentDescription = title) },
-                        label = { Text(title) }
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -662,7 +731,8 @@ class MainActivity : ComponentActivity() {
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         if (isLandscape) {
             // v7.41：横屏——左半图表(50%) + 竖线 + 右半内容(50%)，底部三 tab 仅占右半（叠加）
-            Box(modifier = Modifier.fillMaxSize()) {
+            // v7.42：显式使用主题背景，避免露出 values-night windowBackground 旧深灰
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     // 左半：通用图表面板（三 tab 共用同一图表，延伸至屏幕底）
                     Column(
@@ -697,7 +767,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .padding(bottom = 80.dp)
+                            .padding(bottom = 56.dp)
                     ) {
                         screenContent()
                     }
