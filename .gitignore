@@ -37,9 +37,6 @@ replay_pid*.log
 # Internal planning / agent docs (not part of public release)
 AGENTS.md
 CLAUDE.md
-改造方案Notix.md
-LessNotice_改造方案.md
-GitHub全自动发布流程.md
 
 # CI secrets (local only, never commit)
 keystore_base64.txt

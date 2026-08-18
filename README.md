@@ -50,7 +50,7 @@ to the repository.
 
 1. Grant notification listener permission when prompted
 2. View incoming notifications in the **History** tab
-3. Press a notification to create a blocking rule, or go to **Rules** tab to browse prebuilt rules
+3. Press a notification to create a blocking rule, or go to **Rules** tab to manually create rules
 4. Blocked notifications appear in the **Blocked** tab
 5. Tap any blocked notification to view details or edit the rule that blocked it
 
