@@ -1,12 +1,14 @@
-# v7.39
+# v7.42
 
 ## New Features
-- History tab now supports swipeable navigation between the three sub-tabs (HorizontalPager)
-- "Filtered" tab groups notification records by the matched rule
+- Pure black (OLED-friendly) dark theme following the Material Design 3 dark color scheme
+- Bottom navigation bar compacted to 56dp with icon-only items; long-press an icon to reveal its label
+- Unified landscape layout for all three tabs: fixed chart panel on the left, page content on the right, separated by a vertical divider
 
 ## Improvements
-- History lists remain scrollable even with few notifications (fixed the issue where scrolling was impossible with short content)
-- Double-tapping the "History" tab in the bottom navigation quickly returns to the current week (clears date filter)
+- Selected day state persists across rotation in landscape mode (shared chart panel)
+- Adjacent history sub-tabs are pre-composed to avoid blank flashes when swiping
+- Bottom tabs now switch by tap only, while the top sub-tabs remain swipeable
 
 ## Bug Fixes
-- Fixed rule wizard state being lost when the screen rotates
+- Fixed landscape screens showing the legacy gray window background instead of pure black
