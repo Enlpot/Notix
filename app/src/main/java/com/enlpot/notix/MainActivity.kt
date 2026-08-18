@@ -1,4 +1,4 @@
-package com.enlpot.notix
+﻿package com.enlpot.notix
 
 import android.app.Activity
 import android.app.NotificationChannel
@@ -23,9 +23,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Rule
@@ -189,11 +186,8 @@ class MainActivity : ComponentActivity() {
             )
         }
         var notificationToShowHistoryDetailsDialog by rememberSaveable(stateSaver = historyEntrySaver) { mutableStateOf<NotificationHistoryEntry?>(null) }
-        // v7.40：旋转恢复——底部当前 tab（阶段3 将用此状态替换 Pager）
+        // v7.40：旋转恢复——底部当前 tab（阶段3 起为纯点击切换，无滑动）
         var currentTab by rememberSaveable { mutableIntStateOf(0) }
-        val pagerState = rememberPagerState(initialPage = currentTab, pageCount = { 3 })
-        // v7.40：旋转恢复——pager 切换后同步 currentTab
-        LaunchedEffect(pagerState.settledPage) { currentTab = pagerState.settledPage }
         val coroutineScope = rememberCoroutineScope()
         var backToCurrentWeekTrigger by rememberSaveable { mutableIntStateOf(0) }
         var scrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
@@ -248,7 +242,7 @@ class MainActivity : ComponentActivity() {
                     NotificationBlockerService.requestApplyRule(context, rule)
                     showRuleWizard = false; prefillNotification = null
                     showMessage(context.getString(R.string.toast_rule_added))
-                    coroutineScope.launch { pagerState.animateScrollToPage(1) }
+                    currentTab = 1
                 },
                 editingRule = editingRule,
                 onUpdateRule = editingRule?.let { old ->
@@ -257,7 +251,7 @@ class MainActivity : ComponentActivity() {
                         NotificationBlockerService.requestApplyRule(context, newRule)
                         showRuleWizard = false; editingRule = null
                         showMessage(context.getString(R.string.toast_rule_updated))
-                        coroutineScope.launch { pagerState.animateScrollToPage(1) }
+                        currentTab = 1
                     }
                 },
                 onDeleteRule = editingRule?.let { _ ->
@@ -267,14 +261,15 @@ class MainActivity : ComponentActivity() {
                         NotificationBlockerService.requestRescanAll(context)
                         showRuleWizard = false; editingRule = null
                         showMessage(context.getString(R.string.toast_rule_deleted))
-                        coroutineScope.launch { pagerState.animateScrollToPage(1) }
+                        currentTab = 1
                     }
                 },
                 prefillNotification = prefillNotification
             )
         } else {
             TabbedScreen(
-                pagerState = pagerState,
+                currentTab = currentTab,
+                onTabSelected = { currentTab = it },
                 historyEntries = historyEntries,
                 pastNotifications = pastNotifications,
                 rules = rules,
@@ -459,7 +454,9 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun TabbedScreen(
-        pagerState: PagerState,
+        // v7.40：底部三 tab 取消滑动，仅点击切换（currentTab 由 rememberSaveable 持久化）
+        currentTab: Int,
+        onTabSelected: (Int) -> Unit,
         historyEntries: List<NotificationHistoryEntry>,
         pastNotifications: List<SimpleNotification>,
         rules: List<BlockerRule>,
@@ -513,10 +510,10 @@ class MainActivity : ComponentActivity() {
                 NavigationBar {
                     tabTitles.forEachIndexed { index, title ->
                         NavigationBarItem(
-                            selected = pagerState.currentPage == index,
+                            selected = currentTab == index,
                             onClick = {
                                 // v7.5：已在历史页时再次点击底部"历史"tab 则回到顶部
-                                if (index == 0 && pagerState.currentPage == 0) {
+                                if (index == 0 && currentTab == 0) {
                                     val now = SystemClock.uptimeMillis()
                                     // v7.37：300ms 内快速双击返回本周（与点击"通知历史"一致）
                                     if (now - lastHistoryTabClickTime <= 300L) {
@@ -527,7 +524,7 @@ class MainActivity : ComponentActivity() {
                                         onHistoryTabClick()
                                     }
                                 } else {
-                                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                    onTabSelected(index)
                                 }
                             },
                             icon = { Icon(tabIcons[index], contentDescription = title) },
@@ -542,9 +539,10 @@ class MainActivity : ComponentActivity() {
                 color = MaterialTheme.colorScheme.background
             ) {
                 Box(modifier = Modifier.padding(innerPadding)) {
-                    HorizontalPager(state = pagerState) {
-                        PagerScreenContent(
-                            page = it,
+                    // v7.40：底部三 tab 取消滑动，改为按 currentTab 直接渲染当前页
+                    when (currentTab) {
+                        0 -> PagerScreenContent(
+                            page = 0,
                             historyEntries = historyEntries,
                             pastNotifications = pastNotifications,
                             rules = rules,
@@ -572,7 +570,71 @@ class MainActivity : ComponentActivity() {
                             onRescanRule = onRescanRule,
                             onClearHistoryByDate = onClearHistoryByDate,
                             onClearHistoryByPackages = onClearHistoryByPackages,
-                            onSettingsClose = { coroutineScope.launch { pagerState.animateScrollToPage(0) } },
+                            onSettingsClose = { onTabSelected(0) },
+                            onBackToCurrentWeek = onBackToCurrentWeek
+                        )
+                        1 -> PagerScreenContent(
+                            page = 1,
+                            historyEntries = historyEntries,
+                            pastNotifications = pastNotifications,
+                            rules = rules,
+                            unmonitoredApps = unmonitoredApps,
+                            listenerPaused = listenerPaused,
+                            backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                            scrollToTopTrigger = scrollToTopTrigger,
+                            onRefreshHistory = onRefreshHistory,
+                            onEntryHistoryClick = onEntryHistoryClick,
+                            onOpenNotification = onOpenNotification,
+                            onRestoreNotification = onRestoreNotification,
+                            onCreateRuleFromNotification = onCreateRuleFromNotification,
+                            onClearHistory = onClearHistory,
+                            onClearBlockedHistory = onClearBlockedHistory,
+                            onRuleClick = onRuleClick,
+                            onCreateRuleClick = onCreateRuleClick,
+                            onDeleteHistoryNotificationClick = onDeleteHistoryNotificationClick,
+                            onToggleListenerPaused = onToggleListenerPaused,
+                            onToggleAllRules = onToggleAllRules,
+                            onStopMonitoring = onStopMonitoring,
+                            onResumeMonitoring = onResumeMonitoring,
+                            onDeleteRule = onDeleteRule,
+                            onToggleRule = onToggleRule,
+                            onResetHitCount = onResetHitCount,
+                            onRescanRule = onRescanRule,
+                            onClearHistoryByDate = onClearHistoryByDate,
+                            onClearHistoryByPackages = onClearHistoryByPackages,
+                            onSettingsClose = { onTabSelected(0) },
+                            onBackToCurrentWeek = onBackToCurrentWeek
+                        )
+                        else -> PagerScreenContent(
+                            page = 2,
+                            historyEntries = historyEntries,
+                            pastNotifications = pastNotifications,
+                            rules = rules,
+                            unmonitoredApps = unmonitoredApps,
+                            listenerPaused = listenerPaused,
+                            backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                            scrollToTopTrigger = scrollToTopTrigger,
+                            onRefreshHistory = onRefreshHistory,
+                            onEntryHistoryClick = onEntryHistoryClick,
+                            onOpenNotification = onOpenNotification,
+                            onRestoreNotification = onRestoreNotification,
+                            onCreateRuleFromNotification = onCreateRuleFromNotification,
+                            onClearHistory = onClearHistory,
+                            onClearBlockedHistory = onClearBlockedHistory,
+                            onRuleClick = onRuleClick,
+                            onCreateRuleClick = onCreateRuleClick,
+                            onDeleteHistoryNotificationClick = onDeleteHistoryNotificationClick,
+                            onToggleListenerPaused = onToggleListenerPaused,
+                            onToggleAllRules = onToggleAllRules,
+                            onStopMonitoring = onStopMonitoring,
+                            onResumeMonitoring = onResumeMonitoring,
+                            onDeleteRule = onDeleteRule,
+                            onToggleRule = onToggleRule,
+                            onResetHitCount = onResetHitCount,
+                            onRescanRule = onRescanRule,
+                            onClearHistoryByDate = onClearHistoryByDate,
+                            onClearHistoryByPackages = onClearHistoryByPackages,
+                            onSettingsClose = { onTabSelected(0) },
                             onBackToCurrentWeek = onBackToCurrentWeek
                         )
                     }
