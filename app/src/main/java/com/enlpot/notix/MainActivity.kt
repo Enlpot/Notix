@@ -52,6 +52,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -175,16 +177,31 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun MainScreen() {
         val context = LocalContext.current
-        var notificationToShowHistoryDetailsDialog by remember { mutableStateOf<NotificationHistoryEntry?>(null) }
-        val pagerState = rememberPagerState(pageCount = { 3 })
+        // v7.40：旋转恢复——通知详情弹窗对象（Gson 序列化）
+        val historyEntrySaver = remember {
+            Saver<NotificationHistoryEntry?, String>(
+                save = { it?.let(paramsGson::toJson) },
+                restore = { json ->
+                    json?.let {
+                        runCatching { paramsGson.fromJson(it, NotificationHistoryEntry::class.java) }.getOrNull()
+                    }
+                }
+            )
+        }
+        var notificationToShowHistoryDetailsDialog by rememberSaveable(stateSaver = historyEntrySaver) { mutableStateOf<NotificationHistoryEntry?>(null) }
+        // v7.40：旋转恢复——底部当前 tab（阶段3 将用此状态替换 Pager）
+        var currentTab by rememberSaveable { mutableIntStateOf(0) }
+        val pagerState = rememberPagerState(initialPage = currentTab, pageCount = { 3 })
+        // v7.40：旋转恢复——pager 切换后同步 currentTab
+        LaunchedEffect(pagerState.settledPage) { currentTab = pagerState.settledPage }
         val coroutineScope = rememberCoroutineScope()
-        var backToCurrentWeekTrigger by remember { mutableIntStateOf(0) }
-        var scrollToTopTrigger by remember { mutableIntStateOf(0) }
+        var backToCurrentWeekTrigger by rememberSaveable { mutableIntStateOf(0) }
+        var scrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
         // v7.13：上次崩溃弹窗状态（检测到日志非空时下次启动提示）
-        var showCrashReportDialog by remember { mutableStateOf(CrashLogManager.hasCrashes(context)) }
-        var showCrashLogDialog by remember { mutableStateOf(false) }
+        var showCrashReportDialog by rememberSaveable { mutableStateOf(CrashLogManager.hasCrashes(context)) }
+        var showCrashLogDialog by rememberSaveable { mutableStateOf(false) }
         // v7.29：启动崩溃弹窗「清空日志」二次确认
-        var showCrashClearConfirm by remember { mutableStateOf(false) }
+        var showCrashClearConfirm by rememberSaveable { mutableStateOf(false) }
 
         DisposableEffect(Unit) {
             val historyUpdateReceiver = object : BroadcastReceiver() {

@@ -83,7 +83,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -115,6 +117,7 @@ import com.enlpot.notix.ui.components.EmptyState
 import com.enlpot.notix.ui.components.RealAppIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -146,27 +149,31 @@ fun HistoryScreen(
     // v7.36：规则列表（Filtered tab 按规则分组依据；规则被删除后条目归「未知规则」组）
     rules: List<BlockerRule> = emptyList()
 ) {
-    var selectedTab by remember { mutableStateOf(HistoryTab.BY_TIME) }
-    var searchQuery by remember { mutableStateOf("") }
-    var showStopMonitoringDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // v7.40：旋转恢复——三 tab 及弹窗/搜索/展开等 UI 状态
+    var selectedTab by rememberSaveable { mutableStateOf(HistoryTab.BY_TIME) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showStopMonitoringDialog by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     // v7.8：通知监听铃铛二次确认对话框
-    var showListenerPauseConfirm by remember { mutableStateOf(false) }
+    var showListenerPauseConfirm by rememberSaveable { mutableStateOf(false) }
     // v7.13：长按搜索按钮打开崩溃日志弹窗
-    var showCrashLogDialog by remember { mutableStateOf(false) }
+    var showCrashLogDialog by rememberSaveable { mutableStateOf(false) }
     // v7.24：权限掉线弹窗中"打开系统设置"失败的应用内提示（不再使用系统 Toast）
-    var openSettingsFailed by remember { mutableStateOf(false) }
-    val expandedApps = remember { mutableStateOf(setOf<String>()) }
+    var openSettingsFailed by rememberSaveable { mutableStateOf(false) }
+    val expandedApps = rememberSaveable { mutableStateOf(setOf<String>()) }
     // v7.36：Filtered tab 按规则分组的展开状态（默认收起，与按应用一致）
-    val expandedRuleIds = remember { mutableStateOf(setOf<String>()) }
+    val expandedRuleIds = rememberSaveable { mutableStateOf(setOf<String>()) }
 
     // --- v7.5：列表滚动状态 / 吸顶搜索区 / 下拉刷新 / 回顶 / 权限掉线提示 ---
     // v7.37：三 tab 页各自独立滚动状态（滑动切换后保留各自位置）
-    val tabListStates = remember { List(HistoryTab.entries.size) { LazyListState() } }
+    // v7.40：旋转恢复——每 tab 滚动位置由 LazyListState.Saver 持久化
+    val tabListStates = List(HistoryTab.entries.size) {
+        rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    }
     // v7.37：三 tab 滑动切换 Pager（页序与 HistoryTab 枚举一致）
     val tabPagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { HistoryTab.entries.size })
-    var searchExpanded by remember { mutableStateOf(false) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
-    var showPermissionLostDialog by remember { mutableStateOf(false) }
+    var showPermissionLostDialog by rememberSaveable { mutableStateOf(false) }
 
     // 单击底部"历史"tab 回顶（作用于当前显示的 tab 页）
     LaunchedEffect(scrollToTopTrigger) {
@@ -185,7 +192,8 @@ fun HistoryScreen(
     }
 
     // --- 柱状图状态：以周为单位分页（前26周 + 本周 + 后26周），一屏一周 ---
-    var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
+    // v7.40：旋转恢复——selectedDay 持久化（LocalDate 为 Serializable）
+    var selectedDay by rememberSaveable { mutableStateOf<LocalDate?>(null) }
     val nowDate = LocalDate.now()
     val thisMonday = nowDate.with(DayOfWeek.MONDAY)
     val weeksBefore = 26
@@ -619,12 +627,25 @@ private fun isSameDay(timestamp: Long, day: LocalDate): Boolean {
 }
 
 // --- v7.37：创建多个独立图表 PagerState（一个 PagerState 不能同时绑定多个 pager） ---
+// v7.40：旋转恢复——图表当前周页码持久化（rememberPagerState + 页码写回兜底）
 @Composable
 private fun rememberChartPagerStates(
     count: Int,
     initialPage: Int,
     pageCount: () -> Int
-): List<PagerState> = List(count) { rememberPagerState(initialPage = initialPage, pageCount = pageCount) }
+): List<PagerState> {
+    var savedPages by rememberSaveable { mutableStateOf(List(count) { initialPage }) }
+    val states = List(count) { index ->
+        rememberPagerState(initialPage = savedPages[index], pageCount = pageCount)
+    }
+    // 同步：任一图表页 settledPage 变化时写回持久化状态
+    LaunchedEffect(states) {
+        snapshotFlow { states.map { it.settledPage } }.collect { pages ->
+            savedPages = pages
+        }
+    }
+    return states
+}
 
 // --- v7.5：通知监听权限是否掉线 ---
 private fun isNotificationListenerEnabled(context: Context): Boolean {
