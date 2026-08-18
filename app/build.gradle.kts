@@ -26,8 +26,8 @@ android {
         applicationId = "com.enlpot.notix"
         minSdk = 24
         targetSdk = 36
-        versionCode = 103
-        versionName = "7.38"
+        versionCode = 104
+        versionName = "7.39"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
