@@ -425,7 +425,8 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                 appLabel, packageName, title, text, currentTime,
                 wasOngoing = false,
                 sbnKey = sbn.key,
-                postTime = sbn.postTime
+                postTime = sbn.postTime,
+                matchedRuleIds = hitRuleIds
             )
 
             sbn.notification.contentIntent?.let { intent ->

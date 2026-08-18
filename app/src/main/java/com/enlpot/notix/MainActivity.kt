@@ -603,7 +603,8 @@ class MainActivity : ComponentActivity() {
                 onToggleListenerPaused = onToggleListenerPaused,
                 onStopMonitoring = onStopMonitoring,
                 onResumeMonitoring = onResumeMonitoring,
-                onClearBlockedHistory = onClearBlockedHistory
+                onClearBlockedHistory = onClearBlockedHistory,
+                rules = rules
             )
 
             1 -> RulesScreen(rules, onRuleClick, onCreateRuleClick, onToggleAllRules,

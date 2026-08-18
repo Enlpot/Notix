@@ -100,6 +100,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.enlpot.notix.BlockerRule
 import com.enlpot.notix.NotificationBlockerService
 import com.enlpot.notix.NotificationColorEngine
 import com.enlpot.notix.NotificationColors
@@ -140,7 +141,9 @@ fun HistoryScreen(
     onResumeMonitoring: (String) -> Unit,
     onToggleListenerPaused: (Boolean) -> Unit,
     listenerPaused: Boolean,
-    onClearBlockedHistory: () -> Unit = {}
+    onClearBlockedHistory: () -> Unit = {},
+    // v7.36：规则列表（Filtered tab 按规则分组依据；规则被删除后条目归「未知规则」组）
+    rules: List<BlockerRule> = emptyList()
 ) {
     var selectedTab by remember { mutableStateOf(HistoryTab.BY_TIME) }
     var searchQuery by remember { mutableStateOf("") }
@@ -152,6 +155,8 @@ fun HistoryScreen(
     // v7.24：权限掉线弹窗中"打开系统设置"失败的应用内提示（不再使用系统 Toast）
     var openSettingsFailed by remember { mutableStateOf(false) }
     val expandedApps = remember { mutableStateOf(setOf<String>()) }
+    // v7.36：Filtered tab 按规则分组的展开状态（默认收起，与按应用一致）
+    val expandedRuleIds = remember { mutableStateOf(setOf<String>()) }
 
     // --- v7.5：列表滚动状态 / 吸顶搜索区 / 下拉刷新 / 回顶 / 权限掉线提示 ---
     val listState = rememberLazyListState()
@@ -352,6 +357,8 @@ fun HistoryScreen(
     }
 
     val totalCount = remember(entries) { entries.sumOf { it.count } }
+    // v7.36：未知规则组名（在 composable 上下文解析，供 LazyListScope 扩展使用）
+    val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
     // v7.15：今日计数与柱状图/日期详情统一口径——按聚合组内 change 时间戳归属今日计数
     val todayCount = remember(entries, nowDate) {
         entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, nowDate) } }
@@ -561,8 +568,11 @@ fun HistoryScreen(
                     if (filteredBlocked.isEmpty()) {
                         item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
                     } else {
-                        byTimeItems(
-                            entries = filteredBlocked.sortedByDescending { it.lastTimestamp },
+                        byRuleItems(
+                            entries = filteredBlocked,
+                            rules = rules,
+                            expandedRuleIds = expandedRuleIds,
+                            unknownGroupLabel = unknownRuleLabel,
                             onEntryHistoryClick = onEntryHistoryClick,
                             onOpenNotification = onOpenNotification,
                             onRestoreNotification = onRestoreNotification,
@@ -1035,6 +1045,184 @@ private fun AppGroupHeader(
                     tint = headerFg.copy(alpha = 0.8f)
                 )
             }
+        }
+    }
+}
+
+// --- "Filtered" tab --- 按规则分组（v7.36）：组头右侧无操作按钮（仅按应用 tab 保留停止监控）
+private fun LazyListScope.byRuleItems(
+    entries: List<NotificationHistoryEntry>,
+    rules: List<BlockerRule>,
+    expandedRuleIds: MutableState<Set<String>>,
+    unknownGroupLabel: String,
+    onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
+    onOpenNotification: (SimpleNotification) -> Unit,
+    onRestoreNotification: (SimpleNotification) -> Unit,
+    onCreateRuleFromNotification: (SimpleNotification) -> Unit,
+    onDeleteNotification: (SimpleNotification) -> Unit,
+    context: android.content.Context
+) {
+    val ruleById = rules.associateBy { it.id }
+
+    // 每条被过滤条目取其最新一条变更的命中规则 id；规则已删除/旧数据无记录则归「未知规则」组
+    val grouped = entries.groupBy { entry ->
+        entry.latest?.matchedRuleIds?.firstOrNull()
+            ?: entry.changes.firstOrNull()?.matchedRuleIds?.firstOrNull()
+    }
+
+    // 组间按组内最新时间倒序；未知规则组固定排最后
+    val sortedGroups = grouped.entries.sortedWith(
+        compareByDescending<Map.Entry<String?, List<NotificationHistoryEntry>>> { (_, list) -> list.maxOf { it.lastTimestamp } }
+            .thenByDescending { it.key != null }
+    )
+
+    sortedGroups.forEach { (ruleId, groupEntries) ->
+        val rule = ruleId?.let { ruleById[it] }
+        val first = groupEntries.firstOrNull()
+        val sourceApp = rule?.sourcePackages?.firstOrNull()
+        val appName = sourceApp?.appName?.takeIf { it.isNotBlank() }
+            ?: sourceApp?.packageName
+            ?: first?.appLabel
+            ?: first?.packageName
+        val packageName = sourceApp?.packageName ?: first?.packageName
+        val groupKey = ruleId ?: "unknown"
+        val title = if (rule != null) buildRuleGroupTitle(rule, appName) else unknownGroupLabel
+        val isExpanded = expandedRuleIds.value.contains(groupKey)
+
+        stickyHeader(key = "rule_header_$groupKey") {
+            RuleGroupHeader(
+                title = title,
+                count = groupEntries.sumOf { it.count },
+                packageName = packageName,
+                isExpanded = isExpanded,
+                isUnknown = rule == null,
+                onClick = {
+                    expandedRuleIds.value =
+                        if (isExpanded) expandedRuleIds.value - groupKey else expandedRuleIds.value + groupKey
+                }
+            )
+        }
+
+        if (isExpanded) {
+            itemsIndexed(groupEntries, key = { idx, e -> "${groupKey}_${idx}_${e.id}" }) { _, entry ->
+                NotificationCard(
+                    entry = entry,
+                    onHistoryClick = { onEntryHistoryClick(entry) },
+                    onOpen = { entry.latest?.let { onOpenNotification(it) } },
+                    onRestore = { entry.latest?.let { onRestoreNotification(it) } },
+                    onCreateRule = { entry.latest?.let { onCreateRuleFromNotification(it) } },
+                    onDelete = { entry.latest?.let { onDeleteNotification(it) } },
+                    showRestore = true,
+                    context = context,
+                    compact = false
+                )
+            }
+        }
+    }
+}
+
+// v7.36：组名 = "来源应用 · 关键字摘要"（如"微信 · 广告"）；无关键字时只显示来源应用
+private fun buildRuleGroupTitle(rule: BlockerRule, appName: String?): String {
+    val source = appName.orEmpty()
+    // v7.13：空安全兜底——旧数据可能残留 null 字段
+    val cond = rule.condition ?: com.enlpot.notix.RuleCondition()
+    val keywords = cond.includeKeywords.filter { it.isNotBlank() }
+        .ifEmpty { cond.excludeKeywords.filter { it.isNotBlank() } }
+        .take(2)
+        .joinToString("、")
+    return when {
+        source.isNotBlank() && keywords.isNotBlank() -> "$source · $keywords"
+        source.isNotBlank() -> source
+        keywords.isNotBlank() -> keywords
+        else -> ""
+    }
+}
+
+@Composable
+private fun RuleGroupHeader(
+    title: String,
+    count: Int,
+    packageName: String?,
+    isExpanded: Boolean,
+    isUnknown: Boolean,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    // 未知规则组固定默认灰色配色；其余复用 NotificationColorEngine 动态配色（与按应用一致）
+    val colors by produceState<NotificationColors?>(initialValue = null, key1 = if (isUnknown) null else packageName) {
+        value = withContext(Dispatchers.Default) {
+            if (isUnknown) null
+            else NotificationColorEngine.getNotificationColors(context, packageName)
+        }
+    }
+    val headerBg = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
+    val headerFg = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurface
+    val fallbackAccent = if (isUnknown) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+    val accent = colors?.accentColor?.let { Color(it) } ?: fallbackAccent
+    val accentFg = remember(accent) { Color(NotificationColorEngine.chooseTextColor(accent.toArgb())) }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = headerBg
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(5.dp)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .background(accent)
+            )
+            Spacer(modifier = Modifier.width(11.dp))
+            RealAppIcon(
+                packageName = packageName,
+                appName = title,
+                size = 28.dp,
+                shape = RoundedCornerShape(8.dp),
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = headerFg,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent)
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = accentFg
+                )
+            }
+
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                contentDescription = stringResource(if (isExpanded) R.string.collapse else R.string.expand),
+                tint = headerFg.copy(alpha = 0.8f)
+            )
+
+            // v7.36：本 tab 组头右侧不放操作按钮（按应用 tab 的停止监控按钮保留）
+            Spacer(modifier = Modifier.width(4.dp))
         }
     }
 }

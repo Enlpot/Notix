@@ -451,6 +451,7 @@
     <string name="rule_wizard_section_extra_collapsed">展开</string>
     <string name="rule_wizard_only_one_action">只允许一个动作</string>
     <string name="history_blocked_badge">已过滤</string>
+    <string name="unknown_rule_group">未知规则</string>
     <string name="rule_wizard_mode_label">匹配模式</string>
     <string name="rule_wizard_mode_contains_any">包含任一</string>
     <string name="rule_wizard_mode_contains_all">包含全部</string>

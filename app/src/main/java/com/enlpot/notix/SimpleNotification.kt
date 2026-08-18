@@ -17,5 +17,7 @@ data class SimpleNotification(
     val id: String? = UUID.randomUUID().toString(),
     // v7.15：标识"同一条通知"（服务层防抖与存储层去重依据），旧数据为 null 时不做重复回调去重
     val sbnKey: String? = null,
-    val postTime: Long? = null
+    val postTime: Long? = null,
+    // v7.36：命中规则 id（被过滤历史按规则分组依据），旧数据为空列表时归「未知规则」组
+    val matchedRuleIds: List<String> = emptyList()
 ) : Parcelable
