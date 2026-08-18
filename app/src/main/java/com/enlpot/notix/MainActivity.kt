@@ -93,6 +93,8 @@ class MainActivity : ComponentActivity() {
     private var listenerPaused by mutableStateOf(false)
     private var showRuleWizard by mutableStateOf(false)
     private var editingRule by mutableStateOf<BlockerRule?>(null)
+    // v7.39：从成员级提升，随 savedInstanceState 保存恢复（旋转后保留通知预填）
+    private var prefillNotification by mutableStateOf<SimpleNotification?>(null)
     private var showSetupWizard by mutableStateOf(false)
     private var wizardShowsWelcome by mutableStateOf(false)
 
@@ -106,6 +108,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // v7.39：旋转/进程重建后恢复规则向导状态（showRuleWizard/editingRule/prefillNotification），
+        // 避免横竖屏切换时创建规则界面被重置退出到主界面
+        if (savedInstanceState != null) {
+            showRuleWizard = savedInstanceState.getBoolean(STATE_SHOW_RULE_WIZARD, false)
+            savedInstanceState.getString(STATE_EDITING_RULE)?.let { json ->
+                runCatching { paramsGson.fromJson(json, BlockerRule::class.java) }
+                    .getOrNull()?.let { editingRule = it }
+            }
+            @Suppress("DEPRECATION")
+            val restoredNotification: SimpleNotification? = if (Build.VERSION.SDK_INT >= 33) {
+                savedInstanceState.getParcelable(STATE_PREFILL_NOTIFICATION, SimpleNotification::class.java)
+            } else {
+                savedInstanceState.getParcelable(STATE_PREFILL_NOTIFICATION)
+            }
+            if (restoredNotification != null) prefillNotification = restoredNotification
+        }
         ruleStorage = RuleStorage(this)
         notificationHistoryStorage = NotificationHistoryStorage(this)
         blockedNotificationHistoryStorage = BlockedNotificationHistoryStorage(this)
@@ -156,7 +174,6 @@ class MainActivity : ComponentActivity() {
     private fun MainScreen() {
         val context = LocalContext.current
         var notificationToShowHistoryDetailsDialog by remember { mutableStateOf<NotificationHistoryEntry?>(null) }
-        var prefillNotification by remember { mutableStateOf<SimpleNotification?>(null) }
         val pagerState = rememberPagerState(pageCount = { 3 })
         val coroutineScope = rememberCoroutineScope()
         var backToCurrentWeekTrigger by remember { mutableIntStateOf(0) }
@@ -610,6 +627,13 @@ class MainActivity : ComponentActivity() {
         return enabledListeners.contains(packageName)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean(STATE_SHOW_RULE_WIZARD, showRuleWizard)
+        editingRule?.let { outState.putString(STATE_EDITING_RULE, paramsGson.toJson(it)) }
+        prefillNotification?.let { outState.putParcelable(STATE_PREFILL_NOTIFICATION, it) }
+        super.onSaveInstanceState(outState)
+    }
+
     private fun triggerNotificationAction(context: Context, notification: SimpleNotification) {
         val intent = if (notification.id != null) NotificationActionRepository.getAction(notification.id) else null
         if (intent != null) {
@@ -668,6 +692,12 @@ class MainActivity : ComponentActivity() {
             Log.w("MainActivity", "restore notification failed", e)
             showMessage(context.getString(R.string.toast_failed_to_restore))
         }
+    }
+
+    companion object {
+        private const val STATE_SHOW_RULE_WIZARD = "state_show_rule_wizard"
+        private const val STATE_EDITING_RULE = "state_editing_rule"
+        private const val STATE_PREFILL_NOTIFICATION = "state_prefill_notification"
     }
 }
 
