@@ -1,12 +1,12 @@
 # v7.39
 
-## 新增
-- 历史页三个标签页支持左右滑动切换（HorizontalPager）
-- "已过滤"标签页按命中规则分组展示通知记录
+## New Features
+- History tab now supports swipeable navigation between the three sub-tabs (HorizontalPager)
+- "Filtered" tab groups notification records by the matched rule
 
-## 优化
-- 通知记录较少时列表仍可上滑滚动（修复内容不足无法滑动的问题）
-- 底部导航"历史"标签双击可快速返回本周视图（清除日期筛选）
+## Improvements
+- History lists remain scrollable even with few notifications (fixed the issue where scrolling was impossible with short content)
+- Double-tapping the "History" tab in the bottom navigation quickly returns to the current week (clears date filter)
 
-## 修复
-- 修复屏幕旋转时规则向导状态丢失的问题
+## Bug Fixes
+- Fixed rule wizard state being lost when the screen rotates
