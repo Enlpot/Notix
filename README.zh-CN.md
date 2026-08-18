@@ -13,8 +13,6 @@ Notix 是一款 Android 应用，通过可自定义的规则过滤和拦截不�
 - **Notification Stacking** — STACK 规则不做拦截；将高频应用的多条通知折叠为单个可展开的 Notification Group，既保留通知又避免干扰
 - **Pattern Matching** — 使用简单的 contains 或正则表达式匹配通知标题/正文
 - **Time-Based Rules** — 可设定规则仅在特定时间段内生效
-- **Prebuilt Rules** — 内置 40+ 条针对热门应用的预配置规则（电商促销、社交媒体等）
-- **Auto-Install Rules** — 安装受支持的应用时，自动添加对应的预配置规则
 - **Notification History** — 查看所有接收到的通知，保留时长可配置
 - **Blocked History** — 追踪哪些通知被拦截，以及由哪条规则拦截
 - **Import/Export** — 将规则以 JSON 文件形式备份与恢复
