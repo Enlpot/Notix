@@ -61,8 +61,8 @@ jobs:
         env:
           NOTIX_KEYSTORE_BASE64: ${{ secrets.NOTIX_KEYSTORE_BASE64 }}
           NOTIX_KEYSTORE_PASSWORD: ${{ secrets.NOTIX_KEYSTORE_PASSWORD }}
-          NOTIX_KEYSTORE_KEYPASSWORD: ${{ secrets.NOTIX_KEYSTORE_KEYPASSWORD }}
-          NOTIX_KEYSTORE_ALIAS: ${{ secrets.NOTIX_KEYSTORE_ALIAS }}
+          NOTIX_KEYSTORE_KEYPASSWORD: ${{ secrets.KEYSTORE_NOTIX_KEYPASSWORD }}
+          NOTIX_KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_NOTIX_ALIAS }}
         run: |
           if [ -n "$NOTIX_KEYSTORE_BASE64" ]; then
             echo "$NOTIX_KEYSTORE_BASE64" | base64 -d > app/notix-release.jks
