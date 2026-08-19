@@ -1,3 +1,8 @@
+# v7.43
+
+## Removed
+Removed the incomplete Community Share feature: deleted CommunityShare.kt and its 80 related string resources across all 8 locales.
+
 # v7.42
 
 ## New Features
