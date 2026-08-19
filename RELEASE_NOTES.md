@@ -1,3 +1,9 @@
+# v7.44
+
+## Bug Fixes
+- Fixed lag when swiping between "Filtered" and "By App" tabs on the History screen: group-by/sort computation is now cached and no longer fully recomputed on every recomposition
+- Fixed app icons appearing with delay after tab switches or list recycling: added an in-process memory cache for app icons so PackageManager is not hit repeatedly
+
 # v7.43
 
 ## Removed

@@ -22,8 +22,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.enlpot.notix.AppInfoStorage
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+// v7.44：进程内图标内存缓存——滑动切 tab / 滚动回收后不再重复 PackageManager 加载，消除卡片延迟出现
+private val iconCache = ConcurrentHashMap<String, ImageBitmap>()
+private const val ICON_CACHE_MAX = 256
 
 /**
  * Unified real app icon:
@@ -46,15 +51,23 @@ fun RealAppIcon(
             if (packageName == null) {
                 null
             } else {
-                val launcher = try {
-                    context.packageManager
-                        .getApplicationIcon(packageName)
-                        .toBitmap(96, 96)
-                        .asImageBitmap()
-                } catch (_: Exception) {
-                    null
+                // v7.44：命中缓存直接返回，避免重复加载
+                iconCache[packageName] ?: run {
+                    val launcher = try {
+                        context.packageManager
+                            .getApplicationIcon(packageName)
+                            .toBitmap(96, 96)
+                            .asImageBitmap()
+                    } catch (_: Exception) {
+                        null
+                    }
+                    val icon = launcher ?: appInfoStorage.getAppIcon(packageName)?.asImageBitmap()
+                    if (icon != null) {
+                        if (iconCache.size >= ICON_CACHE_MAX) iconCache.clear()
+                        iconCache[packageName] = icon
+                    }
+                    icon
                 }
-                launcher ?: appInfoStorage.getAppIcon(packageName)?.asImageBitmap()
             }
         }
     }

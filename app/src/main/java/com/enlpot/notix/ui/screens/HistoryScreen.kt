@@ -358,6 +358,23 @@ fun HistoryScreen(
         }
     }
 
+    // v7.44：分组/排序结果缓存——滑动切 tab 时不再每次重组全量重算（卡顿修复）
+    val appGrouped = remember(filteredEntries) {
+        filteredEntries.groupBy { it.appLabel ?: it.packageName.orEmpty() }
+            .entries.sortedByDescending { (_, list) -> list.maxOf { it.lastTimestamp } }
+    }
+    val ruleById = remember(rules) { rules.associateBy { it.id } }
+    val ruleGrouped = remember(filteredBlocked, rules) {
+        val grouped = filteredBlocked.groupBy { entry ->
+            entry.latest?.matchedRuleIds?.firstOrNull()
+                ?: entry.changes.firstOrNull()?.matchedRuleIds?.firstOrNull()
+        }
+        grouped.entries.sortedWith(
+            compareByDescending<Map.Entry<String?, List<NotificationHistoryEntry>>> { (_, list) -> list.maxOf { it.lastTimestamp } }
+                .thenByDescending { it.key != null }
+        )
+    }
+
     // v7.41：totalCount/todayCount 计算已移至 ChartPanel（通用图表面板）
     // v7.36：未知规则组名（在 composable 上下文解析，供 LazyListScope 扩展使用）
     val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
@@ -512,6 +529,9 @@ fun HistoryScreen(
                             expandedApps = expandedApps,
                             expandedRuleIds = expandedRuleIds,
                             rules = rules,
+                            appGrouped = appGrouped,
+                            ruleById = ruleById,
+                            ruleGrouped = ruleGrouped,
                             unknownRuleLabel = unknownRuleLabel,
                             onEntryHistoryClick = onEntryHistoryClick,
                             onOpenNotification = onOpenNotification,
@@ -545,6 +565,9 @@ fun HistoryScreen(
                             expandedApps = expandedApps,
                             expandedRuleIds = expandedRuleIds,
                             rules = rules,
+                            appGrouped = appGrouped,
+                            ruleById = ruleById,
+                            ruleGrouped = ruleGrouped,
                             unknownRuleLabel = unknownRuleLabel,
                             onEntryHistoryClick = onEntryHistoryClick,
                             onOpenNotification = onOpenNotification,
@@ -576,6 +599,9 @@ private fun LazyListScope.historyListItems(
     expandedApps: MutableState<Set<String>>,
     expandedRuleIds: MutableState<Set<String>>,
     rules: List<BlockerRule>,
+    appGrouped: List<Map.Entry<String, List<NotificationHistoryEntry>>>,
+    ruleById: Map<String, BlockerRule>,
+    ruleGrouped: List<Map.Entry<String?, List<NotificationHistoryEntry>>>,
     unknownRuleLabel: String,
     onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
     onOpenNotification: (SimpleNotification) -> Unit,
@@ -611,7 +637,7 @@ private fun LazyListScope.historyListItems(
                 item { EmptyStateBox(Icons.Outlined.SearchOff, stringResource(R.string.no_results_found), stringResource(R.string.no_results_found_desc)) }
             } else {
                 byAppItems(
-                    entries = filteredEntries,
+                    appGrouped = appGrouped,
                     unmonitoredApps = unmonitoredApps,
                     expandedApps = expandedApps,
                     onEntryHistoryClick = onEntryHistoryClick,
@@ -630,8 +656,8 @@ private fun LazyListScope.historyListItems(
                 item { EmptyStateBox(Icons.Outlined.Inbox, stringResource(R.string.no_notifications_yet), stringResource(R.string.no_notifications_yet_desc)) }
             } else {
                 byRuleItems(
-                    entries = filteredBlocked,
-                    rules = rules,
+                    ruleById = ruleById,
+                    ruleGrouped = ruleGrouped,
                     expandedRuleIds = expandedRuleIds,
                     unknownGroupLabel = unknownRuleLabel,
                     onEntryHistoryClick = onEntryHistoryClick,
@@ -1032,7 +1058,7 @@ private fun LazyListScope.byTimeItems(
 // --- "By App" tab --- 按应用分组；分组标题吸顶，右侧为监控按钮 ---
 @OptIn(ExperimentalFoundationApi::class)
 private fun LazyListScope.byAppItems(
-    entries: List<NotificationHistoryEntry>,
+    appGrouped: List<Map.Entry<String, List<NotificationHistoryEntry>>>,
     unmonitoredApps: Set<String>,
     expandedApps: MutableState<Set<String>>,
     onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
@@ -1044,10 +1070,8 @@ private fun LazyListScope.byAppItems(
     onShowStopMonitoringDialog: (Pair<String, String>?) -> Unit,
     context: android.content.Context
 ) {
-    val grouped = entries.groupBy { it.appLabel ?: it.packageName.orEmpty() }
-        .entries.sortedByDescending { (_, list) -> list.maxOf { it.lastTimestamp } }
-
-    grouped.forEach { (appName, appEntries) ->
+    // v7.44：分组结果由上层 remember 缓存传入，此处直接遍历
+    appGrouped.forEach { (appName, appEntries) ->
         val packageName = appEntries.firstOrNull()?.packageName
         val isExpanded = expandedApps.value.contains(appName)
 
@@ -1222,8 +1246,8 @@ private fun AppGroupHeader(
 
 // --- "Filtered" tab --- 按规则分组（v7.36）：组头右侧无操作按钮（仅按应用 tab 保留停止监控）
 private fun LazyListScope.byRuleItems(
-    entries: List<NotificationHistoryEntry>,
-    rules: List<BlockerRule>,
+    ruleById: Map<String, BlockerRule>,
+    ruleGrouped: List<Map.Entry<String?, List<NotificationHistoryEntry>>>,
     expandedRuleIds: MutableState<Set<String>>,
     unknownGroupLabel: String,
     onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
@@ -1233,21 +1257,8 @@ private fun LazyListScope.byRuleItems(
     onDeleteNotification: (SimpleNotification) -> Unit,
     context: android.content.Context
 ) {
-    val ruleById = rules.associateBy { it.id }
-
-    // 每条被过滤条目取其最新一条变更的命中规则 id；规则已删除/旧数据无记录则归「未知规则」组
-    val grouped = entries.groupBy { entry ->
-        entry.latest?.matchedRuleIds?.firstOrNull()
-            ?: entry.changes.firstOrNull()?.matchedRuleIds?.firstOrNull()
-    }
-
-    // 组间按组内最新时间倒序；未知规则组固定排最后
-    val sortedGroups = grouped.entries.sortedWith(
-        compareByDescending<Map.Entry<String?, List<NotificationHistoryEntry>>> { (_, list) -> list.maxOf { it.lastTimestamp } }
-            .thenByDescending { it.key != null }
-    )
-
-    sortedGroups.forEach { (ruleId, groupEntries) ->
+    // v7.44：ruleById/分组/排序结果由上层 remember 缓存传入，此处直接遍历
+    ruleGrouped.forEach { (ruleId, groupEntries) ->
         val rule = ruleId?.let { ruleById[it] }
         val first = groupEntries.firstOrNull()
         val sourceApp = rule?.sourcePackages?.firstOrNull()
