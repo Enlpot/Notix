@@ -1,14 +1,3 @@
----
-AIGC:
-    Label: "1"
-    ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: 26c411d2a0f0a2e307f470b439631140_7c08dfc09baf11f18cca525400e6dd8f
-    ReservedCode1: +5bgAZ+9FiTTGprmeWMa87ca3VYuDHzZDZ3lJCkTVIt2ETB9XeU65gHfQ8Xb6qOSrYY4Lhe3Iu6DXGgMlX7sI2n4m/cq+RnFEFd9NOU4s1LV8EnnKzXntEpU3p50r1c0PcHu7XTzqWwdfY7jFDgb1ZDFJTwW++xwpbPTIHaxkDyoNmtqHzZueO1EIBI=
-    ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: 26c411d2a0f0a2e307f470b439631140_7c08dfc09baf11f18cca525400e6dd8f
-    ReservedCode2: +5bgAZ+9FiTTGprmeWMa87ca3VYuDHzZDZ3lJCkTVIt2ETB9XeU65gHfQ8Xb6qOSrYY4Lhe3Iu6DXGgMlX7sI2n4m/cq+RnFEFd9NOU4s1LV8EnnKzXntEpU3p50r1c0PcHu7XTzqWwdfY7jFDgb1ZDFJTwW++xwpbPTIHaxkDyoNmtqHzZueO1EIBI=
----
-
 **English** | [简体中文](README.zh-CN.md)
 
 # Notix
@@ -89,4 +78,3 @@ MIT License - see [LICENSE](LICENSE) for details.
 This project is a derivative of [DoNotNotify](https://github.com/anujja/DoNotNotify) by Anuj
 (c) 2025, and includes Notix's own modifications (c) 2026. Both copyright notices are preserved
 in the LICENSE file in accordance with the MIT License.
-*（内容由AI生成，仅供参考）*

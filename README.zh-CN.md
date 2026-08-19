@@ -1,14 +1,3 @@
----
-AIGC:
-    Label: "1"
-    ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: 26c411d2a0f0a2e307f470b439631140_7ce604e29baf11f19bec525400826444
-    ReservedCode1: xl3YQwpt1qxXCkkM3Da4iWSSYcvEKtN2+oKcbREJlhLg8CbyuTRQGwjy9wCl+SWt4g/+OuUopxU958ZkFvR5aZqSVvOoQg1EuiHE4zYJ3TJWki6EnzlpR1Ru3muRDVdPs20LFnNe7/caPVp+cYog1wMy52uH7nZjh6TqkSAhnggPfYQOTTVCHdeaZTA=
-    ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: 26c411d2a0f0a2e307f470b439631140_7ce604e29baf11f19bec525400826444
-    ReservedCode2: xl3YQwpt1qxXCkkM3Da4iWSSYcvEKtN2+oKcbREJlhLg8CbyuTRQGwjy9wCl+SWt4g/+OuUopxU958ZkFvR5aZqSVvOoQg1EuiHE4zYJ3TJWki6EnzlpR1Ru3muRDVdPs20LFnNe7/caPVp+cYog1wMy52uH7nZjh6TqkSAhnggPfYQOTTVCHdeaZTA=
----
-
 [English](README.md) | **简体中文**
 
 # Notix
@@ -84,4 +73,3 @@ Release APK 使用 R8 混淆并以 Notix 发布密钥库签名。签名凭据从
 MIT License — 详见 [LICENSE](LICENSE)。
 
 本项目基于 Anuj 的 [DoNotNotify](https://github.com/anujja/DoNotNotify)（© 2025）衍生而来，并包含 Notix 自身的修改（© 2026）。依据 MIT License 要求，两份版权声明均完整保留在 LICENSE 文件中。
-*（内容由AI生成，仅供参考）*
