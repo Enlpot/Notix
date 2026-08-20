@@ -204,6 +204,8 @@
     <string name="app_version">Notix v%s</string>
     <!-- Settings sections and descriptions -->
     <string name="settings_section_general">General</string>
+    <string name="settings_extract_remoteviews_title">Extract button text from textless notifications</string>
+    <string name="settings_extract_remoteviews_desc">When enabled, notifications without title/text will try to extract button text for rule matching (off by default)</string>
     <string name="settings_section_rules">Rules &amp; Data</string>
     <string name="settings_section_about">Support &amp; About</string>
     <string name="history_retention">History retention</string>

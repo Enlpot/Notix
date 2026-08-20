@@ -168,6 +168,9 @@
     <string name="app_version">Notix v%s</string>
     <!-- Settings sections and descriptions -->
     <string name="settings_section_general">일반</string>
+
+    <string name="settings_extract_remoteviews_title">텍스트 없는 알림의 버튼 텍스트 추출</string>
+    <string name="settings_extract_remoteviews_desc">활성화하면 제목과 본문이 없는 알림에서 버튼 텍스트를 추출하여 규칙 매칭에 사용합니다(기본 꺼짐)</string>
     <string name="settings_section_rules">규칙 및 데이터</string>
     <string name="settings_section_about">지원 및 정보</string>
     <string name="history_retention">기록 보관</string>

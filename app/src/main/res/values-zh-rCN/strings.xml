@@ -162,6 +162,9 @@
     <string name="app_version">Notix v%s</string>
     <!-- Settings sections and descriptions -->
     <string name="settings_section_general">常规</string>
+
+    <string name="settings_extract_remoteviews_title">提取无文本通知的按钮文字</string>
+    <string name="settings_extract_remoteviews_desc">开启后，无标题无正文的通知会尝试提取按钮文字参与规则匹配（默认关）</string>
     <string name="settings_section_rules">规则与数据</string>
     <string name="settings_section_about">支持与关于</string>
     <string name="history_retention">历史保留</string>

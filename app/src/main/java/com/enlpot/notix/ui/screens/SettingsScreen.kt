@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ImportExport
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
@@ -58,6 +59,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -86,6 +88,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.CrashLogManager
 import com.enlpot.notix.ImportError
 import com.enlpot.notix.ImportResult
+import com.enlpot.notix.NotificationBlockerService
 import com.enlpot.notix.R
 import com.enlpot.notix.RuleExport
 import com.enlpot.notix.RuleExportSerializer
@@ -126,6 +129,11 @@ fun SettingsScreen(
     // v7.13：崩溃日志入口
     var showCrashLogDialog by remember { mutableStateOf(false) }
     var crashLogEnabled by remember { mutableStateOf(CrashLogManager.isEnabled(context)) }
+
+    // v7.45：无文本通知文字提取开关（默认关）
+    var extractRemoteViewsEnabled by remember {
+        mutableStateOf(NotificationBlockerService.isRemoteViewsTextExtractionEnabled(context))
+    }
 
     // Clear history — two-phase: pick mode → detail dialog
     var showClearModeDialog by remember { mutableStateOf(false) }
@@ -585,6 +593,23 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             SettingsSection(title = stringResource(R.string.settings_section_general)) {
+                // v7.45：无文本通知文字提取开关（默认关）
+                SettingsRow(
+                    icon = Icons.Filled.TextFields,
+                    title = stringResource(R.string.settings_extract_remoteviews_title),
+                    subtitle = stringResource(R.string.settings_extract_remoteviews_desc),
+                    onClick = null,
+                    trailing = {
+                        Switch(
+                            checked = extractRemoteViewsEnabled,
+                            onCheckedChange = { enabled ->
+                                extractRemoteViewsEnabled = enabled
+                                NotificationBlockerService.setRemoteViewsTextExtractionEnabled(context, enabled)
+                            }
+                        )
+                    }
+                )
+                RowDivider()
                 SettingsRow(
                     icon = Icons.Filled.History,
                     title = stringResource(R.string.clear_history),

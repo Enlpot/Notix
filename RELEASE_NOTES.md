@@ -1,25 +1,8 @@
-# v7.44
+# v7.45
+
+## New Features
+- Added an optional "Extract remote views text" switch (default off): when enabled, notifications without visible text will have their action button labels and content descriptions extracted and used for rule matching and history records
 
 ## Bug Fixes
 - Fixed lag when swiping between "Filtered" and "By App" tabs on the History screen: group-by/sort computation is now cached and no longer fully recomputed on every recomposition
 - Fixed app icons appearing with delay after tab switches or list recycling: added an in-process memory cache for app icons so PackageManager is not hit repeatedly
-
-# v7.43
-
-## Removed
-Removed the incomplete Community Share feature: deleted CommunityShare.kt and its 80 related string resources across all 8 locales.
-
-# v7.42
-
-## New Features
-- Pure black (OLED-friendly) dark theme following the Material Design 3 dark color scheme
-- Bottom navigation bar compacted to 56dp with icon-only items; long-press an icon to reveal its label
-- Unified landscape layout for all three tabs: fixed chart panel on the left, page content on the right, separated by a vertical divider
-
-## Improvements
-- Selected day state persists across rotation in landscape mode (shared chart panel)
-- Adjacent history sub-tabs are pre-composed to avoid blank flashes when swiping
-- Bottom tabs now switch by tap only, while the top sub-tabs remain swipeable
-
-## Bug Fixes
-- Fixed landscape screens showing the legacy gray window background instead of pure black

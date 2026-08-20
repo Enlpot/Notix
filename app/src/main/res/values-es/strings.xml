@@ -168,6 +168,9 @@
     <string name="app_version">Notix v%s</string>
     <!-- Settings sections and descriptions -->
     <string name="settings_section_general">General</string>
+
+    <string name="settings_extract_remoteviews_title">Extraer texto de botones de notificaciones sin texto</string>
+    <string name="settings_extract_remoteviews_desc">Al activarlo, las notificaciones sin título ni texto intentarán extraer el texto de los botones para la coincidencia de reglas (desactivado por defecto)</string>
     <string name="settings_section_rules">Reglas y datos</string>
     <string name="settings_section_about">Soporte e información</string>
     <string name="history_retention">Retención del historial</string>

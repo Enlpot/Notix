@@ -86,11 +86,26 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
         private const val PREFS_SETTINGS = "settings"
         private const val KEY_LISTENER_PAUSED = "listener_paused"
+        private const val KEY_EXTRACT_REMOTEVIEWS_TEXT = "extract_remoteviews_text"
 
         /** 全局暂停状态：暂停时停止处理通知监听。 */
         fun isListenerPaused(context: Context): Boolean =
             context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
                 .getBoolean(KEY_LISTENER_PAUSED, false)
+
+        /**
+         * v7.45：无文本通知的文字提取开关（默认关）。
+         * 开启后，无 title/text 的通知会尝试提取按钮/自定义视图文字，
+         * 拼入 text 参与规则匹配与历史记录；关闭时维持原有忽略行为。
+         */
+        fun isRemoteViewsTextExtractionEnabled(context: Context): Boolean =
+            context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
+                .getBoolean(KEY_EXTRACT_REMOTEVIEWS_TEXT, false)
+
+        fun setRemoteViewsTextExtractionEnabled(context: Context, enabled: Boolean) {
+            context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
+                .edit().putBoolean(KEY_EXTRACT_REMOTEVIEWS_TEXT, enabled).apply()
+        }
 
         /**
          * 暂停通知监听：置位标记 → 停止服务 → 请求系统解绑监听。
@@ -346,13 +361,25 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         }
 
         val notification = sbn.notification
-        val title = notification.extras.getCharSequence("android.title")?.toString()
-        val text = notification.extras.getCharSequence("android.text")?.toString()
+        var title = notification.extras.getCharSequence("android.title")?.toString()
+        var text = notification.extras.getCharSequence("android.text")?.toString()
         val currentTime = System.currentTimeMillis()
 
         if (title.isNullOrBlank() && text.isNullOrBlank()) {
-            Log.i(TAG, "Ignoring notification with no title and text from ${sbn.packageName}")
-            return
+            // v7.45：无文本通知增强版（设置开关，默认关）——尝试提取按钮/自定义视图文字
+            if (isRemoteViewsTextExtractionEnabled(this)) {
+                val extracted = RemoteViewsTextExtractor.extract(notification)
+                if (extracted != null) {
+                    Log.i(TAG, "No title/text, extracted RemoteViews text from ${sbn.packageName}: $extracted")
+                    text = extracted
+                } else {
+                    Log.i(TAG, "Ignoring notification with no title and text from ${sbn.packageName}")
+                    return
+                }
+            } else {
+                Log.i(TAG, "Ignoring notification with no title and text from ${sbn.packageName}")
+                return
+            }
         }
 
         var appLabel = resolveAppName(this, sbn).toString()
