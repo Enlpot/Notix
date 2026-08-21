@@ -1761,7 +1761,7 @@ private fun LazyListScope.foldSegments(
             }
             if (isExpanded) {
                 // 收起提示卡：仍在最新一条下方，stickyHeader 吸顶方便随时折叠
-                stickyHeader(key = "fold_toggle_${pkg}_expanded") {
+                stickyHeader(key = "fold_toggle_${pkg}_${first.id}_expanded") {
                     FoldToggleCard(
                         appLabel = appLabel,
                         hiddenCount = hiddenCount,
@@ -1787,7 +1787,7 @@ private fun LazyListScope.foldSegments(
                 }
             } else {
                 // 折叠提示卡：普通 item，位于最新一条下方
-                item(key = "fold_toggle_${pkg}_collapsed") {
+                item(key = "fold_toggle_${pkg}_${first.id}_collapsed") {
                     FoldToggleCard(
                         appLabel = appLabel,
                         hiddenCount = hiddenCount,
