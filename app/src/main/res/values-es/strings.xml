@@ -309,4 +309,7 @@
     <string name="rule_name_use_suggestion">Usar «%1$s»</string>
     <string name="rule_sound_vibration">Sonido y vibración</string>
     <string name="rule_sound_vibration_desc">Configurar en los ajustes del sistema</string>
+    <!-- v7.45: Plegado de tarjetas de notificación -->
+    <string name="fold_expand_hint">Mostrar %2$d notificaciones más de %1$s</string>
+    <string name="fold_collapse_hint">Plegar %2$d notificaciones de %1$s</string>
 </resources>

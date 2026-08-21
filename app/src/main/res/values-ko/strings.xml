@@ -309,4 +309,7 @@
     <string name="rule_name_use_suggestion">“%1$s” 사용</string>
     <string name="rule_sound_vibration">소리 및 진동</string>
     <string name="rule_sound_vibration_desc">시스템 설정에서 구성</string>
+    <!-- v7.45: 알림 카드 접기 -->
+    <string name="fold_expand_hint">%1$s의 알림 %2$d개 더 보기</string>
+    <string name="fold_collapse_hint">%1$s의 알림 %2$d개 접기</string>
 </resources>

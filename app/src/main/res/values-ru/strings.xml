@@ -305,4 +305,7 @@
     <string name="rule_name_use_suggestion">Использовать «%1$s»</string>
     <string name="rule_sound_vibration">Звук и вибрация</string>
     <string name="rule_sound_vibration_desc">Настроить в системных настройках</string>
+    <!-- v7.45: Сворачивание карточек уведомлений -->
+    <string name="fold_expand_hint">Показать ещё %2$d уведомлений от %1$s</string>
+    <string name="fold_collapse_hint">Свернуть %2$d уведомлений от %1$s</string>
 </resources>

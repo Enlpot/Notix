@@ -59,6 +59,8 @@ import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -103,6 +105,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -168,6 +171,8 @@ fun HistoryScreen(
     val expandedApps = rememberSaveable { mutableStateOf(setOf<String>()) }
     // v7.36：Filtered tab 按规则分组的展开状态（默认收起，与按应用一致）
     val expandedRuleIds = rememberSaveable { mutableStateOf(setOf<String>()) }
+    // v7.45：通知折叠——连续同 app 段的展开状态（默认收起，按 packageName 保存，旋转不丢失）
+    val expandedFoldPackages = rememberSaveable { mutableStateOf(setOf<String>()) }
 
     // --- v7.5：列表滚动状态 / 吸顶搜索区 / 下拉刷新 / 回顶 / 权限掉线提示 ---
     // v7.37：三 tab 页各自独立滚动状态（滑动切换后保留各自位置）
@@ -375,6 +380,24 @@ fun HistoryScreen(
         )
     }
 
+    // v7.45：通知折叠分段缓存——渲染前按时间倒序后按 packageName 连续分段（避免每次重组重算）
+    val timeFoldSegments = remember(filteredEntries) {
+        buildFoldSegments(filteredEntries.sortedByDescending { it.lastTimestamp })
+    }
+    val appFoldSegments = remember(appGrouped) {
+        appGrouped.map { (_, list) -> buildFoldSegments(list.sortedByDescending { it.lastTimestamp }) }
+    }
+    val ruleFoldSegments = remember(ruleGrouped) {
+        ruleGrouped.map { (_, list) -> buildFoldSegments(list.sortedByDescending { it.lastTimestamp }) }
+    }
+    val toggleFold = { pkg: String ->
+        expandedFoldPackages.value = if (expandedFoldPackages.value.contains(pkg)) {
+            expandedFoldPackages.value - pkg
+        } else {
+            expandedFoldPackages.value + pkg
+        }
+    }
+
     // v7.41：totalCount/todayCount 计算已移至 ChartPanel（通用图表面板）
     // v7.36：未知规则组名（在 composable 上下文解析，供 LazyListScope 扩展使用）
     val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
@@ -528,6 +551,11 @@ fun HistoryScreen(
                             unmonitoredApps = unmonitoredApps,
                             expandedApps = expandedApps,
                             expandedRuleIds = expandedRuleIds,
+                            expandedFoldPackages = expandedFoldPackages,
+                            onToggleFold = toggleFold,
+                            timeFoldSegments = timeFoldSegments,
+                            appFoldSegments = appFoldSegments,
+                            ruleFoldSegments = ruleFoldSegments,
                             rules = rules,
                             appGrouped = appGrouped,
                             ruleById = ruleById,
@@ -564,6 +592,11 @@ fun HistoryScreen(
                             unmonitoredApps = unmonitoredApps,
                             expandedApps = expandedApps,
                             expandedRuleIds = expandedRuleIds,
+                            expandedFoldPackages = expandedFoldPackages,
+                            onToggleFold = toggleFold,
+                            timeFoldSegments = timeFoldSegments,
+                            appFoldSegments = appFoldSegments,
+                            ruleFoldSegments = ruleFoldSegments,
                             rules = rules,
                             appGrouped = appGrouped,
                             ruleById = ruleById,
@@ -598,6 +631,11 @@ private fun LazyListScope.historyListItems(
     unmonitoredApps: Set<String>,
     expandedApps: MutableState<Set<String>>,
     expandedRuleIds: MutableState<Set<String>>,
+    expandedFoldPackages: MutableState<Set<String>>,
+    onToggleFold: (String) -> Unit,
+    timeFoldSegments: List<FoldSegment>,
+    appFoldSegments: List<List<FoldSegment>>,
+    ruleFoldSegments: List<List<FoldSegment>>,
     rules: List<BlockerRule>,
     appGrouped: List<Map.Entry<String, List<NotificationHistoryEntry>>>,
     ruleById: Map<String, BlockerRule>,
@@ -620,7 +658,9 @@ private fun LazyListScope.historyListItems(
                 item { EmptyStateBox(Icons.Outlined.SearchOff, stringResource(R.string.no_results_found), stringResource(R.string.no_results_found_desc)) }
             } else {
                 byTimeItems(
-                    entries = filteredEntries.sortedByDescending { it.lastTimestamp },
+                    segments = timeFoldSegments,
+                    expandedFoldPackages = expandedFoldPackages,
+                    onToggleFold = onToggleFold,
                     onEntryHistoryClick = onEntryHistoryClick,
                     onOpenNotification = onOpenNotification,
                     onRestoreNotification = onRestoreNotification,
@@ -638,8 +678,11 @@ private fun LazyListScope.historyListItems(
             } else {
                 byAppItems(
                     appGrouped = appGrouped,
+                    groupFoldSegments = appFoldSegments,
                     unmonitoredApps = unmonitoredApps,
                     expandedApps = expandedApps,
+                    expandedFoldPackages = expandedFoldPackages,
+                    onToggleFold = onToggleFold,
                     onEntryHistoryClick = onEntryHistoryClick,
                     onOpenNotification = onOpenNotification,
                     onRestoreNotification = onRestoreNotification,
@@ -658,7 +701,10 @@ private fun LazyListScope.historyListItems(
                 byRuleItems(
                     ruleById = ruleById,
                     ruleGrouped = ruleGrouped,
+                    groupFoldSegments = ruleFoldSegments,
                     expandedRuleIds = expandedRuleIds,
+                    expandedFoldPackages = expandedFoldPackages,
+                    onToggleFold = onToggleFold,
                     unknownGroupLabel = unknownRuleLabel,
                     onEntryHistoryClick = onEntryHistoryClick,
                     onOpenNotification = onOpenNotification,
@@ -1023,8 +1069,11 @@ private fun SearchButton(onClick: () -> Unit, onLongClick: () -> Unit = {}) {
 }
 
 // --- "By Time" tab --- 聚合条目列表（LazyListScope 扩展，供外层 LazyColumn 使用） ---
+// v7.45：改为按折叠分段渲染（连续同 app 且 count 合计 >= 4 时折叠）
 private fun LazyListScope.byTimeItems(
-    entries: List<NotificationHistoryEntry>,
+    segments: List<FoldSegment>,
+    expandedFoldPackages: MutableState<Set<String>>,
+    onToggleFold: (String) -> Unit,
     onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
     onOpenNotification: (SimpleNotification) -> Unit,
     onRestoreNotification: (SimpleNotification) -> Unit,
@@ -1032,35 +1081,28 @@ private fun LazyListScope.byTimeItems(
     onDeleteNotification: (SimpleNotification) -> Unit,
     context: android.content.Context
 ) {
-    itemsIndexed(entries, key = { _, it -> it.id }) { _, entry ->
-        NotificationCard(
-            entry = entry,
-            onHistoryClick = { onEntryHistoryClick(entry) },
-            onOpen = {
-                entry.latest?.let { onOpenNotification(it) }
-            },
-            onRestore = {
-                entry.latest?.let { onRestoreNotification(it) }
-            },
-            onCreateRule = {
-                entry.latest?.let { onCreateRuleFromNotification(it) }
-            },
-            onDelete = {
-                entry.latest?.let { onDeleteNotification(it) }
-            },
-            // v7.12：被过滤条目菜单保留「还原」
-            showRestore = entry.blocked,
-            context = context
-        )
-    }
+    foldSegments(
+        segments = segments,
+        expandedFoldPackages = expandedFoldPackages,
+        onToggleFold = onToggleFold,
+        onEntryHistoryClick = onEntryHistoryClick,
+        onOpenNotification = onOpenNotification,
+        onRestoreNotification = onRestoreNotification,
+        onCreateRuleFromNotification = onCreateRuleFromNotification,
+        onDeleteNotification = onDeleteNotification,
+        context = context
+    )
 }
 
 // --- "By App" tab --- 按应用分组；分组标题吸顶，右侧为监控按钮 ---
 @OptIn(ExperimentalFoundationApi::class)
 private fun LazyListScope.byAppItems(
     appGrouped: List<Map.Entry<String, List<NotificationHistoryEntry>>>,
+    groupFoldSegments: List<List<FoldSegment>>,
     unmonitoredApps: Set<String>,
     expandedApps: MutableState<Set<String>>,
+    expandedFoldPackages: MutableState<Set<String>>,
+    onToggleFold: (String) -> Unit,
     onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
     onOpenNotification: (SimpleNotification) -> Unit,
     onRestoreNotification: (SimpleNotification) -> Unit,
@@ -1071,7 +1113,8 @@ private fun LazyListScope.byAppItems(
     context: android.content.Context
 ) {
     // v7.44：分组结果由上层 remember 缓存传入，此处直接遍历
-    appGrouped.forEach { (appName, appEntries) ->
+    // v7.45：组内按折叠分段渲染（同 app 组内 count 合计 >= 4 时折叠）
+    appGrouped.forEachIndexed { index, (appName, appEntries) ->
         val packageName = appEntries.firstOrNull()?.packageName
         val isExpanded = expandedApps.value.contains(appName)
 
@@ -1091,20 +1134,17 @@ private fun LazyListScope.byAppItems(
         }
 
         if (isExpanded) {
-            itemsIndexed(appEntries, key = { idx, e -> "${appName}_${idx}_${e.id}" }) { _, entry ->
-                NotificationCard(
-                    entry = entry,
-                    onHistoryClick = { onEntryHistoryClick(entry) },
-                    onOpen = { entry.latest?.let { onOpenNotification(it) } },
-                    onRestore = { entry.latest?.let { onRestoreNotification(it) } },
-                    onCreateRule = { entry.latest?.let { onCreateRuleFromNotification(it) } },
-                    onDelete = { entry.latest?.let { onDeleteNotification(it) } },
-                    // v7.12：被过滤条目菜单保留「还原」
-                    showRestore = entry.blocked,
-                    context = context,
-                    compact = false
-                )
-            }
+            foldSegments(
+                segments = groupFoldSegments.getOrNull(index) ?: emptyList(),
+                expandedFoldPackages = expandedFoldPackages,
+                onToggleFold = onToggleFold,
+                onEntryHistoryClick = onEntryHistoryClick,
+                onOpenNotification = onOpenNotification,
+                onRestoreNotification = onRestoreNotification,
+                onCreateRuleFromNotification = onCreateRuleFromNotification,
+                onDeleteNotification = onDeleteNotification,
+                context = context
+            )
         }
     }
 
@@ -1248,7 +1288,10 @@ private fun AppGroupHeader(
 private fun LazyListScope.byRuleItems(
     ruleById: Map<String, BlockerRule>,
     ruleGrouped: List<Map.Entry<String?, List<NotificationHistoryEntry>>>,
+    groupFoldSegments: List<List<FoldSegment>>,
     expandedRuleIds: MutableState<Set<String>>,
+    expandedFoldPackages: MutableState<Set<String>>,
+    onToggleFold: (String) -> Unit,
     unknownGroupLabel: String,
     onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
     onOpenNotification: (SimpleNotification) -> Unit,
@@ -1258,7 +1301,8 @@ private fun LazyListScope.byRuleItems(
     context: android.content.Context
 ) {
     // v7.44：ruleById/分组/排序结果由上层 remember 缓存传入，此处直接遍历
-    ruleGrouped.forEach { (ruleId, groupEntries) ->
+    // v7.45：组内按折叠分段渲染（规则组内再按连续同 app 分段）
+    ruleGrouped.forEachIndexed { index, (ruleId, groupEntries) ->
         val rule = ruleId?.let { ruleById[it] }
         val first = groupEntries.firstOrNull()
         val sourceApp = rule?.sourcePackages?.firstOrNull()
@@ -1286,19 +1330,17 @@ private fun LazyListScope.byRuleItems(
         }
 
         if (isExpanded) {
-            itemsIndexed(groupEntries, key = { idx, e -> "${groupKey}_${idx}_${e.id}" }) { _, entry ->
-                NotificationCard(
-                    entry = entry,
-                    onHistoryClick = { onEntryHistoryClick(entry) },
-                    onOpen = { entry.latest?.let { onOpenNotification(it) } },
-                    onRestore = { entry.latest?.let { onRestoreNotification(it) } },
-                    onCreateRule = { entry.latest?.let { onCreateRuleFromNotification(it) } },
-                    onDelete = { entry.latest?.let { onDeleteNotification(it) } },
-                    showRestore = true,
-                    context = context,
-                    compact = false
-                )
-            }
+            foldSegments(
+                segments = groupFoldSegments.getOrNull(index) ?: emptyList(),
+                expandedFoldPackages = expandedFoldPackages,
+                onToggleFold = onToggleFold,
+                onEntryHistoryClick = onEntryHistoryClick,
+                onOpenNotification = onOpenNotification,
+                onRestoreNotification = onRestoreNotification,
+                onCreateRuleFromNotification = onCreateRuleFromNotification,
+                onDeleteNotification = onDeleteNotification,
+                context = context
+            )
         }
     }
 }
@@ -1410,6 +1452,7 @@ private fun RuleGroupHeader(
 }
 
 // --- 聚合通知卡片：单击弹菜单；右侧徽标点击打开变更历史 ---
+// v7.45：新增 indent 参数——折叠展开后的卡片水平缩进（宽度略缩），与未折叠卡片区分
 @Composable
 private fun NotificationCard(
     entry: NotificationHistoryEntry,
@@ -1420,7 +1463,8 @@ private fun NotificationCard(
     onDelete: () -> Unit,
     showRestore: Boolean,
     context: android.content.Context,
-    compact: Boolean = false
+    compact: Boolean = false,
+    indent: Dp = 0.dp
 ) {
     val notification = entry.latest ?: return
     var menuExpanded by remember { mutableStateOf(false) }
@@ -1449,7 +1493,8 @@ private fun NotificationCard(
             onClick = { menuExpanded = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp),
+                .padding(vertical = 4.dp)
+                .padding(horizontal = indent),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -1580,6 +1625,177 @@ private fun NotificationCard(
                 onCreateRule = onCreateRule,
                 onRestore = onRestore
             )
+        }
+    }
+}
+
+// ================= v7.45：通知卡片折叠 =================
+// 规则：连续收到同一个 app 的通知（packageName 一致 + 列表连续相邻），段内各 entry.count 之和 >= 4 时折叠。
+// 段内最新一条（时间倒序第一位）正常显示，其下方插入折叠卡片；点击展开后其余条目缩宽显示，
+// 收起提示卡带吸顶效果（与应用分组头一致）。不修改聚合逻辑，仅在列表层做折叠。
+
+private const val FOLD_THRESHOLD = 4
+/** 折叠展开后卡片的水平缩进量（宽度略缩，与未折叠卡片区分） */
+private val FoldCardIndent = 20.dp
+
+/** 折叠分段：同一 packageName 且连续相邻的聚合条目段 */
+private class FoldSegment(
+    val packageName: String?,
+    val appLabel: String?,
+    val entries: List<NotificationHistoryEntry>
+) {
+    val totalCount: Int get() = entries.sumOf { it.count }
+}
+
+/** 按 packageName 连续相邻分段（输入需已按时间倒序；段内第一条即最新一条） */
+private fun buildFoldSegments(entries: List<NotificationHistoryEntry>): List<FoldSegment> {
+    val result = mutableListOf<FoldSegment>()
+    var i = 0
+    while (i < entries.size) {
+        val pkg = entries[i].packageName
+        var j = i
+        while (j + 1 < entries.size && entries[j + 1].packageName == pkg) j++
+        result.add(FoldSegment(pkg, entries[i].appLabel, entries.subList(i, j + 1)))
+        i = j + 1
+    }
+    return result
+}
+
+/** 折叠/收起提示卡：展开"xxapp"的其余 n 条通知（ExpandMore）/ 收起（ExpandLess） */
+@Composable
+private fun FoldToggleCard(
+    appLabel: String,
+    hiddenCount: Int,
+    isExpanded: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(
+                    if (isExpanded) R.string.fold_collapse_hint else R.string.fold_expand_hint,
+                    appLabel, hiddenCount
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = stringResource(if (isExpanded) R.string.collapse else R.string.expand),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * v7.45：通用折叠分段渲染（LazyListScope 扩展，三个 tab 共用）。
+ * - 段 count 合计 < 4 或单条段：正常逐条渲染普通卡片；
+ * - 段 count 合计 >= 4：最新一条正常显示，其下方插入折叠提示卡；
+ *   展开后其余条目以缩宽卡片渲染，收起提示卡改用 stickyHeader 吸顶（与 AppGroupHeader 一致）。
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private fun LazyListScope.foldSegments(
+    segments: List<FoldSegment>,
+    expandedFoldPackages: MutableState<Set<String>>,
+    onToggleFold: (String) -> Unit,
+    onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
+    onOpenNotification: (SimpleNotification) -> Unit,
+    onRestoreNotification: (SimpleNotification) -> Unit,
+    onCreateRuleFromNotification: (SimpleNotification) -> Unit,
+    onDeleteNotification: (SimpleNotification) -> Unit,
+    context: android.content.Context
+) {
+    segments.forEach { seg ->
+        val pkg = seg.packageName
+        val foldable = pkg != null && seg.totalCount >= FOLD_THRESHOLD && seg.entries.size > 1
+        if (!foldable) {
+            // 不满足折叠条件：正常逐条渲染（含角标、时间、点击行为，与原实现一致）
+            seg.entries.forEach { entry ->
+                item(key = entry.id) {
+                    NotificationCard(
+                        entry = entry,
+                        onHistoryClick = { onEntryHistoryClick(entry) },
+                        onOpen = { entry.latest?.let { onOpenNotification(it) } },
+                        onRestore = { entry.latest?.let { onRestoreNotification(it) } },
+                        onCreateRule = { entry.latest?.let { onCreateRuleFromNotification(it) } },
+                        onDelete = { entry.latest?.let { onDeleteNotification(it) } },
+                        showRestore = entry.blocked,
+                        context = context
+                    )
+                }
+            }
+        } else {
+            val isExpanded = expandedFoldPackages.value.contains(pkg)
+            val appLabel = seg.appLabel ?: pkg
+            val hiddenCount = seg.entries.size - 1
+            // 最新一条（时间倒序第一位）正常显示
+            val first = seg.entries.first()
+            item(key = "${first.id}_fold_head") {
+                NotificationCard(
+                    entry = first,
+                    onHistoryClick = { onEntryHistoryClick(first) },
+                    onOpen = { first.latest?.let { onOpenNotification(it) } },
+                    onRestore = { first.latest?.let { onRestoreNotification(it) } },
+                    onCreateRule = { first.latest?.let { onCreateRuleFromNotification(it) } },
+                    onDelete = { first.latest?.let { onDeleteNotification(it) } },
+                    showRestore = first.blocked,
+                    context = context
+                )
+            }
+            if (isExpanded) {
+                // 收起提示卡：仍在最新一条下方，stickyHeader 吸顶方便随时折叠
+                stickyHeader(key = "fold_toggle_${pkg}_expanded") {
+                    FoldToggleCard(
+                        appLabel = appLabel,
+                        hiddenCount = hiddenCount,
+                        isExpanded = true,
+                        onClick = { onToggleFold(pkg) }
+                    )
+                }
+                // 其余 n 条：普通卡片但宽度略缩（水平缩进）
+                seg.entries.drop(1).forEachIndexed { idx, entry ->
+                    item(key = "${entry.id}_fold_body_$idx") {
+                        NotificationCard(
+                            entry = entry,
+                            onHistoryClick = { onEntryHistoryClick(entry) },
+                            onOpen = { entry.latest?.let { onOpenNotification(it) } },
+                            onRestore = { entry.latest?.let { onRestoreNotification(it) } },
+                            onCreateRule = { entry.latest?.let { onCreateRuleFromNotification(it) } },
+                            onDelete = { entry.latest?.let { onDeleteNotification(it) } },
+                            showRestore = entry.blocked,
+                            context = context,
+                            indent = FoldCardIndent
+                        )
+                    }
+                }
+            } else {
+                // 折叠提示卡：普通 item，位于最新一条下方
+                item(key = "fold_toggle_${pkg}_collapsed") {
+                    FoldToggleCard(
+                        appLabel = appLabel,
+                        hiddenCount = hiddenCount,
+                        isExpanded = false,
+                        onClick = { onToggleFold(pkg) }
+                    )
+                }
+            }
         }
     }
 }

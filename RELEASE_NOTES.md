@@ -1,8 +1,7 @@
-# v7.45
+# v7.46
 
 ## New Features
-- Added an optional "Extract remote views text" switch (default off): when enabled, notifications without visible text will have their action button labels and content descriptions extracted and used for rule matching and history records
+- Added notification card folding on the History screen: when an app has 4+ consecutive aggregated entries, they are collapsed into a single card with a "Show N more" toggle; works on all three tabs (By Time / By App / Filtered). The expand/collapse toggle stays sticky under the newest entry for one-tap folding, and expanded cards are slightly indented to distinguish from normal ones
 
-## Bug Fixes
-- Fixed lag when swiping between "Filtered" and "By App" tabs on the History screen: group-by/sort computation is now cached and no longer fully recomputed on every recomposition
-- Fixed app icons appearing with delay after tab switches or list recycling: added an in-process memory cache for app icons so PackageManager is not hit repeatedly
+## Improvements
+- Added translations for the new folding strings in Spanish, French, Japanese, Korean, Polish and Russian

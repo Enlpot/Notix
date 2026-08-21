@@ -305,4 +305,7 @@
     <string name="rule_name_use_suggestion">Użyj „%1$s”</string>
     <string name="rule_sound_vibration">Dźwięk i wibracje</string>
     <string name="rule_sound_vibration_desc">Skonfiguruj w ustawieniach systemu</string>
+    <!-- v7.45: Zwijanie kart powiadomień -->
+    <string name="fold_expand_hint">Pokaż %2$d więcej powiadomień z %1$s</string>
+    <string name="fold_collapse_hint">Zwiń %2$d powiadomień z %1$s</string>
 </resources>

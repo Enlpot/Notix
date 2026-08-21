@@ -305,4 +305,7 @@
     <string name="rule_name_use_suggestion">Utiliser « %1$s »</string>
     <string name="rule_sound_vibration">Son et vibration</string>
     <string name="rule_sound_vibration_desc">Configurer dans les paramètres système</string>
+    <!-- v7.45: Repli des cartes de notification -->
+    <string name="fold_expand_hint">Afficher %2$d autres notifications de %1$s</string>
+    <string name="fold_collapse_hint">Replier %2$d notifications de %1$s</string>
 </resources>
