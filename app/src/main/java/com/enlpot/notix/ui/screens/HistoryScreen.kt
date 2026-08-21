@@ -10,6 +10,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
+import java.util.IdentityHashMap
 import java.util.Locale
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -316,18 +317,13 @@ fun HistoryScreen(
         CrashLogDialog(onDismiss = { showCrashLogDialog = false })
     }
 
-    // --- 过滤数据（v7.12：三个 tab 统一基于 entries，被过滤标记在 NotificationHistoryEntry.blocked） ---
-    val activeEntries = when (selectedTab) {
-        HistoryTab.BY_TIME -> entries
-        HistoryTab.BY_APP -> entries
-        HistoryTab.FILTERED -> entries.filter { it.blocked }
-    }
-
+    // v7.47：三 tab 共用同一套数据缓存——删除 activeEntries（原依赖 selectedTab，切 tab 会导致 remember 缓存 key 失效、全量重算卡顿约 1s）
+    // 日期过滤统一基于 entries；FILTERED 的 blocked 过滤在渲染分组时由 filteredBlocked 派生，不再影响本缓存
     // v7.15：日期详情按组内任一 change 时间戳归属日过滤（避免跨天聚合组导致某日详情"未找到结果"）
-    val dayFilteredEntries = remember(activeEntries, selectedDay) {
+    val dayFilteredEntries = remember(entries, selectedDay) {
         val day = selectedDay
-        if (day == null) activeEntries
-        else activeEntries.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
+        if (day == null) entries
+        else entries.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
     }
 
     val filteredEntries = remember(dayFilteredEntries, searchQuery) {
@@ -384,8 +380,11 @@ fun HistoryScreen(
     val timeFoldSegments = remember(filteredEntries) {
         buildFoldSegments(filteredEntries.sortedByDescending { it.lastTimestamp })
     }
+    // v7.47：BY_APP 组内折叠按发送时间判定——组内相邻两条须在全局时间线（filteredEntries 倒序）上位置连续
+    // （中间无任何其他 app 条目）才保持同段，否则断开，避免全同 pkg 被并成一大段
     val appFoldSegments = remember(appGrouped) {
-        appGrouped.map { (_, list) -> buildFoldSegments(list.sortedByDescending { it.lastTimestamp }) }
+        val globalOrder = filteredEntries.sortedByDescending { it.lastTimestamp }
+        appGrouped.map { (_, list) -> buildAppFoldSegments(list, globalOrder) }
     }
     val ruleFoldSegments = remember(ruleGrouped) {
         ruleGrouped.map { (_, list) -> buildFoldSegments(list.sortedByDescending { it.lastTimestamp }) }
@@ -1658,6 +1657,35 @@ private fun buildFoldSegments(entries: List<NotificationHistoryEntry>): List<Fol
         result.add(FoldSegment(pkg, entries[i].appLabel, entries.subList(i, j + 1)))
         i = j + 1
     }
+    return result
+}
+
+/**
+ * v7.47：BY_APP 组内折叠分段——按「发送时间全局相邻」判定（相邻两条之间若有其他 app 的通知时间落在其间则断开）。
+ * 组内条目先按 lastTimestamp 倒序；用身份（IdentityHashMap，避免 data class equals 合并相同内容）在全局时间线
+ * globalOrder 中定位每条的位置，仅当后一条位置 == 前一条位置 + 1（全局连续、中间无其他条目）时维持同段。
+ * 输入需保证 groupEntries 均来自 globalOrder 所在列表；未命中的条目视为不连续。
+ */
+private fun buildAppFoldSegments(
+    groupEntries: List<NotificationHistoryEntry>,
+    globalOrder: List<NotificationHistoryEntry>
+): List<FoldSegment> {
+    if (groupEntries.isEmpty()) return emptyList()
+    val globalPos = IdentityHashMap<NotificationHistoryEntry, Int>()
+    globalOrder.forEachIndexed { idx, e -> globalPos[e] = idx }
+    val sorted = groupEntries.sortedByDescending { it.lastTimestamp }
+    val result = mutableListOf<FoldSegment>()
+    var segStart = 0
+    for (i in 1 until sorted.size) {
+        val posPrev = globalPos[sorted[i - 1]]
+        val posCur = globalPos[sorted[i]]
+        val contiguous = posPrev != null && posCur != null && posCur == posPrev + 1
+        if (!contiguous) {
+            result.add(FoldSegment(sorted[segStart].packageName, sorted[segStart].appLabel, sorted.subList(segStart, i)))
+            segStart = i
+        }
+    }
+    result.add(FoldSegment(sorted[segStart].packageName, sorted[segStart].appLabel, sorted.subList(segStart, sorted.size)))
     return result
 }
 
