@@ -420,6 +420,19 @@ fun HistoryScreen(
     val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        // v7.50：标题行 + 总记录/今日统计移至最顶部（tab 上方），柱状图内不再重复渲染
+        val headerNowDate = LocalDate.now()
+        val headerTotalCount = remember(entries) { entries.sumOf { it.count } }
+        val headerTodayCount = remember(entries, headerNowDate) {
+            entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, headerNowDate) } }
+        }
+        HistoryTitleRow(
+            totalCount = headerTotalCount,
+            todayCount = headerTodayCount,
+            listenerPaused = listenerPaused,
+            onToggleListenerPaused = { showListenerPauseConfirm = true },
+            onBackToCurrentWeek = onBackToCurrentWeek
+        )
         // --- v7.7 吸顶搜索区：常规与吸顶统一紧凑样式（无动态缩放），仅区分展开/收起 ---
         val headerMode = if (searchExpanded) SearchHeaderMode.SEARCH_EXPANDED else SearchHeaderMode.NORMAL
         AnimatedContent(
@@ -553,7 +566,9 @@ fun HistoryScreen(
                         onToggleListenerPaused = { showListenerPauseConfirm = true },
                         onBackToCurrentWeek = onBackToCurrentWeek,
                         backToCurrentWeekTrigger = backToCurrentWeekTrigger,
-                        pagerState = chartPagerStates[page]
+                        pagerState = chartPagerStates[page],
+                        // v7.50：竖屏标题行/统计已在 tab 上方渲染，图表内不再重复
+                        showTitle = false
                     )
                 }
                 if (isLandscape) {
@@ -798,6 +813,7 @@ internal fun ChartPanel(
     onBackToCurrentWeek: () -> Unit,
     backToCurrentWeekTrigger: Int,
     pagerState: PagerState? = null,
+    showTitle: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val nowDate = LocalDate.now()
@@ -839,28 +855,33 @@ internal fun ChartPanel(
         entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, nowDate) } }
     }
     Column(modifier = modifier.fillMaxWidth()) {
-        // 顶部区：「通知历史」标题行 + 总通知/今日统计（v7.49：与柱状图卡片视觉分离）
-        HistoryTitleRow(
-            listenerPaused = listenerPaused,
-            onToggleListenerPaused = onToggleListenerPaused,
-            onBackToCurrentWeek = onBackToCurrentWeek
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Spacer(modifier = Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = stringResource(R.string.history_total, totalCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = stringResource(R.string.history_today, todayCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        // v7.50：竖屏时标题行 + 统计已移至 tab 上方（showTitle=false）；横屏左栏保留完整面板
+        if (showTitle) {
+            // 顶部区：「通知历史」标题行 + 总通知/今日统计（v7.49：与柱状图卡片视觉分离）
+            HistoryTitleRow(
+                totalCount = totalCount,
+                todayCount = todayCount,
+                listenerPaused = listenerPaused,
+                onToggleListenerPaused = onToggleListenerPaused,
+                onBackToCurrentWeek = onBackToCurrentWeek
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = stringResource(R.string.history_total, totalCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = stringResource(R.string.history_today, todayCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         // v7.49：柱状图独立为圆角深灰卡片；左右小箭头（◀/▶）仅作滑动提示，不可点击
@@ -1041,9 +1062,12 @@ private fun androidx.compose.foundation.lazy.LazyItemScope.EmptyStateBox(
     }
 }
 
-// --- v7.7：标题行（"通知历史" + 通知监听铃铛），作为列表项随内容滑出 ---
+// --- v7.7：标题行（"通知历史" + 总记录/今日统计 + 通知监听铃铛），作为列表项随内容滑出 ---
+// v7.50：统计移至标题行右侧（竖屏顶部固定展示；横屏左栏 ChartPanel 内展示）
 @Composable
 private fun HistoryTitleRow(
+    totalCount: Int,
+    todayCount: Int,
     listenerPaused: Boolean,
     onToggleListenerPaused: () -> Unit,
     onBackToCurrentWeek: () -> Unit,
@@ -1062,6 +1086,19 @@ private fun HistoryTitleRow(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = stringResource(R.string.history_total, totalCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(R.string.history_today, todayCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
         IconButton(onClick = { onToggleListenerPaused() }) {
             if (listenerPaused) {
                 Icon(
@@ -1868,7 +1905,8 @@ private fun LazyListScope.foldSegments(
         } else {
             val isExpanded = expandedFoldPackages.value.contains(pkg)
             val appLabel = seg.appLabel ?: pkg
-            val hiddenCount = seg.entries.size - 1
+            // v7.50：折叠卡数字显示该折叠段的通知总条数（所有 entry 的 count 之和），展开/收起态一致
+            val hiddenCount = seg.entries.sumOf { it.count }
             // 最新一条（时间倒序第一位）正常显示
             val first = seg.entries.first()
             // v7.48：段头 index（该 item 在全局 LazyColumn 中的位置），收起后列表项数变化但段头 index 不变
@@ -1895,9 +1933,13 @@ private fun LazyListScope.foldSegments(
                         hiddenCount = hiddenCount,
                         isExpanded = true,
                         onClick = {
+                            // v7.50：仅当段头已滚出视口（靠 stickyHeader 吸顶显示）时才回滚到段头；
+                            // 段头仍在视口内时保持原滚动位置，避免突兀跳转
+                            val headVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == headIndex }
                             onToggleFold(pkg)
-                            // v7.48：收起后立即回滚到段头（最新一条置顶），而非停留在原 offset
-                            scope.launch { listState.scrollToItem(headIndex) }
+                            if (!headVisible) {
+                                scope.launch { listState.scrollToItem(headIndex) }
+                            }
                         }
                     )
                 }

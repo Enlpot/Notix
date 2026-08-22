@@ -4,8 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.enlpot.notix.NotificationColorEngine
@@ -46,9 +45,8 @@ import java.util.Locale
  * 单条通知详情弹窗（v7.35 抽取为可复用组件，历史列表与聚合窗口共用）。
  *
  * 高度自适应：上限窗口 80%，内容短则压缩到内容高度，超出则 80% 内滚动；
- * 标题/正文可光标选择复制；底部操作按钮（删除 / 打开 / 创建规则 / 还原）固定。
+ * 标题/正文可光标选择复制；底部操作按钮（删除 / 打开 / 还原 / 创建规则）一排并排显示。
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NotificationDetailDialog(
     notification: SimpleNotification,
@@ -160,16 +158,16 @@ fun NotificationDetailDialog(
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    // 底部按钮区：固定四按钮（删除/打开/创建规则/还原），带背景色圆角矩形样式，按钮多时自动换行
+                    // 底部按钮区：四按钮一排并排显示（v7.50：删除/打开/还原/创建规则，不再换行）
                     val primaryColor = MaterialTheme.colorScheme.primary
                     val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
                     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    FlowRow(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         // 删除：error 红底
                         Surface(
@@ -177,6 +175,7 @@ fun NotificationDetailDialog(
                                 onDismiss()
                                 onDelete()
                             },
+                            modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
                             color = errorColor
                         ) {
@@ -185,7 +184,8 @@ fun NotificationDetailDialog(
                                 color = errorFg,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
                             )
                         }
                         // 打开：主题色底
@@ -194,6 +194,7 @@ fun NotificationDetailDialog(
                                 onDismiss()
                                 onOpen()
                             },
+                            modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
                             color = primaryColor
                         ) {
@@ -202,7 +203,27 @@ fun NotificationDetailDialog(
                                 color = onPrimaryColor,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
+                            )
+                        }
+                        // 还原：灰底
+                        Surface(
+                            onClick = {
+                                onDismiss()
+                                onRestore?.invoke()
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = stringResource(R.string.notification_restore),
+                                color = onSurfaceVariantColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
                             )
                         }
                         // 创建规则：主题色边框透明底
@@ -211,6 +232,7 @@ fun NotificationDetailDialog(
                                 onDismiss()
                                 onCreateRule()
                             },
+                            modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
                             color = Color.Transparent,
                             border = BorderStroke(1.dp, primaryColor)
@@ -220,24 +242,8 @@ fun NotificationDetailDialog(
                                 color = primaryColor,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                            )
-                        }
-                        // 还原：灰底
-                        Surface(
-                            onClick = {
-                                onDismiss()
-                                onRestore?.invoke()
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notification_restore),
-                                color = onSurfaceVariantColor,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
                             )
                         }
                     }
