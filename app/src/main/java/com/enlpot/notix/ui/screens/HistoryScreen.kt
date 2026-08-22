@@ -122,6 +122,7 @@ import com.enlpot.notix.ui.components.CrashLogDialog
 import com.enlpot.notix.ui.components.NotificationDetailDialog
 import com.enlpot.notix.ui.components.EmptyState
 import com.enlpot.notix.ui.components.RealAppIcon
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -517,6 +518,8 @@ fun HistoryScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val tab = HistoryTab.entries[page]
+                // v7.48：折叠段收起后回滚段头所需的协程作用域与全局 item index 计数器
+                val listScope = rememberCoroutineScope()
                 // v7.40：横屏时图表固定左栏、通知列表右栏；竖屏保持原滚动结构
                 val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
                 // 图表头部块：标题行 + 统计 + 柱状图 + 日期筛选行（v7.41：抽为 ChartPanel 通用图表面板）
@@ -542,6 +545,7 @@ fun HistoryScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
                     ) {
+                        val itemIndex = IntArray(1)
                         historyListItems(
                             tab = tab,
                             entries = entries,
@@ -567,8 +571,12 @@ fun HistoryScreen(
                             onDeleteNotification = onDeleteNotification,
                             onResumeMonitoring = onResumeMonitoring,
                             onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
-                            context = context
+                            context = context,
+                            itemIndex = itemIndex,
+                            listState = tabListStates[page],
+                            scope = listScope
                         )
+                        itemIndex[0]++
                         item(key = "scroll_room") {
                             Spacer(modifier = Modifier.fillParentMaxHeight())
                         }
@@ -580,6 +588,8 @@ fun HistoryScreen(
                         // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
                         contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
                     ) {
+                        val itemIndex = IntArray(1)
+                        itemIndex[0]++
                         item(key = "history_header") {
                             headerBlock()
                         }
@@ -608,8 +618,12 @@ fun HistoryScreen(
                             onDeleteNotification = onDeleteNotification,
                             onResumeMonitoring = onResumeMonitoring,
                             onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
-                            context = context
+                            context = context,
+                            itemIndex = itemIndex,
+                            listState = tabListStates[page],
+                            scope = listScope
                         )
+                        itemIndex[0]++
                         item(key = "scroll_room") {
                             Spacer(modifier = Modifier.fillParentMaxHeight())
                         }
@@ -647,7 +661,10 @@ private fun LazyListScope.historyListItems(
     onDeleteNotification: (SimpleNotification) -> Unit,
     onResumeMonitoring: (String) -> Unit,
     onShowStopMonitoringDialog: (Pair<String, String>?) -> Unit,
-    context: android.content.Context
+    context: android.content.Context,
+    itemIndex: IntArray,
+    listState: LazyListState,
+    scope: CoroutineScope
 ) {
     when (tab) {
         HistoryTab.BY_TIME -> {
@@ -665,7 +682,10 @@ private fun LazyListScope.historyListItems(
                     onRestoreNotification = onRestoreNotification,
                     onCreateRuleFromNotification = onCreateRuleFromNotification,
                     onDeleteNotification = onDeleteNotification,
-                    context = context
+                    context = context,
+                    itemIndex = itemIndex,
+                    listState = listState,
+                    scope = scope
                 )
             }
         }
@@ -689,7 +709,10 @@ private fun LazyListScope.historyListItems(
                     onDeleteNotification = onDeleteNotification,
                     onResumeMonitoring = onResumeMonitoring,
                     onShowStopMonitoringDialog = onShowStopMonitoringDialog,
-                    context = context
+                    context = context,
+                    itemIndex = itemIndex,
+                    listState = listState,
+                    scope = scope
                 )
             }
         }
@@ -710,7 +733,10 @@ private fun LazyListScope.historyListItems(
                     onRestoreNotification = onRestoreNotification,
                     onCreateRuleFromNotification = onCreateRuleFromNotification,
                     onDeleteNotification = onDeleteNotification,
-                    context = context
+                    context = context,
+                    itemIndex = itemIndex,
+                    listState = listState,
+                    scope = scope
                 )
             }
         }
@@ -1078,7 +1104,10 @@ private fun LazyListScope.byTimeItems(
     onRestoreNotification: (SimpleNotification) -> Unit,
     onCreateRuleFromNotification: (SimpleNotification) -> Unit,
     onDeleteNotification: (SimpleNotification) -> Unit,
-    context: android.content.Context
+    context: android.content.Context,
+    itemIndex: IntArray,
+    listState: LazyListState,
+    scope: CoroutineScope
 ) {
     foldSegments(
         segments = segments,
@@ -1089,7 +1118,10 @@ private fun LazyListScope.byTimeItems(
         onRestoreNotification = onRestoreNotification,
         onCreateRuleFromNotification = onCreateRuleFromNotification,
         onDeleteNotification = onDeleteNotification,
-        context = context
+        context = context,
+        itemIndex = itemIndex,
+        listState = listState,
+        scope = scope
     )
 }
 
@@ -1109,7 +1141,10 @@ private fun LazyListScope.byAppItems(
     onDeleteNotification: (SimpleNotification) -> Unit,
     onResumeMonitoring: (String) -> Unit,
     onShowStopMonitoringDialog: (Pair<String, String>?) -> Unit,
-    context: android.content.Context
+    context: android.content.Context,
+    itemIndex: IntArray,
+    listState: LazyListState,
+    scope: CoroutineScope
 ) {
     // v7.44：分组结果由上层 remember 缓存传入，此处直接遍历
     // v7.45：组内按折叠分段渲染（同 app 组内 count 合计 >= 4 时折叠）
@@ -1117,6 +1152,7 @@ private fun LazyListScope.byAppItems(
         val packageName = appEntries.firstOrNull()?.packageName
         val isExpanded = expandedApps.value.contains(appName)
 
+        itemIndex[0]++
         stickyHeader(key = "header_$appName") {
             AppGroupHeader(
                 appName = appName,
@@ -1142,13 +1178,17 @@ private fun LazyListScope.byAppItems(
                 onRestoreNotification = onRestoreNotification,
                 onCreateRuleFromNotification = onCreateRuleFromNotification,
                 onDeleteNotification = onDeleteNotification,
-                context = context
+                context = context,
+                itemIndex = itemIndex,
+                listState = listState,
+                scope = scope
             )
         }
     }
 
     // Unmonitored apps section
     if (unmonitoredApps.isNotEmpty()) {
+        itemIndex[0]++
         item(key = "unmonitored_header") {
             var isUnmonitoredExpanded by remember { mutableStateOf(false) }
             Column {
@@ -1297,7 +1337,10 @@ private fun LazyListScope.byRuleItems(
     onRestoreNotification: (SimpleNotification) -> Unit,
     onCreateRuleFromNotification: (SimpleNotification) -> Unit,
     onDeleteNotification: (SimpleNotification) -> Unit,
-    context: android.content.Context
+    context: android.content.Context,
+    itemIndex: IntArray,
+    listState: LazyListState,
+    scope: CoroutineScope
 ) {
     // v7.44：ruleById/分组/排序结果由上层 remember 缓存传入，此处直接遍历
     // v7.45：组内按折叠分段渲染（规则组内再按连续同 app 分段）
@@ -1314,6 +1357,7 @@ private fun LazyListScope.byRuleItems(
         val title = if (rule != null) buildRuleGroupTitle(rule, appName) else unknownGroupLabel
         val isExpanded = expandedRuleIds.value.contains(groupKey)
 
+        itemIndex[0]++
         stickyHeader(key = "rule_header_$groupKey") {
             RuleGroupHeader(
                 title = title,
@@ -1338,7 +1382,10 @@ private fun LazyListScope.byRuleItems(
                 onRestoreNotification = onRestoreNotification,
                 onCreateRuleFromNotification = onCreateRuleFromNotification,
                 onDeleteNotification = onDeleteNotification,
-                context = context
+                context = context,
+                itemIndex = itemIndex,
+                listState = listState,
+                scope = scope
             )
         }
     }
@@ -1748,7 +1795,10 @@ private fun LazyListScope.foldSegments(
     onRestoreNotification: (SimpleNotification) -> Unit,
     onCreateRuleFromNotification: (SimpleNotification) -> Unit,
     onDeleteNotification: (SimpleNotification) -> Unit,
-    context: android.content.Context
+    context: android.content.Context,
+    itemIndex: IntArray,
+    listState: LazyListState,
+    scope: CoroutineScope
 ) {
     segments.forEach { seg ->
         val pkg = seg.packageName
@@ -1756,6 +1806,7 @@ private fun LazyListScope.foldSegments(
         if (!foldable) {
             // 不满足折叠条件：正常逐条渲染（含角标、时间、点击行为，与原实现一致）
             seg.entries.forEach { entry ->
+                itemIndex[0]++
                 item(key = entry.id) {
                     NotificationCard(
                         entry = entry,
@@ -1775,6 +1826,9 @@ private fun LazyListScope.foldSegments(
             val hiddenCount = seg.entries.size - 1
             // 最新一条（时间倒序第一位）正常显示
             val first = seg.entries.first()
+            // v7.48：段头 index（该 item 在全局 LazyColumn 中的位置），收起后列表项数变化但段头 index 不变
+            val headIndex = itemIndex[0]
+            itemIndex[0]++
             item(key = "${first.id}_fold_head") {
                 NotificationCard(
                     entry = first,
@@ -1789,16 +1843,22 @@ private fun LazyListScope.foldSegments(
             }
             if (isExpanded) {
                 // 收起提示卡：仍在最新一条下方，stickyHeader 吸顶方便随时折叠
+                itemIndex[0]++
                 stickyHeader(key = "fold_toggle_${pkg}_${first.id}_expanded") {
                     FoldToggleCard(
                         appLabel = appLabel,
                         hiddenCount = hiddenCount,
                         isExpanded = true,
-                        onClick = { onToggleFold(pkg) }
+                        onClick = {
+                            onToggleFold(pkg)
+                            // v7.48：收起后立即回滚到段头（最新一条置顶），而非停留在原 offset
+                            scope.launch { listState.scrollToItem(headIndex) }
+                        }
                     )
                 }
                 // 其余 n 条：普通卡片但宽度略缩（水平缩进）
                 seg.entries.drop(1).forEachIndexed { idx, entry ->
+                    itemIndex[0]++
                     item(key = "${entry.id}_fold_body_$idx") {
                         NotificationCard(
                             entry = entry,
@@ -1815,6 +1875,7 @@ private fun LazyListScope.foldSegments(
                 }
             } else {
                 // 折叠提示卡：普通 item，位于最新一条下方
+                itemIndex[0]++
                 item(key = "fold_toggle_${pkg}_${first.id}_collapsed") {
                     FoldToggleCard(
                         appLabel = appLabel,
