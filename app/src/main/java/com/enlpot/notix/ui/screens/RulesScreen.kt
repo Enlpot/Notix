@@ -1,6 +1,7 @@
 package com.enlpot.notix.ui.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,20 +19,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,39 +75,69 @@ fun RulesScreen(
 ) {
     var ruleToDelete by remember { mutableStateOf<BlockerRule?>(null) }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onCreateRuleClick,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.add_new_rule)
-                )
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+        // 主标题「规则」
+        Text(
+            text = stringResource(R.string.rules_title),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        // 副标题「共 N 条规则」
+        Text(
+            text = stringResource(R.string.rules_count, rules.size),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        // 顶部横幅：主题色圆角「+ 新建规则」
+        Button(
+            onClick = onCreateRuleClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.add_new_rule),
+                fontWeight = FontWeight.Medium,
+            )
         }
-    ) { paddingValues ->
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (rules.isEmpty()) {
+            // 空态：标题与横幅按钮仍在顶部，下方仅显示 EmptyState 图标+文案（不显示新建动作按钮）
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
             ) {
                 EmptyState(
                     icon = Icons.AutoMirrored.Outlined.Rule,
                     title = stringResource(R.string.no_rules_created),
                     description = stringResource(R.string.no_rules_created_desc),
-                    actionLabel = stringResource(R.string.add_new_rule),
-                    onAction = onCreateRuleClick
                 )
             }
         } else {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
+                    .fillMaxWidth()
+                    .weight(1f),
                 contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -126,34 +157,35 @@ fun RulesScreen(
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
+    }
 
-        // Delete confirmation dialog
-        ruleToDelete?.let { rule ->
-            AlertDialog(
-                onDismissRequest = { ruleToDelete = null },
-                title = { Text(stringResource(R.string.confirm_delete_rule_title)) },
-                text = { Text(stringResource(R.string.confirm_delete_rule_message)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        onDeleteRule(rule)
-                        ruleToDelete = null
-                    }) {
-                        Text(
-                            stringResource(R.string.confirm_delete),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { ruleToDelete = null }) {
-                        Text(stringResource(R.string.cancel))
-                    }
+    // Delete confirmation dialog
+    ruleToDelete?.let { rule ->
+        AlertDialog(
+            onDismissRequest = { ruleToDelete = null },
+            title = { Text(stringResource(R.string.confirm_delete_rule_title)) },
+            text = { Text(stringResource(R.string.confirm_delete_rule_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteRule(rule)
+                    ruleToDelete = null
+                }) {
+                    Text(
+                        stringResource(R.string.confirm_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
-            )
-        }
+            },
+            dismissButton = {
+                TextButton(onClick = { ruleToDelete = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RuleCard(
     rule: BlockerRule,
@@ -185,10 +217,14 @@ private fun RuleCard(
     val clickableFg = remember(cardBg) { Color(NotificationColorEngine.chooseTextColor(cardBg.toArgb())) }
 
     Card(
-        onClick = { onRuleClick(rule) },
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (rule.isEnabled) 1f else 0.5f),
+            .alpha(if (rule.isEnabled) 1f else 0.5f)
+            // v7.50：长按卡片弹出删除确认（替换顶部 Delete 按钮）
+            .combinedClickable(
+                onClick = { onRuleClick(rule) },
+                onLongClick = { onDeleteRule(rule) },
+            ),
         colors = CardDefaults.cardColors(
             containerColor = cardBg
         ),
@@ -218,7 +254,7 @@ private fun RuleCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                // v7.26：重新扫描 / 删除 / 开关三按钮风格统一（32dp 图标按钮 + cardBg 对比度前景色）
+                // v7.26/v7.50：重新扫描按钮 + 开关（删除改长按卡片触发）
                 IconButton(
                     onClick = onRescan,
                     modifier = Modifier.size(32.dp),
@@ -229,20 +265,6 @@ private fun RuleCard(
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = stringResource(R.string.notification_rescan),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                IconButton(
-                    onClick = { onDeleteRule(rule) },
-                    modifier = Modifier.size(32.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        contentColor = clickableFg
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.delete),
                         modifier = Modifier.size(18.dp)
                     )
                 }

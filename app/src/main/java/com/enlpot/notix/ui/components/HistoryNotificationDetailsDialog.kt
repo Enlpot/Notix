@@ -64,7 +64,8 @@ fun HistoryNotificationDetailsDialog(
     onDismiss: () -> Unit,
     onOpenNotification: (SimpleNotification) -> Unit = {},
     onCreateRule: (SimpleNotification) -> Unit = {},
-    onDeleteNotification: (SimpleNotification) -> Unit = {}
+    onDeleteNotification: (SimpleNotification) -> Unit = {},
+    onRestoreNotification: (SimpleNotification) -> Unit = {}
 ) {
     val timeFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
     val changes = entry.changes
@@ -131,7 +132,8 @@ fun HistoryNotificationDetailsDialog(
                             timeFormat = timeFormat,
                             onOpen = { onOpenNotification(change) },
                             onCreateRule = { onCreateRule(change) },
-                            onDelete = { onDeleteNotification(change) }
+                            onDelete = { onDeleteNotification(change) },
+                            onRestore = { onRestoreNotification(change) }
                         )
                     }
                 }
@@ -160,7 +162,8 @@ private fun ChangeNotificationCard(
     timeFormat: SimpleDateFormat,
     onOpen: () -> Unit,
     onCreateRule: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onRestore: () -> Unit
 ) {
     var detailExpanded by remember { mutableStateOf(false) }
     // v7.14：已过滤标签 error 实底 + 对比度文字色（与通知卡片一致）
@@ -278,15 +281,17 @@ private fun ChangeNotificationCard(
         }
 
         // v7.35：方案A——点击变更卡片弹详情弹窗（复用 NotificationDetailDialog），操作入口进详情窗口内
+        // 四按钮固定显示（含还原）：v7.49 起 showRestore 恒为 true，聚合窗口也提供还原入口
         if (detailExpanded) {
             NotificationDetailDialog(
                 notification = change,
                 blocked = blocked,
-                showRestore = false,
+                showRestore = true,
                 onDismiss = { detailExpanded = false },
                 onDelete = onDelete,
                 onOpen = onOpen,
-                onCreateRule = onCreateRule
+                onCreateRule = onCreateRule,
+                onRestore = onRestore
             )
         }
     }

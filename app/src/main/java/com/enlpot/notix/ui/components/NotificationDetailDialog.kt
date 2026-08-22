@@ -1,5 +1,6 @@
 package com.enlpot.notix.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -160,42 +160,85 @@ fun NotificationDetailDialog(
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    // 底部按钮区：动态排布，按钮多时自动换行
+                    // 底部按钮区：固定四按钮（删除/打开/创建规则/还原），带背景色圆角矩形样式，按钮多时自动换行
+                    val primaryColor = MaterialTheme.colorScheme.primary
+                    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
+                    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
                     FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalArrangement = Arrangement.Center
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        TextButton(onClick = {
-                            onDismiss()
-                            onDelete()
-                        }) {
+                        // 删除：error 红底
+                        Surface(
+                            onClick = {
+                                onDismiss()
+                                onDelete()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = errorColor
+                        ) {
                             Text(
                                 text = stringResource(R.string.notification_delete),
-                                color = errorColor
+                                color = errorFg,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
-                        TextButton(onClick = {
-                            onDismiss()
-                            onOpen()
-                        }) {
-                            Text(stringResource(R.string.notification_open))
+                        // 打开：主题色底
+                        Surface(
+                            onClick = {
+                                onDismiss()
+                                onOpen()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = primaryColor
+                        ) {
+                            Text(
+                                text = stringResource(R.string.notification_open),
+                                color = onPrimaryColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
                         }
-                        TextButton(onClick = {
-                            onDismiss()
-                            onCreateRule()
-                        }) {
-                            Text(stringResource(R.string.notification_create_rule))
+                        // 创建规则：主题色边框透明底
+                        Surface(
+                            onClick = {
+                                onDismiss()
+                                onCreateRule()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.Transparent,
+                            border = BorderStroke(1.dp, primaryColor)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.notification_create_rule),
+                                color = primaryColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
                         }
-                        if (showRestore) {
-                            TextButton(onClick = {
+                        // 还原：灰底
+                        Surface(
+                            onClick = {
                                 onDismiss()
                                 onRestore?.invoke()
-                            }) {
-                                Text(stringResource(R.string.notification_restore))
-                            }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = stringResource(R.string.notification_restore),
+                                color = onSurfaceVariantColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
                         }
                     }
                 }

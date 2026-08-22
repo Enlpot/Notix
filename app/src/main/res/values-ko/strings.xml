@@ -312,4 +312,57 @@
     <!-- v7.45: 알림 카드 접기 -->
     <string name="fold_expand_hint">%1$s의 알림 %2$d개 더 보기</string>
     <string name="fold_collapse_hint">%1$s의 알림 %2$d개 접기</string>
+    <string name="change_count">%s개 변경</string>
+    <!-- v7.50: 설정 - 앱별 기록 지우기 다이얼로그 -->
+    <string name="clear_by_app_title">앱 선택</string>
+    <string name="clear_by_app_hint">기록을 지우려는 앱을 선택하세요(다중 선택)</string>
+    <string name="select_all">전체 선택</string>
+    <string name="clear_selected_apps_history">선택한 앱의 기록 지우기</string>
+
+    <!-- v7.50: 설정 - 저장공간 사용량 -->
+    <string name="settings_storage_usage">저장공간 사용량</string>
+    <string name="storage_usage_title">저장공간 사용량</string>
+    <string name="storage_usage_history">알림 기록</string>
+    <string name="storage_usage_history_desc">notification_history.json 등 파일. 지우면 모든 알림 기록이 삭제됩니다.</string>
+    <string name="storage_usage_rules">규칙</string>
+    <string name="storage_usage_rules_desc">rules.json 등 파일. 지우면 모든 규칙이 삭제됩니다.</string>
+    <string name="storage_usage_other">기타</string>
+    <string name="storage_usage_other_desc">크래시 로그 및 .bak/.corrupt/.tmp 임시 파일. 설정과 통계는 유지됩니다.</string>
+    <string name="storage_clear">지우기</string>
+    <string name="storage_clear_all">모두 지우기</string>
+    <string name="storage_clear_all_confirm_title">모두 지우시겠습니까?</string>
+    <string name="storage_clear_all_confirm_body">알림 기록, 규칙 및 기타 임시 파일이 지워집니다. 되돌릴 수 없습니다.</string>
+    <string name="storage_clear_history_confirm_title">알림 기록을 지우시겠습니까?</string>
+    <string name="storage_clear_history_confirm_body">모든 알림 기록이 영구적으로 삭제됩니다.</string>
+    <string name="storage_clear_rules_confirm_title">모든 규칙을 지우시겠습니까?</string>
+    <string name="storage_clear_rules_confirm_body">모든 규칙이 영구적으로 삭제됩니다.</string>
+    <string name="storage_clear_other_confirm_title">기타 파일을 지우시겠습니까?</string>
+    <string name="storage_clear_other_confirm_body">크래시 로그와 임시/백업 파일이 삭제됩니다. 설정과 통계에는 영향이 없습니다.</string>
+    <string name="storage_cleared">지웠습니다</string>
+
+    <!-- v7.50: 설정 - 기간별 기록 지우기 -->
+    <string name="clear_by_date_range_title">기간 선택</string>
+    <string name="clear_by_date_range_hint">시작일과 종료일을 선택하세요(첫날과 마지막 날 포함)</string>
+    <string name="clear_date_7d">7일</string>
+    <string name="clear_date_30d">30일</string>
+    <string name="clear_date_90d">90일</string>
+    <string name="clear_date_all">전체</string>
+    <string name="clear_this_range_history">이 기간의 기록 지우기</string>
+    <string name="rules_title">규칙</string>
+    <string name="rules_count">총 %1$d개 규칙</string>
+    <string name="rule_wizard_name_hint">규칙 이름(예: 스팸 SMS 차단)</string>
+    <string name="rule_wizard_unnamed_prefix">이름 없는 규칙</string>
+    <string name="rule_wizard_section_workflow">워크플로우</string>
+    <string name="rule_wizard_source_app">원본 앱</string>
+    <string name="rule_wizard_source_app_none">선택된 앱 없음</string>
+    <string name="rule_wizard_source_app_count">%1$d개 선택됨</string>
+    <string name="rule_wizard_condition_add">조건 추가</string>
+    <string name="rule_wizard_condition_none">조건 없음</string>
+    <string name="rule_wizard_condition_title">조건 설정</string>
+    <string name="rule_wizard_condition_keywords">키워드</string>
+    <string name="rule_wizard_condition_phone_state">휴대폰 상태</string>
+    <string name="rule_wizard_condition_time">시간</string>
+    <string name="rule_wizard_action_delete_title">작업 삭제</string>
+    <string name="rule_wizard_action_delete_message">이 작업을 삭제하시겠습니까?</string>
+    <string name="rule_wizard_action_drag_hint">드래그하여 순서 변경</string>
 </resources>

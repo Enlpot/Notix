@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ImportExport
@@ -41,9 +43,11 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -55,6 +59,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -97,8 +102,10 @@ import com.enlpot.notix.RuleStorage
 import com.enlpot.notix.RuleWizardSupport
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.ui.components.CrashLogDialog
+import com.enlpot.notix.ui.components.RealAppIcon
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -111,6 +118,7 @@ fun SettingsScreen(
     onClearHistory: () -> Unit = {},
     onClearHistoryByDate: (Long, Long) -> Unit = { _, _ -> },
     onClearHistoryByPackages: (Set<String>) -> Unit = {},
+    onClearRules: () -> Unit = {},
     pastNotifications: List<SimpleNotification> = emptyList(),
 ) {
     val context = LocalContext.current
@@ -180,6 +188,13 @@ fun SettingsScreen(
             pkg.contains(appSearchQuery, ignoreCase = true) ||
                     label.contains(appSearchQuery, ignoreCase = true)
         }
+    }
+
+    // v7.50：存储占用——二级界面路由与总占用（刷新时重算）
+    var showStorageUsageScreen by remember { mutableStateOf(false) }
+    var storageRefreshTick by remember { mutableStateOf(0) }
+    val storageTotalBytes = remember(context, storageRefreshTick) {
+        computeStorageUsageBytes(context)
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -387,70 +402,150 @@ fun SettingsScreen(
     // Clear history — by date range
     if (showClearByDateDialog) {
         val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showClearByDateDialog = false; dateError = null },
-            title = { Text(stringResource(R.string.clear_by_date_range)) },
-            text = {
-                Column {
-                    dateError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.height(4.dp))
-                    }
-                    OutlinedTextField(
-                        value = dateFormat.format(Date(startDateMillis)),
-                        onValueChange = { },
-                        label = { Text(stringResource(R.string.start_date)) },
-                        singleLine = true,
-                        readOnly = true,
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth().clickable { showStartDatePicker = true },
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                            disabledBorderColor = MaterialTheme.colorScheme.outline,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(24.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.clear_by_date_range_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
                         )
+                        IconButton(onClick = { showClearByDateDialog = false; dateError = null }) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.close)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.clear_by_date_range_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    dateError?.let {
+                        Spacer(Modifier.height(4.dp))
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    DateField(
+                        label = stringResource(R.string.start_date),
+                        value = dateFormat.format(Date(startDateMillis)),
+                        onClick = { showStartDatePicker = true }
                     )
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
+                    DateField(
+                        label = stringResource(R.string.end_date),
                         value = dateFormat.format(Date(endDateMillis)),
-                        onValueChange = { },
-                        label = { Text(stringResource(R.string.end_date)) },
-                        singleLine = true,
-                        readOnly = true,
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth().clickable { showEndDatePicker = true },
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                            disabledBorderColor = MaterialTheme.colorScheme.outline,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        onClick = { showEndDatePicker = true }
                     )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val startMs = startDateMillis
-                    cal.timeInMillis = endDateMillis
-                    cal.add(Calendar.DAY_OF_MONTH, 1)
-                    cal.add(Calendar.MILLISECOND, -1)
-                    val endMs = cal.timeInMillis
-                    if (endMs < startMs) {
-                        dateError = context.getString(R.string.invalid_date_range)
-                        return@TextButton
+                    Spacer(Modifier.height(16.dp))
+                    // v7.50：快捷选项（7天/30天/90天/全部）——仅更新日期范围，不直接清除
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                cal.timeInMillis = System.currentTimeMillis()
+                                endDateMillis = cal.timeInMillis
+                                cal.add(Calendar.DAY_OF_MONTH, -6)
+                                startDateMillis = cal.timeInMillis
+                                dateError = null
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.clear_date_7d), maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                cal.timeInMillis = System.currentTimeMillis()
+                                endDateMillis = cal.timeInMillis
+                                cal.add(Calendar.DAY_OF_MONTH, -29)
+                                startDateMillis = cal.timeInMillis
+                                dateError = null
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.clear_date_30d), maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                cal.timeInMillis = System.currentTimeMillis()
+                                endDateMillis = cal.timeInMillis
+                                cal.add(Calendar.DAY_OF_MONTH, -89)
+                                startDateMillis = cal.timeInMillis
+                                dateError = null
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.clear_date_90d), maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                startDateMillis = 0L
+                                endDateMillis = System.currentTimeMillis()
+                                dateError = null
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.clear_date_all), maxLines = 1)
+                        }
                     }
-                    onClearHistoryByDate(startMs, endMs)
-                    showClearByDateDialog = false
-                    showMessage(context.getString(R.string.toast_history_cleared))
-                }) {
-                    Text(stringResource(R.string.clear))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearByDateDialog = false; dateError = null }) {
-                    Text(stringResource(R.string.cancel))
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            val startMs = startDateMillis
+                            cal.timeInMillis = endDateMillis
+                            cal.add(Calendar.DAY_OF_MONTH, 1)
+                            cal.add(Calendar.MILLISECOND, -1)
+                            val endMs = cal.timeInMillis
+                            if (endMs < startMs) {
+                                dateError = context.getString(R.string.invalid_date_range)
+                                return@Button
+                            }
+                            onClearHistoryByDate(startMs, endMs)
+                            showClearByDateDialog = false
+                            dateError = null
+                            showMessage(context.getString(R.string.toast_history_cleared))
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text(
+                            stringResource(R.string.clear_this_range_history),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(
+                        onClick = { showClearByDateDialog = false; dateError = null },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(stringResource(R.string.cancel)) }
                 }
             }
-        )
+        }
     }
 
     // DatePicker dialogs
@@ -500,21 +595,75 @@ fun SettingsScreen(
 
     // Clear history — by app
     if (showClearByAppDialog) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showClearByAppDialog = false },
-            title = { Text(stringResource(R.string.clear_by_app)) },
-            text = {
-                if (uniqueApps.isEmpty()) {
-                    Text(stringResource(R.string.no_apps_in_history))
-                } else {
-                    Column {
-                        OutlinedTextField(
-                            value = appSearchQuery,
-                            onValueChange = { appSearchQuery = it },
-                            label = { Text(stringResource(R.string.search_apps)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(24.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.clear_by_app_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
                         )
+                        IconButton(onClick = { showClearByAppDialog = false }) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.close)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.clear_by_app_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    if (uniqueApps.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.no_apps_in_history),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = appSearchQuery,
+                                onValueChange = { appSearchQuery = it },
+                                label = { Text(stringResource(R.string.search_apps)) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            // v7.50：全选（切换式）——作用于当前 filteredApps
+                            TextButton(onClick = {
+                                val filteredPkgs = filteredApps.map { it.first }.toSet()
+                                selectedPackages = if (filteredPkgs.all { it in selectedPackages }) {
+                                    selectedPackages - filteredPkgs
+                                } else {
+                                    selectedPackages + filteredPkgs
+                                }
+                            }) {
+                                Text(stringResource(R.string.select_all))
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                         if (filteredApps.isEmpty()) {
                             Text(
@@ -527,12 +676,29 @@ fun SettingsScreen(
                             LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                                 items(filteredApps) { (pkg, label) ->
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().clickable {
-                                            selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg
-                                            else selectedPackages + pkg
-                                        }.padding(vertical = 4.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable {
+                                                selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg
+                                                else selectedPackages + pkg
+                                            }
+                                            .padding(vertical = 8.dp, horizontal = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        RealAppIcon(
+                                            packageName = pkg,
+                                            appName = label,
+                                            size = 32.dp
+                                        )
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(
+                                            text = label,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
                                         Checkbox(
                                             checked = pkg in selectedPackages,
                                             onCheckedChange = { checked ->
@@ -540,35 +706,35 @@ fun SettingsScreen(
                                                 else selectedPackages - pkg
                                             }
                                         )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(text = label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }
                         }
                     }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (selectedPackages.isNotEmpty()) {
-                            onClearHistoryByPackages(selectedPackages)
-                            showClearByAppDialog = false
-                            showMessage(context.getString(R.string.toast_history_cleared))
-                        }
-                    },
-                    enabled = selectedPackages.isNotEmpty()
-                ) {
-                    Text(stringResource(R.string.clear))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearByAppDialog = false }) {
-                    Text(stringResource(R.string.cancel))
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            if (selectedPackages.isNotEmpty()) {
+                                onClearHistoryByPackages(selectedPackages)
+                                showClearByAppDialog = false
+                                showMessage(context.getString(R.string.toast_history_cleared))
+                            }
+                        },
+                        enabled = selectedPackages.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) {
+                        Text(
+                            stringResource(R.string.clear_selected_apps_history),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
-        )
+        }
     }
 
     // v7.14：修复崩溃日志入口点击无反应——showCrashLogDialog 已声明但从未挂载 CrashLogDialog 渲染
@@ -584,6 +750,21 @@ fun SettingsScreen(
         // v7.24：应用内 Snackbar 提示（替代系统 Toast）
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
+        if (showStorageUsageScreen) {
+            // v7.50：存储占用二级界面
+            StorageUsageScreen(
+                onBack = {
+                    showStorageUsageScreen = false
+                    storageRefreshTick++
+                },
+                onClearHistory = onClearHistory,
+                onClearRules = onClearRules,
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+            )
+        } else {
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -615,6 +796,15 @@ fun SettingsScreen(
                     title = stringResource(R.string.clear_history),
                     subtitle = stringResource(R.string.clear_history_desc),
                     onClick = { showClearModeDialog = true },
+                    trailing = { NavChevron() }
+                )
+                // v7.50：存储占用入口（常规分区）
+                RowDivider()
+                SettingsRow(
+                    icon = Icons.Filled.Storage,
+                    title = stringResource(R.string.settings_storage_usage),
+                    subtitle = formatStorageBytes(storageTotalBytes),
+                    onClick = { showStorageUsageScreen = true },
                     trailing = { NavChevron() }
                 )
             }
@@ -925,6 +1115,7 @@ fun SettingsScreen(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
+        }
     }
 }
 
@@ -1085,4 +1276,33 @@ private fun readCappedText(context: Context, uri: Uri, maxBytes: Int): String? {
         return out.toString(Charsets.UTF_8.name())
     }
     return null
+}
+
+/** v7.50：清除历史按时间段弹窗中的日期选择项（点击弹出 DatePicker） */
+@Composable
+private fun DateField(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }

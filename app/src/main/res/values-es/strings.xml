@@ -312,4 +312,57 @@
     <!-- v7.45: Plegado de tarjetas de notificación -->
     <string name="fold_expand_hint">Mostrar %2$d notificaciones más de %1$s</string>
     <string name="fold_collapse_hint">Plegar %2$d notificaciones de %1$s</string>
+    <string name="change_count">%s cambios</string>
+    <!-- v7.50: Ajustes - diálogo borrar por app -->
+    <string name="clear_by_app_title">Seleccionar aplicaciones</string>
+    <string name="clear_by_app_hint">Marca las aplicaciones cuya historia quieres borrar (multiselección)</string>
+    <string name="select_all">Seleccionar todo</string>
+    <string name="clear_selected_apps_history">Borrar historial de las apps seleccionadas</string>
+
+    <!-- v7.50: Ajustes - uso de almacenamiento -->
+    <string name="settings_storage_usage">Uso de almacenamiento</string>
+    <string name="storage_usage_title">Uso de almacenamiento</string>
+    <string name="storage_usage_history">Historial de notificaciones</string>
+    <string name="storage_usage_history_desc">notification_history.json y archivos relacionados. Al borrar se elimina todo el historial.</string>
+    <string name="storage_usage_rules">Reglas</string>
+    <string name="storage_usage_rules_desc">rules.json y archivos relacionados. Al borrar se eliminan todas las reglas.</string>
+    <string name="storage_usage_other">Otros</string>
+    <string name="storage_usage_other_desc">Registros de errores y archivos temporales .bak/.corrupt/.tmp. Se conservan ajustes y estadísticas.</string>
+    <string name="storage_clear">Borrar</string>
+    <string name="storage_clear_all">Borrar todo</string>
+    <string name="storage_clear_all_confirm_title">¿Borrar todo?</string>
+    <string name="storage_clear_all_confirm_body">Se borrarán el historial, las reglas y otros archivos temporales. Esta acción no se puede deshacer.</string>
+    <string name="storage_clear_history_confirm_title">¿Borrar historial de notificaciones?</string>
+    <string name="storage_clear_history_confirm_body">Todo el historial de notificaciones se eliminará permanentemente.</string>
+    <string name="storage_clear_rules_confirm_title">¿Borrar todas las reglas?</string>
+    <string name="storage_clear_rules_confirm_body">Todas las reglas se eliminarán permanentemente.</string>
+    <string name="storage_clear_other_confirm_title">¿Borrar otros archivos?</string>
+    <string name="storage_clear_other_confirm_body">Se eliminarán los registros de errores y los archivos temporales/de copia. No se ven afectados ajustes ni estadísticas.</string>
+    <string name="storage_cleared">Borrado</string>
+
+    <!-- v7.50: Ajustes - borrar historial por rango de fechas -->
+    <string name="clear_by_date_range_title">Seleccionar rango de tiempo</string>
+    <string name="clear_by_date_range_hint">Elige fechas de inicio y fin (inclusive)</string>
+    <string name="clear_date_7d">7 días</string>
+    <string name="clear_date_30d">30 días</string>
+    <string name="clear_date_90d">90 días</string>
+    <string name="clear_date_all">Todo</string>
+    <string name="clear_this_range_history">Borrar historial en este rango</string>
+    <string name="rules_title">Reglas</string>
+    <string name="rules_count">%1$d reglas</string>
+    <string name="rule_wizard_name_hint">Nombre de la regla, p. ej. Bloquear SMS de spam</string>
+    <string name="rule_wizard_unnamed_prefix">Regla sin nombre</string>
+    <string name="rule_wizard_section_workflow">Flujo de trabajo</string>
+    <string name="rule_wizard_source_app">Apps de origen</string>
+    <string name="rule_wizard_source_app_none">Ninguna app seleccionada</string>
+    <string name="rule_wizard_source_app_count">%1$d seleccionadas</string>
+    <string name="rule_wizard_condition_add">Añadir condición</string>
+    <string name="rule_wizard_condition_none">Sin condiciones</string>
+    <string name="rule_wizard_condition_title">Configurar condición</string>
+    <string name="rule_wizard_condition_keywords">Palabras clave</string>
+    <string name="rule_wizard_condition_phone_state">Estado del teléfono</string>
+    <string name="rule_wizard_condition_time">Hora</string>
+    <string name="rule_wizard_action_delete_title">Eliminar acción</string>
+    <string name="rule_wizard_action_delete_message">¿Eliminar esta acción?</string>
+    <string name="rule_wizard_action_drag_hint">Arrastrar para reordenar</string>
 </resources>

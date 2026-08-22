@@ -436,4 +436,57 @@
     <!-- v7.45: 通知卡片折叠 -->
     <string name="fold_expand_hint">展开“%1$s”的其余 %2$d 条通知</string>
     <string name="fold_collapse_hint">收起“%1$s”的 %2$d 条通知</string>
+    <string name="change_count">%s条变更</string>
+    <!-- v7.50: 设置-按应用清除弹窗 -->
+    <string name="clear_by_app_title">选择应用</string>
+    <string name="clear_by_app_hint">勾选要清除历史记录的应用（多选）</string>
+    <string name="select_all">全选</string>
+    <string name="clear_selected_apps_history">清除所选应用历史</string>
+
+    <!-- v7.50: 设置-存储占用 -->
+    <string name="settings_storage_usage">存储占用</string>
+    <string name="storage_usage_title">存储占用</string>
+    <string name="storage_usage_history">通知历史</string>
+    <string name="storage_usage_history_desc">notification_history.json 等文件。清除将清空全部通知历史。</string>
+    <string name="storage_usage_rules">规则</string>
+    <string name="storage_usage_rules_desc">rules.json 等文件。清除将清空所有规则。</string>
+    <string name="storage_usage_other">其他</string>
+    <string name="storage_usage_other_desc">崩溃日志与 .bak/.corrupt/.tmp 等临时文件。不影响设置与统计。</string>
+    <string name="storage_clear">清除</string>
+    <string name="storage_clear_all">清除全部</string>
+    <string name="storage_clear_all_confirm_title">清除全部？</string>
+    <string name="storage_clear_all_confirm_body">将清空通知历史、规则与其他临时文件，且不可恢复。</string>
+    <string name="storage_clear_history_confirm_title">清除通知历史？</string>
+    <string name="storage_clear_history_confirm_body">将永久删除全部通知历史。</string>
+    <string name="storage_clear_rules_confirm_title">清空所有规则？</string>
+    <string name="storage_clear_rules_confirm_body">将永久删除所有规则。</string>
+    <string name="storage_clear_other_confirm_title">清除其他文件？</string>
+    <string name="storage_clear_other_confirm_body">将删除崩溃日志与临时/备份文件，不影响设置与统计。</string>
+    <string name="storage_cleared">已清除</string>
+
+    <!-- v7.50: 设置-按时间段清除历史 -->
+    <string name="clear_by_date_range_title">选择时间段</string>
+    <string name="clear_by_date_range_hint">选择开始和结束日期（含首尾日）</string>
+    <string name="clear_date_7d">7天</string>
+    <string name="clear_date_30d">30天</string>
+    <string name="clear_date_90d">90天</string>
+    <string name="clear_date_all">全部</string>
+    <string name="clear_this_range_history">清除此时间段历史</string>
+    <string name="rules_title">规则</string>
+    <string name="rules_count">共 %1$d 条规则</string>
+    <string name="rule_wizard_name_hint">规则名称，如：屏蔽营销短信</string>
+    <string name="rule_wizard_unnamed_prefix">未命名规则</string>
+    <string name="rule_wizard_section_workflow">工作流</string>
+    <string name="rule_wizard_source_app">来源应用</string>
+    <string name="rule_wizard_source_app_none">未选择应用</string>
+    <string name="rule_wizard_source_app_count">已选 %1$d 个应用</string>
+    <string name="rule_wizard_condition_add">添加条件</string>
+    <string name="rule_wizard_condition_none">暂无条件</string>
+    <string name="rule_wizard_condition_title">配置条件</string>
+    <string name="rule_wizard_condition_keywords">关键字</string>
+    <string name="rule_wizard_condition_phone_state">手机状态</string>
+    <string name="rule_wizard_condition_time">时间</string>
+    <string name="rule_wizard_action_delete_title">删除动作</string>
+    <string name="rule_wizard_action_delete_message">确定要删除该动作吗？</string>
+    <string name="rule_wizard_action_drag_hint">拖动调整顺序</string>
 </resources>

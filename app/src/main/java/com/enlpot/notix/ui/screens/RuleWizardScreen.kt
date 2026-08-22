@@ -5,9 +5,12 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,13 +52,17 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -93,6 +100,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -102,7 +110,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -253,6 +263,13 @@ fun RuleWizardScreen(
     // 正在编辑的 Action 下标（-1 = 无）；添加有参数的 Action 后自动指向新卡片
     var editingActionIndex by rememberSaveable { mutableIntStateOf(-1) }
 
+    // ===== 0. 规则名称（可选，复用 BlockerRule.description） =====
+    var ruleName by rememberSaveable { mutableStateOf(editingRule?.description.orEmpty()) }
+
+    // ===== 2b. 条件配置弹窗 =====
+    var showConditionDialog by rememberSaveable { mutableStateOf(false) }
+    var conditionTab by rememberSaveable { mutableIntStateOf(0) }
+
     // 已知 App（仅历史通知 App，禁止读取已安装应用列表）
     val knownApps by produceState<List<KnownApp>?>(initialValue = null) {
         value = withContext(Dispatchers.IO) {
@@ -292,9 +309,25 @@ fun RuleWizardScreen(
     // 阶段3A：空 Flow 不允许保存（保存按钮 disabled + “至少添加一个动作”提示）
     val canSave = hasApp && hasKeywords && RuleWizardSupport.canSaveFlow(actionFlow)
 
+    // 未命名规则自动命名（N 递增且不与现有规则重复）
+    val unnamedPrefix = stringResource(R.string.rule_wizard_unnamed_prefix)
     val submitRule: () -> Unit = {
+        val finalName = if (ruleName.isBlank()) {
+            var n = 1
+            val existing = (existingRules ?: emptyList())
+                .let { list -> if (editingRule != null) (list - editingRule).map { r -> r.description } else list.map { r -> r.description } }
+            var name = "$unnamedPrefix$n"
+            while (existing.contains(name)) {
+                n++
+                name = "$unnamedPrefix$n"
+            }
+            name
+        } else {
+            ruleName.trim()
+        }
         val rule = buildNewRule(
             editingRule = editingRule,
+            description = finalName,
             selectedPackages = effectivePackages,
             appNameOf = ::appDisplayName,
             matchMode = matchMode,
@@ -336,15 +369,26 @@ fun RuleWizardScreen(
                         }
                     },
                     actions = {
-                        IconButton(
-                            onClick = submitRule,
-                            enabled = canSave,
+                        // v7.50：对号按钮增加底色——canSave=false 灰色无底色 disabled，canSave=true 主题色高亮
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .then(
+                                    if (canSave) Modifier.background(MaterialTheme.colorScheme.primary)
+                                    else Modifier
+                                ),
                         ) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = stringResource(if (isEditMode) R.string.save else R.string.rule_wizard_create),
-                                tint = if (canSave) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                            )
+                            IconButton(
+                                onClick = submitRule,
+                                enabled = canSave,
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = stringResource(if (isEditMode) R.string.save else R.string.rule_wizard_create),
+                                    tint = if (canSave) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -387,16 +431,29 @@ fun RuleWizardScreen(
                     .imePadding()
                     .padding(horizontal = 16.dp),
             ) {
+                // ===== 0. 规则名称（可选，复用 BlockerRule.description） =====
+                OutlinedTextField(
+                    value = ruleName,
+                    onValueChange = { ruleName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.rule_wizard_name_hint)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                )
+
+                Spacer(Modifier.height(20.dp))
+
                 // ===== 1. 来源 =====
                 SectionHeader(title = stringResource(R.string.rule_wizard_section_source))
                 Spacer(Modifier.height(8.dp))
 
                 if (!showAppPicker) {
-                    AppChip(
+                    SourceSummaryCard(
+                        packageNames = effectivePackages,
                         appNames = effectivePackages.map { appDisplayName(it) },
                         selectedCount = effectivePackages.size,
-                        packageNames = effectivePackages,
-                        placeholder = stringResource(R.string.rule_wizard_select_app),
+                        placeholder = stringResource(R.string.rule_wizard_source_app_none),
                         onClick = { showAppPicker = true },
                     )
                 } else {
@@ -416,139 +473,36 @@ fun RuleWizardScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // ===== 2. 匹配条件 =====
+                // ===== 2. 条件（摘要展示 + 添加条件弹窗） =====
                 SectionHeader(title = stringResource(R.string.rule_wizard_section_conditions))
-                if (!hasKeywords) {
-                    Text(
-                        text = stringResource(R.string.rule_wizard_save_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 Spacer(Modifier.height(8.dp))
 
-                MatchModePicker(
-                    mode = matchMode,
-                    onModeSelected = { matchMode = it },
-                )
-
-                Spacer(Modifier.height(10.dp))
-
-                when (matchMode) {
-                    MatchMode.ADVANCED -> {
-                        OutlinedCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.rule_wizard_advanced_unavailable),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(12.dp),
-                            )
-                        }
-                    }
-                    MatchMode.MIXED -> {
-                        KeywordChipInput(
-                            label = stringResource(R.string.rule_wizard_keyword_contains_a),
-                            keywords = includeKeywords,
-                            input = keywordInput,
-                            onInputChange = { keywordInput = it },
-                            onAdd = {
-                                val k = keywordInput.trim()
-                                if (k.isNotEmpty() && k !in includeKeywords) {
-                                    includeKeywords = includeKeywords + k
-                                }
-                                keywordInput = ""
-                            },
-                            onRemove = { k -> includeKeywords = includeKeywords - k },
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        KeywordChipInput(
-                            label = stringResource(R.string.rule_wizard_keyword_not_contains_b),
-                            keywords = excludeKeywords,
-                            input = excludeKeywordInput,
-                            onInputChange = { excludeKeywordInput = it },
-                            onAdd = {
-                                val k = excludeKeywordInput.trim()
-                                if (k.isNotEmpty() && k !in excludeKeywords) {
-                                    excludeKeywords = excludeKeywords + k
-                                }
-                                excludeKeywordInput = ""
-                            },
-                            onRemove = { k -> excludeKeywords = excludeKeywords - k },
-                        )
-                    }
-                    MatchMode.NOT_CONTAINS_ANY, MatchMode.NOT_CONTAINS_ALL -> {
-                        KeywordChipInput(
-                            label = stringResource(R.string.rule_wizard_keyword_exclude),
-                            keywords = includeKeywords,
-                            input = keywordInput,
-                            onInputChange = { keywordInput = it },
-                            onAdd = {
-                                val k = keywordInput.trim()
-                                if (k.isNotEmpty() && k !in includeKeywords) {
-                                    includeKeywords = includeKeywords + k
-                                }
-                                keywordInput = ""
-                            },
-                            onRemove = { k -> includeKeywords = includeKeywords - k },
-                        )
-                    }
-                    else -> {
-                        KeywordChipInput(
-                            label = stringResource(R.string.rule_wizard_keyword_include),
-                            keywords = includeKeywords,
-                            input = keywordInput,
-                            onInputChange = { keywordInput = it },
-                            onAdd = {
-                                val k = keywordInput.trim()
-                                if (k.isNotEmpty() && k !in includeKeywords) {
-                                    includeKeywords = includeKeywords + k
-                                }
-                                keywordInput = ""
-                            },
-                            onRemove = { k -> includeKeywords = includeKeywords - k },
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // ===== 3. 手机状态额外条件 =====
-                SectionHeader(title = stringResource(R.string.rule_wizard_section_extra))
-                Spacer(Modifier.height(8.dp))
-
-                ExtraConditionCard(
-                    screenState = screenState,
-                    onScreenStateChange = { screenState = it },
-                    chargingState = chargingState,
-                    onChargingStateChange = { chargingState = it },
-                    dndState = dndState,
-                    onDndStateChange = { dndState = it },
-                    bluetoothState = bluetoothState,
-                    onBluetoothStateChange = { bluetoothState = it },
-                    bluetoothDeviceNames = bluetoothDeviceNames,
-                    onBluetoothDeviceNamesChange = { bluetoothDeviceNames = it },
-                    timeEnabled = timeEnabled,
-                    onTimeEnabledChange = { timeEnabled = it },
-                    startHour = startHour,
-                    startMinute = startMinute,
-                    endHour = endHour,
-                    endMinute = endMinute,
-                    onStartChange = { h, m -> startHour = h; startMinute = m },
-                    onEndChange = { h, m -> endHour = h; endMinute = m },
-                    selectedWeekdays = selectedWeekdays,
-                    onWeekdayToggle = { day ->
-                        selectedWeekdays = if (day in selectedWeekdays) selectedWeekdays - day
-                        else selectedWeekdays + day
+                ConditionSummaryCard(
+                    hasKeywords = hasKeywords,
+                    keywordSummary = keywordSummaryText(matchMode, includeKeywords, excludeKeywords),
+                    extraSummary = extraConditionSummaryText(
+                        screenState = screenState,
+                        chargingState = chargingState,
+                        dndState = dndState,
+                        bluetoothState = bluetoothState,
+                        bluetoothDeviceNames = bluetoothDeviceNames,
+                        timeEnabled = timeEnabled,
+                        startHour = startHour,
+                        startMinute = startMinute,
+                        endHour = endHour,
+                        endMinute = endMinute,
+                        selectedWeekdays = selectedWeekdays,
+                    ),
+                    onClick = {
+                        conditionTab = if (hasKeywords) 1 else 0
+                        showConditionDialog = true
                     },
                 )
 
                 Spacer(Modifier.height(20.dp))
 
-                // ===== 4. Action Flow =====
-                SectionHeader(title = stringResource(R.string.rule_wizard_section_action_flow))
+                // ===== 4. Action Flow（工作流） =====
+                SectionHeader(title = stringResource(R.string.rule_wizard_section_workflow))
                 Spacer(Modifier.height(8.dp))
 
                 ActionFlowSection(
@@ -566,15 +520,12 @@ fun RuleWizardScreen(
                         if (editingActionIndex == index) editingActionIndex = -1
                         else if (editingActionIndex > index) editingActionIndex--
                     },
-                    onMoveUp = { index ->
-                        actionFlow = RuleWizardSupport.actionFlowMoveUp(actionFlow, index)
-                        if (editingActionIndex == index) editingActionIndex = index - 1
-                        else if (editingActionIndex == index - 1) editingActionIndex = index
-                    },
-                    onMoveDown = { index ->
-                        actionFlow = RuleWizardSupport.actionFlowMoveDown(actionFlow, index)
-                        if (editingActionIndex == index) editingActionIndex = index + 1
-                        else if (editingActionIndex == index + 1) editingActionIndex = index
+                    onMove = { from, to ->
+                        if (from != to) {
+                            actionFlow = RuleWizardSupport.actionFlowMove(actionFlow, from, to)
+                            if (editingActionIndex == from) editingActionIndex = to
+                            else if (editingActionIndex == to) editingActionIndex = from
+                        }
                     },
                     onUpdate = { index, spec ->
                         actionFlow = RuleWizardSupport.actionFlowUpdate(actionFlow, index, spec)
@@ -641,11 +592,59 @@ fun RuleWizardScreen(
             }
         }
     }
+
+    // ===== 条件配置弹窗（v7.50：三栏化，含关键字/手机状态/时间 tab） =====
+    if (showConditionDialog) {
+        ConditionConfigDialog(
+            initialTab = conditionTab,
+            matchMode = matchMode,
+            onMatchModeChange = { matchMode = it },
+            includeKeywords = includeKeywords,
+            excludeKeywords = excludeKeywords,
+            keywordInput = keywordInput,
+            excludeKeywordInput = excludeKeywordInput,
+            onKeywordInputChange = { keywordInput = it },
+            onExcludeKeywordInputChange = { excludeKeywordInput = it },
+            onAddIncludeKeyword = { k ->
+                if (k.isNotEmpty() && k !in includeKeywords) includeKeywords = includeKeywords + k
+            },
+            onRemoveIncludeKeyword = { k -> includeKeywords = includeKeywords - k },
+            onAddExcludeKeyword = { k ->
+                if (k.isNotEmpty() && k !in excludeKeywords) excludeKeywords = excludeKeywords + k
+            },
+            onRemoveExcludeKeyword = { k -> excludeKeywords = excludeKeywords - k },
+            screenState = screenState,
+            onScreenStateChange = { screenState = it },
+            chargingState = chargingState,
+            onChargingStateChange = { chargingState = it },
+            dndState = dndState,
+            onDndStateChange = { dndState = it },
+            bluetoothState = bluetoothState,
+            onBluetoothStateChange = { bluetoothState = it },
+            bluetoothDeviceNames = bluetoothDeviceNames,
+            onBluetoothDeviceNamesChange = { bluetoothDeviceNames = it },
+            timeEnabled = timeEnabled,
+            onTimeEnabledChange = { timeEnabled = it },
+            startHour = startHour,
+            startMinute = startMinute,
+            endHour = endHour,
+            endMinute = endMinute,
+            onStartChange = { h, m -> startHour = h; startMinute = m },
+            onEndChange = { h, m -> endHour = h; endMinute = m },
+            selectedWeekdays = selectedWeekdays,
+            onWeekdayToggle = { day ->
+                selectedWeekdays = if (day in selectedWeekdays) selectedWeekdays - day
+                else selectedWeekdays + day
+            },
+            onDismiss = { showConditionDialog = false },
+        )
+    }
 }
 
 /** 从当前 UI 状态构建新模型规则 */
 private fun buildNewRule(
     editingRule: BlockerRule?,
+    description: String,
     selectedPackages: List<String>,
     appNameOf: (String) -> String,
     matchMode: MatchMode,
@@ -694,6 +693,7 @@ private fun buildNewRule(
         ),
         // 阶段3A：直接保存 UI 唯一状态 actionFlow（顺序 == actions 顺序）
         actions = actions,
+        description = description,
         createdAt = editingRule?.createdAt ?: now,
     )
 }
@@ -714,60 +714,77 @@ private fun SectionHeader(title: String) {
 }
 
 // ---------------------------------------------------------------------------
-// App chip (collapsed source state)
+// Source summary card (来源栏入口卡片：来源应用 + 已选应用)
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun AppChip(
+private fun SourceSummaryCard(
+    packageNames: List<String>,
     appNames: List<String>,
     selectedCount: Int,
-    packageNames: List<String>,
     placeholder: String,
     onClick: () -> Unit,
 ) {
     val hasSelection = selectedCount > 0
-    val bg = if (hasSelection) MaterialTheme.colorScheme.primaryContainer
-    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    val textColor = if (hasSelection) MaterialTheme.colorScheme.onPrimaryContainer
-    else MaterialTheme.colorScheme.onSurfaceVariant
-
-    Row(
+    Card(
         modifier = Modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(bg)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasSelection) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        ),
     ) {
-        if (hasSelection) {
-            val shown = packageNames.take(4)
-            shown.forEachIndexed { index, pkg ->
-                if (index > 0) Spacer(Modifier.width(2.dp))
-                RealAppIcon(
-                    packageName = pkg,
-                    appName = appNames.getOrNull(index),
-                    size = 28.dp,
-                    shape = CircleShape,
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.rule_wizard_source_app),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (hasSelection) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(1f))
+            if (hasSelection) {
+                packageNames.take(3).forEachIndexed { index, pkg ->
+                    if (index > 0) Spacer(Modifier.width(2.dp))
+                    RealAppIcon(
+                        packageName = pkg,
+                        appName = appNames.getOrNull(index),
+                        size = 24.dp,
+                        shape = CircleShape,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (selectedCount == 1) appNames.first()
+                    else stringResource(R.string.rule_wizard_source_app_count, selectedCount),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (hasSelection) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text(
+                    text = placeholder,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.width(10.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
         }
-        Text(
-            text = if (hasSelection) {
-                if (selectedCount == 1) appNames.first() else "${appNames.first()} 等 $selectedCount 个应用"
-            } else placeholder,
-            color = textColor,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(
-            imageVector = Icons.Default.ArrowDropDown,
-            contentDescription = null,
-            tint = textColor,
-            modifier = Modifier.size(20.dp),
-        )
     }
 }
 
@@ -927,6 +944,258 @@ private fun AppPickerPanel(
 }
 
 // ---------------------------------------------------------------------------
+// Condition summary text helpers
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun keywordSummaryText(
+    matchMode: MatchMode,
+    includeKeywords: List<String>,
+    excludeKeywords: List<String>,
+): String {
+    val parts = mutableListOf<String>()
+    if (includeKeywords.isNotEmpty()) {
+        parts.add(
+            stringResource(R.string.rule_wizard_keyword_include) + ": " +
+                includeKeywords.take(2).joinToString(", ") +
+                if (includeKeywords.size > 2) " +${includeKeywords.size - 2}" else ""
+        )
+    }
+    if (matchMode == MatchMode.MIXED && excludeKeywords.isNotEmpty()) {
+        parts.add(
+            stringResource(R.string.rule_wizard_keyword_exclude) + ": " +
+                excludeKeywords.take(2).joinToString(", ") +
+                if (excludeKeywords.size > 2) " +${excludeKeywords.size - 2}" else ""
+        )
+    }
+    return parts.joinToString(" · ")
+}
+
+@Composable
+private fun extraConditionSummaryText(
+    screenState: ScreenState,
+    chargingState: ChargingState,
+    dndState: DndState,
+    bluetoothState: BluetoothState,
+    bluetoothDeviceNames: List<String>,
+    timeEnabled: Boolean,
+    startHour: Int,
+    startMinute: Int,
+    endHour: Int,
+    endMinute: Int,
+    selectedWeekdays: Set<Int>,
+): String {
+    val parts = mutableListOf<String>()
+    if (screenState != ScreenState.ANY) parts.add(screenStateLabel(screenState))
+    if (chargingState != ChargingState.ANY) parts.add(chargingStateLabel(chargingState))
+    if (dndState != DndState.ANY) parts.add(dndStateLabel(dndState))
+    if (bluetoothState != BluetoothState.ANY) parts.add(bluetoothStateLabel(bluetoothState))
+    if (bluetoothDeviceNames.isNotEmpty()) {
+        parts.add(stringResource(R.string.rule_wizard_extra_bt_devices) + ": " + bluetoothDeviceNames.joinToString(","))
+    }
+    if (timeEnabled) {
+        parts.add(
+            "%02d:%02d-%02d:%02d".format(startHour, startMinute, endHour, endMinute) +
+                if (selectedWeekdays.isNotEmpty()) " " + selectedWeekdays.sorted().joinToString(",") else ""
+        )
+    }
+    return parts.joinToString(" · ")
+}
+
+// ---------------------------------------------------------------------------
+// Condition summary card + config dialog (三栏化：关键字/手机状态/时间)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ConditionSummaryCard(
+    hasKeywords: Boolean,
+    keywordSummary: String,
+    extraSummary: String,
+    onClick: () -> Unit,
+) {
+    val hasExtra = extraSummary.isNotBlank()
+    val summaryParts = listOf(
+        keywordSummary.takeIf { hasKeywords },
+        extraSummary.takeIf { hasExtra },
+    ).filterNotNull()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.rule_wizard_condition_title),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (summaryParts.isNotEmpty()) summaryParts.joinToString(" · ")
+                else stringResource(R.string.rule_wizard_condition_none),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onClick) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.rule_wizard_condition_add))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConditionConfigDialog(
+    initialTab: Int,
+    matchMode: MatchMode,
+    onMatchModeChange: (MatchMode) -> Unit,
+    includeKeywords: List<String>,
+    excludeKeywords: List<String>,
+    keywordInput: String,
+    excludeKeywordInput: String,
+    onKeywordInputChange: (String) -> Unit,
+    onExcludeKeywordInputChange: (String) -> Unit,
+    onAddIncludeKeyword: (String) -> Unit,
+    onRemoveIncludeKeyword: (String) -> Unit,
+    onAddExcludeKeyword: (String) -> Unit,
+    onRemoveExcludeKeyword: (String) -> Unit,
+    screenState: ScreenState,
+    onScreenStateChange: (ScreenState) -> Unit,
+    chargingState: ChargingState,
+    onChargingStateChange: (ChargingState) -> Unit,
+    dndState: DndState,
+    onDndStateChange: (DndState) -> Unit,
+    bluetoothState: BluetoothState,
+    onBluetoothStateChange: (BluetoothState) -> Unit,
+    bluetoothDeviceNames: List<String>,
+    onBluetoothDeviceNamesChange: (List<String>) -> Unit,
+    timeEnabled: Boolean,
+    onTimeEnabledChange: (Boolean) -> Unit,
+    startHour: Int,
+    startMinute: Int,
+    endHour: Int,
+    endMinute: Int,
+    onStartChange: (Int, Int) -> Unit,
+    onEndChange: (Int, Int) -> Unit,
+    selectedWeekdays: Set<Int>,
+    onWeekdayToggle: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var tab by rememberSaveable { mutableStateOf(initialTab) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rule_wizard_condition_title)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                TabRow(selectedTabIndex = tab) {
+                    Tab(
+                        selected = tab == 0,
+                        onClick = { tab = 0 },
+                        text = { Text(stringResource(R.string.rule_wizard_condition_keywords)) },
+                    )
+                    Tab(
+                        selected = tab == 1,
+                        onClick = { tab = 1 },
+                        text = { Text(stringResource(R.string.rule_wizard_condition_phone_state)) },
+                    )
+                    Tab(
+                        selected = tab == 2,
+                        onClick = { tab = 2 },
+                        text = { Text(stringResource(R.string.rule_wizard_condition_time)) },
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                when (tab) {
+                    0 -> Column {
+                        MatchModePicker(mode = matchMode, onModeSelected = onMatchModeChange)
+                        Spacer(Modifier.height(12.dp))
+                        KeywordChipInput(
+                            label = stringResource(R.string.rule_wizard_keyword_include),
+                            keywords = includeKeywords,
+                            input = keywordInput,
+                            onInputChange = onKeywordInputChange,
+                            onAdd = {
+                                val kw = keywordInput.trim()
+                                if (kw.isNotEmpty()) onAddIncludeKeyword(kw)
+                                onKeywordInputChange("")
+                            },
+                            onRemove = onRemoveIncludeKeyword,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        KeywordChipInput(
+                            label = stringResource(R.string.rule_wizard_keyword_exclude),
+                            keywords = excludeKeywords,
+                            input = excludeKeywordInput,
+                            onInputChange = onExcludeKeywordInputChange,
+                            onAdd = {
+                                val kw = excludeKeywordInput.trim()
+                                if (kw.isNotEmpty()) onAddExcludeKeyword(kw)
+                                onExcludeKeywordInputChange("")
+                            },
+                            onRemove = onRemoveExcludeKeyword,
+                        )
+                    }
+                    1 -> PhoneStateSection(
+                        screenState = screenState,
+                        onScreenStateChange = onScreenStateChange,
+                        chargingState = chargingState,
+                        onChargingStateChange = onChargingStateChange,
+                        dndState = dndState,
+                        onDndStateChange = onDndStateChange,
+                        bluetoothState = bluetoothState,
+                        onBluetoothStateChange = onBluetoothStateChange,
+                        bluetoothDeviceNames = bluetoothDeviceNames,
+                        onBluetoothDeviceNamesChange = onBluetoothDeviceNamesChange,
+                    )
+                    2 -> TimeSection(
+                        timeEnabled = timeEnabled,
+                        onTimeEnabledChange = onTimeEnabledChange,
+                        startHour = startHour,
+                        startMinute = startMinute,
+                        endHour = endHour,
+                        endMinute = endMinute,
+                        onStartChange = onStartChange,
+                        onEndChange = onEndChange,
+                        selectedWeekdays = selectedWeekdays,
+                        onWeekdayToggle = onWeekdayToggle,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+// ---------------------------------------------------------------------------
 // Match mode picker (dropdown menu)
 // ---------------------------------------------------------------------------
 
@@ -1070,11 +1339,11 @@ private fun KeywordChipInput(
 }
 
 // ---------------------------------------------------------------------------
-// Extra condition card (screen / charging / time)
+// Extra condition sections（条件弹窗内：手机状态 / 时间）
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun ExtraConditionCard(
+private fun PhoneStateSection(
     screenState: ScreenState,
     onScreenStateChange: (ScreenState) -> Unit,
     chargingState: ChargingState,
@@ -1085,6 +1354,99 @@ private fun ExtraConditionCard(
     onBluetoothStateChange: (BluetoothState) -> Unit,
     bluetoothDeviceNames: List<String>,
     onBluetoothDeviceNamesChange: (List<String>) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // 屏幕状态
+        Text(
+            text = stringResource(R.string.rule_wizard_extra_screen),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ScreenState.entries.forEach { s ->
+                FilterChip(
+                    selected = screenState == s,
+                    onClick = { onScreenStateChange(s) },
+                    label = { Text(screenStateLabel(s)) },
+                    shape = FilterChipDefaults.shape,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // 充电状态
+        Text(
+            text = stringResource(R.string.rule_wizard_extra_charging),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            ChargingState.entries.forEach { c ->
+                FilterChip(
+                    selected = chargingState == c,
+                    onClick = { onChargingStateChange(c) },
+                    label = { Text(chargingStateLabel(c)) },
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // 勿扰模式状态
+        Text(
+            text = stringResource(R.string.rule_wizard_extra_dnd),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            DndState.entries.forEach { d ->
+                FilterChip(
+                    selected = dndState == d,
+                    onClick = { onDndStateChange(d) },
+                    label = { Text(dndStateLabel(d)) },
+                    shape = FilterChipDefaults.shape,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // 蓝牙耳机连接状态
+        Text(
+            text = stringResource(R.string.rule_wizard_extra_bluetooth),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            BluetoothState.entries.forEach { b ->
+                FilterChip(
+                    selected = bluetoothState == b,
+                    onClick = { onBluetoothStateChange(b) },
+                    label = { Text(bluetoothStateLabel(b)) },
+                    shape = FilterChipDefaults.shape,
+                )
+            }
+        }
+
+        // v7.20：指定设备多选（从当前已连接蓝牙音频设备 productName 列表选择，任一命中即成立）
+        Spacer(Modifier.height(10.dp))
+        BluetoothDevicePicker(
+            selectedNames = bluetoothDeviceNames,
+            onNamesChange = onBluetoothDeviceNamesChange,
+        )
+    }
+}
+
+@Composable
+private fun TimeSection(
     timeEnabled: Boolean,
     onTimeEnabledChange: (Boolean) -> Unit,
     startHour: Int,
@@ -1096,169 +1458,47 @@ private fun ExtraConditionCard(
     selectedWeekdays: Set<Int>,
     onWeekdayToggle: (Int) -> Unit,
 ) {
-    // v7.12：默认折叠，点击区块头展开/收起
-    var extraExpanded by remember { mutableStateOf(false) }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { extraExpanded = !extraExpanded },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.rule_wizard_section_extra),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = stringResource(if (extraExpanded) R.string.rule_wizard_section_extra_expanded else R.string.rule_wizard_section_extra_collapsed),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.rotate(if (extraExpanded) 180f else 0f),
-                )
-            }
-            AnimatedVisibility(visible = extraExpanded) {
-                Column {
-                    Spacer(Modifier.height(4.dp))
-                    // 屏幕状态
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.rule_wizard_extra_time),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(checked = timeEnabled, onCheckedChange = onTimeEnabledChange)
+        }
+        AnimatedVisibility(visible = timeEnabled) {
+            Column {
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TimeField(
+                        value = String.format("%02d:%02d", startHour, startMinute),
+                        onValueChange = { v -> parseTime(v)?.let { onStartChange(it.first, it.second) } },
+                        modifier = Modifier.weight(1f),
+                    )
                     Text(
-                        text = stringResource(R.string.rule_wizard_extra_screen),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = "至",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp),
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ScreenState.entries.forEach { s ->
-                            FilterChip(
-                                selected = screenState == s,
-                                onClick = { onScreenStateChange(s) },
-                                label = { Text(screenStateLabel(s)) },
-                                shape = FilterChipDefaults.shape,
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // 充电状态
-                    Text(
-                        text = stringResource(R.string.rule_wizard_extra_charging),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    TimeField(
+                        value = String.format("%02d:%02d", endHour, endMinute),
+                        onValueChange = { v -> parseTime(v)?.let { onEndChange(it.first, it.second) } },
+                        modifier = Modifier.weight(1f),
                     )
-                    Spacer(Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        ChargingState.entries.forEach { c ->
-                            FilterChip(
-                                selected = chargingState == c,
-                                onClick = { onChargingStateChange(c) },
-                                label = { Text(chargingStateLabel(c)) },
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // 勿扰模式状态
-                    Text(
-                        text = stringResource(R.string.rule_wizard_extra_dnd),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DndState.entries.forEach { d ->
-                            FilterChip(
-                                selected = dndState == d,
-                                onClick = { onDndStateChange(d) },
-                                label = { Text(dndStateLabel(d)) },
-                                shape = FilterChipDefaults.shape,
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // 蓝牙耳机连接状态
-                    Text(
-                        text = stringResource(R.string.rule_wizard_extra_bluetooth),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        BluetoothState.entries.forEach { b ->
-                            FilterChip(
-                                selected = bluetoothState == b,
-                                onClick = { onBluetoothStateChange(b) },
-                                label = { Text(bluetoothStateLabel(b)) },
-                                shape = FilterChipDefaults.shape,
-                            )
-                        }
-                    }
-
-                    // v7.20：指定设备多选（从当前已连接蓝牙音频设备 productName 列表选择，任一命中即成立）
-                    Spacer(Modifier.height(10.dp))
-                    BluetoothDevicePicker(
-                        selectedNames = bluetoothDeviceNames,
-                        onNamesChange = onBluetoothDeviceNamesChange,
-                    )
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // 时间日期
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.rule_wizard_extra_time),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f),
+                }
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    (1..7).forEach { day ->
+                        FilterChip(
+                            selected = day in selectedWeekdays,
+                            onClick = { onWeekdayToggle(day) },
+                            label = { Text(weekdayLabel(day)) },
                         )
-                        Switch(checked = timeEnabled, onCheckedChange = onTimeEnabledChange)
-                    }
-                    AnimatedVisibility(visible = timeEnabled) {
-                        Column {
-                            Spacer(Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TimeField(
-                                    value = String.format("%02d:%02d", startHour, startMinute),
-                                    onValueChange = { v -> parseTime(v)?.let { onStartChange(it.first, it.second) } },
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    text = "至",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(horizontal = 8.dp),
-                                )
-                                TimeField(
-                                    value = String.format("%02d:%02d", endHour, endMinute),
-                                    onValueChange = { v -> parseTime(v)?.let { onEndChange(it.first, it.second) } },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                (1..7).forEach { day ->
-                                    FilterChip(
-                                        selected = day in selectedWeekdays,
-                                        onClick = { onWeekdayToggle(day) },
-                                        label = { Text(weekdayLabel(day)) },
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -1520,8 +1760,7 @@ private fun ActionFlowSection(
     onEditIndex: (Int) -> Unit,
     onAdd: (RuleAction) -> Unit,
     onRemove: (Int) -> Unit,
-    onMoveUp: (Int) -> Unit,
-    onMoveDown: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
     onUpdate: (Int, ActionSpec) -> Unit,
     onCloseEdit: () -> Unit,
 ) {
@@ -1553,9 +1792,8 @@ private fun ActionFlowSection(
                     total = actions.size,
                     spec = spec,
                     isEditing = editingIndex == index,
-                    onEdit = { onEditIndex(index) },
-                    onMoveUp = { onMoveUp(index) },
-                    onMoveDown = { onMoveDown(index) },
+                    onClick = { onEditIndex(index) },
+                    onMove = onMove,
                     onDelete = { onRemove(index) },
                 )
                 // CLICK_BUTTON 后存在 DISMISS 时的组合风险提示（动态对应当前 Flow）
@@ -1635,15 +1873,21 @@ private fun ActionCard(
     total: Int,
     spec: ActionSpec,
     isEditing: Boolean,
-    onEdit: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
+    onClick: () -> Unit,
+    onMove: (Int, Int) -> Unit,
     onDelete: () -> Unit,
 ) {
     val accent = actionAccent(spec.type)
+    val density = LocalDensity.current
+    val currentOnMove by rememberUpdatedState(onMove)
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onDelete,
+            )
             .then(
                 if (isEditing) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
                 else Modifier
@@ -1684,34 +1928,36 @@ private fun ActionCard(
                     fontWeight = FontWeight.Medium,
                 )
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onEdit) {
-                    Text(stringResource(R.string.rule_wizard_action_flow_edit))
-                }
-                IconButton(
-                    onClick = onMoveUp,
-                    enabled = RuleWizardSupport.canMoveUp(index, total),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = stringResource(R.string.rule_wizard_action_flow_move_up),
-                    )
-                }
-                IconButton(
-                    onClick = onMoveDown,
-                    enabled = RuleWizardSupport.canMoveDown(index, total),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.rule_wizard_action_flow_move_down),
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.rule_wizard_action_flow_delete),
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
+                // v7.50：拖动示意按钮——按住上下拖动改变动作顺序（替换原上移/下移）
+                Icon(
+                    imageVector = Icons.Default.DragHandle,
+                    contentDescription = stringResource(R.string.rule_wizard_action_drag_hint),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(2.dp)
+                        .pointerInput(index, total) {
+                            var currentIndex = index
+                            var accum = 0f
+                            detectDragGestures(
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    accum += dragAmount.y
+                                    val stepPx = with(density) { 48.dp.toPx() }
+                                    while (accum >= stepPx && currentIndex < total - 1) {
+                                        currentOnMove(currentIndex, currentIndex + 1)
+                                        currentIndex++
+                                        accum -= stepPx
+                                    }
+                                    while (accum <= -stepPx && currentIndex > 0) {
+                                        currentOnMove(currentIndex, currentIndex - 1)
+                                        currentIndex--
+                                        accum += stepPx
+                                    }
+                                },
+                            )
+                        },
+                )
             }
             Spacer(Modifier.height(4.dp))
             Text(

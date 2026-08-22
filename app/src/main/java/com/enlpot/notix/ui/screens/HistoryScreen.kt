@@ -94,6 +94,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
@@ -101,6 +103,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -187,6 +190,20 @@ fun HistoryScreen(
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     var showPermissionLostDialog by rememberSaveable { mutableStateOf(false) }
+
+    // v7.49：搜索框展开后自动弹出键盘；关闭时隐藏键盘
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(searchExpanded) {
+        if (searchExpanded) {
+            // AnimatedContent 过渡（300ms）完成后请求焦点，避免焦点被过渡动画抢占
+            delay(320)
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+        } else {
+            keyboardController?.hide()
+        }
+    }
 
     // 单击底部"历史"tab 回顶（作用于当前显示的 tab 页）
     LaunchedEffect(scrollToTopTrigger) {
@@ -457,6 +474,7 @@ fun HistoryScreen(
                         modifier = Modifier
                             .weight(1f)
                             .height(32.dp)
+                            .focusRequester(searchFocusRequester)
                             .clip(RoundedCornerShape(16.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .padding(horizontal = 12.dp),
@@ -821,6 +839,7 @@ internal fun ChartPanel(
         entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, nowDate) } }
     }
     Column(modifier = modifier.fillMaxWidth()) {
+        // 顶部区：「通知历史」标题行 + 总通知/今日统计（v7.49：与柱状图卡片视觉分离）
         HistoryTitleRow(
             listenerPaused = listenerPaused,
             onToggleListenerPaused = onToggleListenerPaused,
@@ -844,15 +863,42 @@ internal fun ChartPanel(
                 )
             }
         }
-        StatsBarChart(
-            pagerState = chartPager,
-            firstWeekStart = firstWeekStart,
-            countsByDay = chartCounts,
-            chartMax = chartMax,
-            currentWeekStart = thisMonday,
-            selectedDay = selectedDay,
-            onDayClick = onDayClick
-        )
+        // v7.49：柱状图独立为圆角深灰卡片；左右小箭头（◀/▶）仅作滑动提示，不可点击
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "◀",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(start = 6.dp)
+                )
+                StatsBarChart(
+                    modifier = Modifier.weight(1f),
+                    pagerState = chartPager,
+                    firstWeekStart = firstWeekStart,
+                    countsByDay = chartCounts,
+                    chartMax = chartMax,
+                    currentWeekStart = thisMonday,
+                    selectedDay = selectedDay,
+                    onDayClick = onDayClick
+                )
+                Text(
+                    text = "▶",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(end = 6.dp)
+                )
+            }
+        }
         val filterDay = selectedDay
         if (filterDay != null) {
             FilteredDayRow(day = filterDay, onClear = onClearDay)
@@ -879,13 +925,14 @@ private fun StatsBarChart(
     chartMax: Int,
     currentWeekStart: LocalDate,
     selectedDay: LocalDate?,
-    onDayClick: (LocalDate) -> Unit
+    onDayClick: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val maxBarHeight = 64.dp
 
     HorizontalPager(
         state = pagerState,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(96.dp)
     ) { page ->
@@ -1676,7 +1723,7 @@ private fun NotificationCard(
 }
 
 // ================= v7.45：通知卡片折叠 =================
-// 规则：连续收到同一个 app 的通知（packageName 一致 + 列表连续相邻），段内各 entry.count 之和 >= 4 时折叠。
+// 规则：连续收到同一个 app 的通知（packageName 一致 + 列表连续相邻），段内卡片数（聚合条目算 1 张，即 entries.size）>= 4 时折叠。
 // 段内最新一条（时间倒序第一位）正常显示，其下方插入折叠卡片；点击展开后其余条目缩宽显示，
 // 收起提示卡带吸顶效果（与应用分组头一致）。不修改聚合逻辑，仅在列表层做折叠。
 
@@ -1689,9 +1736,7 @@ private class FoldSegment(
     val packageName: String?,
     val appLabel: String?,
     val entries: List<NotificationHistoryEntry>
-) {
-    val totalCount: Int get() = entries.sumOf { it.count }
-}
+)
 
 /** 按 packageName 连续相邻分段（输入需已按时间倒序；段内第一条即最新一条） */
 private fun buildFoldSegments(entries: List<NotificationHistoryEntry>): List<FoldSegment> {
@@ -1802,7 +1847,7 @@ private fun LazyListScope.foldSegments(
 ) {
     segments.forEach { seg ->
         val pkg = seg.packageName
-        val foldable = pkg != null && seg.totalCount >= FOLD_THRESHOLD && seg.entries.size > 1
+        val foldable = pkg != null && seg.entries.size >= FOLD_THRESHOLD
         if (!foldable) {
             // 不满足折叠条件：正常逐条渲染（含角标、时间、点击行为，与原实现一致）
             seg.entries.forEach { entry ->

@@ -308,4 +308,57 @@
     <!-- v7.45: Сворачивание карточек уведомлений -->
     <string name="fold_expand_hint">Показать ещё %2$d уведомлений от %1$s</string>
     <string name="fold_collapse_hint">Свернуть %2$d уведомлений от %1$s</string>
+    <string name="change_count">%s изменений</string>
+    <!-- v7.50: Настройки - диалог очистки по приложению -->
+    <string name="clear_by_app_title">Выбрать приложения</string>
+    <string name="clear_by_app_hint">Отметьте приложения, историю которых нужно очистить (мультивыбор)</string>
+    <string name="select_all">Выбрать все</string>
+    <string name="clear_selected_apps_history">Очистить историю выбранных приложений</string>
+
+    <!-- v7.50: Настройки - использование памяти -->
+    <string name="settings_storage_usage">Использование памяти</string>
+    <string name="storage_usage_title">Использование памяти</string>
+    <string name="storage_usage_history">История уведомлений</string>
+    <string name="storage_usage_history_desc">notification_history.json и связанные файлы. Очистка удаляет всю историю уведомлений.</string>
+    <string name="storage_usage_rules">Правила</string>
+    <string name="storage_usage_rules_desc">rules.json и связанные файлы. Очистка удаляет все правила.</string>
+    <string name="storage_usage_other">Другое</string>
+    <string name="storage_usage_other_desc">Журналы сбоев и временные файлы .bak/.corrupt/.tmp. Настройки и статистика сохраняются.</string>
+    <string name="storage_clear">Очистить</string>
+    <string name="storage_clear_all">Очистить всё</string>
+    <string name="storage_clear_all_confirm_title">Очистить всё?</string>
+    <string name="storage_clear_all_confirm_body">Будут очищены история, правила и временные файлы. Действие необратимо.</string>
+    <string name="storage_clear_history_confirm_title">Очистить историю уведомлений?</string>
+    <string name="storage_clear_history_confirm_body">Вся история уведомлений будет удалена навсегда.</string>
+    <string name="storage_clear_rules_confirm_title">Очистить все правила?</string>
+    <string name="storage_clear_rules_confirm_body">Все правила будут удалены навсегда.</string>
+    <string name="storage_clear_other_confirm_title">Очистить другие файлы?</string>
+    <string name="storage_clear_other_confirm_body">Журналы сбоев и временные/резервные файлы будут удалены. Настройки и статистика не затрагиваются.</string>
+    <string name="storage_cleared">Очищено</string>
+
+    <!-- v7.50: Настройки - очистка истории по периоду -->
+    <string name="clear_by_date_range_title">Выберите период</string>
+    <string name="clear_by_date_range_hint">Выберите даты начала и конца (включая обе)</string>
+    <string name="clear_date_7d">7 дней</string>
+    <string name="clear_date_30d">30 дней</string>
+    <string name="clear_date_90d">90 дней</string>
+    <string name="clear_date_all">Всё</string>
+    <string name="clear_this_range_history">Очистить историю за этот период</string>
+    <string name="rules_title">Правила</string>
+    <string name="rules_count">%1$d правил</string>
+    <string name="rule_wizard_name_hint">Название правила, напр. Блокировать спам-SMS</string>
+    <string name="rule_wizard_unnamed_prefix">Правило без названия</string>
+    <string name="rule_wizard_section_workflow">Рабочий процесс</string>
+    <string name="rule_wizard_source_app">Приложения-источники</string>
+    <string name="rule_wizard_source_app_none">Приложение не выбрано</string>
+    <string name="rule_wizard_source_app_count">Выбрано: %1$d</string>
+    <string name="rule_wizard_condition_add">Добавить условие</string>
+    <string name="rule_wizard_condition_none">Условий нет</string>
+    <string name="rule_wizard_condition_title">Настроить условие</string>
+    <string name="rule_wizard_condition_keywords">Ключевые слова</string>
+    <string name="rule_wizard_condition_phone_state">Состояние телефона</string>
+    <string name="rule_wizard_condition_time">Время</string>
+    <string name="rule_wizard_action_delete_title">Удалить действие</string>
+    <string name="rule_wizard_action_delete_message">Удалить это действие?</string>
+    <string name="rule_wizard_action_drag_hint">Перетащите для изменения порядка</string>
 </resources>

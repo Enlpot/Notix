@@ -17,6 +17,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -123,6 +130,12 @@ class MainActivity : ComponentActivity() {
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private fun showMessage(msg: String) {
         uiScope.launch { snackbarHostState.showSnackbar(msg) }
+    }
+
+    // v7.50：存储占用——清空全部规则并刷新状态
+    private fun clearAllRulesForStorage() {
+        ruleStorage.saveRules(emptyList())
+        rules = emptyList()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -398,6 +411,9 @@ class MainActivity : ComponentActivity() {
                     pastNotifications = historyEntries.flatMap { it.changes }
                     notificationToShowHistoryDetailsDialog = null
                     showMessage(context.getString(R.string.toast_notification_deleted))
+                },
+                onRestoreNotification = { notification ->
+                    restoreNotificationToShade(context, notification)
                 }
             )
         }
@@ -575,23 +591,25 @@ class MainActivity : ComponentActivity() {
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        // 选中指示条（替代 NavigationBarItem 默认 pill）
-                        if (currentTab == index) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .padding(top = 4.dp)
-                                    .width(32.dp)
-                                    .height(3.dp)
-                                    .clip(RoundedCornerShape(1.5.dp))
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
+                        // v7.43：选中态主题色圆角胶囊背景（替代顶部指示条，参考图样式）
+                        Box(
+                            modifier = Modifier
+                                .width(52.dp)
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    if (currentTab == index) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                        )
                         Icon(
                             imageVector = tabIcons[index],
                             contentDescription = title,
                             tint = if (currentTab == index) {
-                                MaterialTheme.colorScheme.primary
+                                MaterialTheme.colorScheme.onPrimary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -623,7 +641,16 @@ class MainActivity : ComponentActivity() {
         }
         // v7.41：当前 tab 页面内容（横屏右半 / 竖屏内容区共用）
         val screenContent: @Composable () -> Unit = {
-            when (currentTab) {
+            // v8.0：tab 切换过渡动画（淡入淡出 + 轻微水平位移，约 250ms）
+            AnimatedContent(
+                targetState = currentTab,
+                transitionSpec = {
+                    (fadeIn(tween(250)) + slideInHorizontally { it / 8 }) togetherWith
+                        (fadeOut(tween(250)) + slideOutHorizontally { -it / 8 })
+                },
+                label = "tabContent",
+            ) { tab ->
+                when (tab) {
                 0 -> PagerScreenContent(
                     page = 0,
                     historyEntries = historyEntries,
@@ -726,6 +753,7 @@ class MainActivity : ComponentActivity() {
                     selectedDay = selectedDay,
                     onSelectedDayChange = { selectedDay = it }
                 )
+                }
             }
         }
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -812,7 +840,16 @@ class MainActivity : ComponentActivity() {
             ) {
                 Box(modifier = Modifier.padding(innerPadding)) {
                     // v7.40：底部三 tab 取消滑动，改为按 currentTab 直接渲染当前页
-                    when (currentTab) {
+                    // v8.0：tab 切换过渡动画（淡入淡出 + 轻微水平位移，约 250ms）
+                    AnimatedContent(
+                        targetState = currentTab,
+                        transitionSpec = {
+                            (fadeIn(tween(250)) + slideInHorizontally { it / 8 }) togetherWith
+                                (fadeOut(tween(250)) + slideOutHorizontally { -it / 8 })
+                        },
+                        label = "tabContent",
+                    ) { tab ->
+                        when (tab) {
                         0 -> PagerScreenContent(
                             page = 0,
                             historyEntries = historyEntries,
@@ -915,6 +952,7 @@ class MainActivity : ComponentActivity() {
                             selectedDay = selectedDay,
                             onSelectedDayChange = { selectedDay = it }
                         )
+                        }
                     }
                 }
             }
@@ -993,6 +1031,8 @@ class MainActivity : ComponentActivity() {
                 onClearHistory = onClearHistory,
                 onClearHistoryByDate = onClearHistoryByDate,
                 onClearHistoryByPackages = onClearHistoryByPackages,
+                // v7.50：存储占用——清空全部规则
+                onClearRules = { clearAllRulesForStorage() },
                 pastNotifications = pastNotifications,
             )
         }

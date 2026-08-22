@@ -158,6 +158,15 @@ object RuleWizardSupport {
         return actions.mapIndexed { i, s -> if (i == index) spec else s }
     }
 
+    /** 拖动排序：将 from 处动作移动到 to 处（保持其余相对顺序）。 */
+    fun actionFlowMove(actions: List<ActionSpec>, from: Int, to: Int): List<ActionSpec> {
+        if (from !in actions.indices || to !in actions.indices || from == to) return actions
+        val list = actions.toMutableList()
+        val item = list.removeAt(from)
+        list.add(to, item)
+        return list
+    }
+
     /** 上移按钮可用性：index > 0（首项禁用，不越界）。 */
     fun canMoveUp(index: Int, size: Int): Boolean = index > 0 && index < size
 

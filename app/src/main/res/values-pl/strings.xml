@@ -308,4 +308,57 @@
     <!-- v7.45: Zwijanie kart powiadomień -->
     <string name="fold_expand_hint">Pokaż %2$d więcej powiadomień z %1$s</string>
     <string name="fold_collapse_hint">Zwiń %2$d powiadomień z %1$s</string>
+    <string name="change_count">%s zmian</string>
+    <!-- v7.50: Ustawienia - okno czyszczenia wg aplikacji -->
+    <string name="clear_by_app_title">Wybierz aplikacje</string>
+    <string name="clear_by_app_hint">Zaznacz aplikacje, których historię chcesz wyczyścić (wielokrotny wybór)</string>
+    <string name="select_all">Zaznacz wszystko</string>
+    <string name="clear_selected_apps_history">Wyczyść historię wybranych aplikacji</string>
+
+    <!-- v7.50: Ustawienia - użycie pamięci -->
+    <string name="settings_storage_usage">Użycie pamięci</string>
+    <string name="storage_usage_title">Użycie pamięci</string>
+    <string name="storage_usage_history">Historia powiadomień</string>
+    <string name="storage_usage_history_desc">notification_history.json i powiązane pliki. Wyczyszczenie usuwa całą historię powiadomień.</string>
+    <string name="storage_usage_rules">Reguły</string>
+    <string name="storage_usage_rules_desc">rules.json i powiązane pliki. Wyczyszczenie usuwa wszystkie reguły.</string>
+    <string name="storage_usage_other">Inne</string>
+    <string name="storage_usage_other_desc">Dzienniki awarii i pliki tymczasowe .bak/.corrupt/.tmp. Ustawienia i statystyki są zachowane.</string>
+    <string name="storage_clear">Wyczyść</string>
+    <string name="storage_clear_all">Wyczyść wszystko</string>
+    <string name="storage_clear_all_confirm_title">Wyczyścić wszystko?</string>
+    <string name="storage_clear_all_confirm_body">Historia, reguły i pliki tymczasowe zostaną wyczyszczone. Tej operacji nie można cofnąć.</string>
+    <string name="storage_clear_history_confirm_title">Wyczyścić historię powiadomień?</string>
+    <string name="storage_clear_history_confirm_body">Cała historia powiadomień zostanie trwale usunięta.</string>
+    <string name="storage_clear_rules_confirm_title">Wyczyścić wszystkie reguły?</string>
+    <string name="storage_clear_rules_confirm_body">Wszystkie reguły zostaną trwale usunięte.</string>
+    <string name="storage_clear_other_confirm_title">Wyczyścić inne pliki?</string>
+    <string name="storage_clear_other_confirm_body">Dzienniki awarii i pliki tymczasowe/kopie zapasowe zostaną usunięte. Ustawienia i statystyki pozostaną bez zmian.</string>
+    <string name="storage_cleared">Wyczyszczono</string>
+
+    <!-- v7.50: Ustawienia - czyszczenie historii wg zakresu dat -->
+    <string name="clear_by_date_range_title">Wybierz zakres czasu</string>
+    <string name="clear_by_date_range_hint">Wybierz daty początkowe i końcowe (włącznie)</string>
+    <string name="clear_date_7d">7 dni</string>
+    <string name="clear_date_30d">30 dni</string>
+    <string name="clear_date_90d">90 dni</string>
+    <string name="clear_date_all">Wszystko</string>
+    <string name="clear_this_range_history">Wyczyść historię w tym zakresie</string>
+    <string name="rules_title">Reguły</string>
+    <string name="rules_count">%1$d reguł</string>
+    <string name="rule_wizard_name_hint">Nazwa reguły, np. Blokuj SMS-y spam</string>
+    <string name="rule_wizard_unnamed_prefix">Reguła bez nazwy</string>
+    <string name="rule_wizard_section_workflow">Przepływ pracy</string>
+    <string name="rule_wizard_source_app">Aplikacje źródłowe</string>
+    <string name="rule_wizard_source_app_none">Nie wybrano aplikacji</string>
+    <string name="rule_wizard_source_app_count">Wybrano %1$d</string>
+    <string name="rule_wizard_condition_add">Dodaj warunek</string>
+    <string name="rule_wizard_condition_none">Brak warunków</string>
+    <string name="rule_wizard_condition_title">Konfiguruj warunek</string>
+    <string name="rule_wizard_condition_keywords">Słowa kluczowe</string>
+    <string name="rule_wizard_condition_phone_state">Stan telefonu</string>
+    <string name="rule_wizard_condition_time">Czas</string>
+    <string name="rule_wizard_action_delete_title">Usuń akcję</string>
+    <string name="rule_wizard_action_delete_message">Usunąć tę akcję?</string>
+    <string name="rule_wizard_action_drag_hint">Przeciągnij, aby zmienić kolejność</string>
 </resources>
