@@ -1,3 +1,14 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 26c411d2a0f0a2e307f470b439631140_a3828a979dfc11f1a65b525400826444
+    ReservedCode1: 6b6yMipZNB9AVzfqAhBVnl/Xp8SN+5wu7JdmJcGutGGDJ5kKkWpB11+pPaQg/mKu215r7QUTHwDq2OiaJoh+eIVwAVJWMDBKaN7LptVtN1tcWBH4HnKMWCEBSUId97tNFvMejoig7dbsutSbx4Viq4NI1jpORgcYcmYsG6Ij+V72FI/yynOmTpLVaBM=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 26c411d2a0f0a2e307f470b439631140_a3828a979dfc11f1a65b525400826444
+    ReservedCode2: 6b6yMipZNB9AVzfqAhBVnl/Xp8SN+5wu7JdmJcGutGGDJ5kKkWpB11+pPaQg/mKu215r7QUTHwDq2OiaJoh+eIVwAVJWMDBKaN7LptVtN1tcWBH4HnKMWCEBSUId97tNFvMejoig7dbsutSbx4Viq4NI1jpORgcYcmYsG6Ij+V72FI/yynOmTpLVaBM=
+---
+
 # Notix Release Notes
 
 ## 8.0 (2026-08-22)
@@ -26,3 +37,4 @@
 - 通知折叠卡展开/收起后滚动位置错误：收起折叠段后自动回到段头
 - 同应用多折叠段 key 冲突导致列表抛 IllegalArgumentException 崩溃
 - 按应用折叠段改为按通知发送时间判定顺序，避免切换 tab 卡顿
+*（内容由AI生成，仅供参考）*

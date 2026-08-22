@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <!-- 单色层：Android 13+ 主题图标（Themed Icon），颜色由系统按壁纸取色覆盖 -->
+  <path android:fillColor="#000000" android:pathData="M26.5,33h55a4.5,4.5 0 0 1 4.5,4.5v0a4.5,4.5 0 0 1 -4.5,4.5h-55a4.5,4.5 0 0 1 -4.5,-4.5v0a4.5,4.5 0 0 1 4.5,-4.5z"/>
+  <path android:fillColor="#000000" android:pathData="M32.5,49h43a4.5,4.5 0 0 1 4.5,4.5v0a4.5,4.5 0 0 1 -4.5,4.5h-43a4.5,4.5 0 0 1 -4.5,-4.5v0a4.5,4.5 0 0 1 4.5,-4.5z"/>
+  <path android:fillColor="#000000" android:pathData="M38.5,65h31a4.5,4.5 0 0 1 4.5,4.5v0a4.5,4.5 0 0 1 -4.5,4.5h-31a4.5,4.5 0 0 1 -4.5,-4.5v0a4.5,4.5 0 0 1 4.5,-4.5z"/>
+</vector>
