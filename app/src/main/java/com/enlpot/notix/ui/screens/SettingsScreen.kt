@@ -314,7 +314,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .padding(24.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
                 ),
@@ -410,7 +410,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .padding(24.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
                 ),
@@ -463,7 +463,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(
+                        TextButton(
                             onClick = {
                                 cal.timeInMillis = System.currentTimeMillis()
                                 endDateMillis = cal.timeInMillis
@@ -475,7 +475,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.clear_date_7d), maxLines = 1)
                         }
-                        OutlinedButton(
+                        TextButton(
                             onClick = {
                                 cal.timeInMillis = System.currentTimeMillis()
                                 endDateMillis = cal.timeInMillis
@@ -487,7 +487,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.clear_date_30d), maxLines = 1)
                         }
-                        OutlinedButton(
+                        TextButton(
                             onClick = {
                                 cal.timeInMillis = System.currentTimeMillis()
                                 endDateMillis = cal.timeInMillis
@@ -499,7 +499,7 @@ fun SettingsScreen(
                         ) {
                             Text(stringResource(R.string.clear_date_90d), maxLines = 1)
                         }
-                        OutlinedButton(
+                        TextButton(
                             onClick = {
                                 startDateMillis = 0L
                                 endDateMillis = System.currentTimeMillis()
@@ -603,7 +603,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .padding(24.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
                 ),
@@ -773,6 +773,13 @@ fun SettingsScreen(
                 .imePadding()
                 .verticalScroll(rememberScrollState())
         ) {
+            // v8.2：设置页主标题（与历史/规则页 headlineMedium+Bold 统一）
+            Text(
+                text = stringResource(R.string.settings),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
             SettingsSection(title = stringResource(R.string.settings_section_general)) {
                 // v7.45：无文本通知文字提取开关（默认关）
                 SettingsRow(

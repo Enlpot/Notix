@@ -179,14 +179,14 @@ fun StorageUsageScreen(
             )
             Spacer(Modifier.height(24.dp))
             // v7.50：底部全宽红色「清除全部」（二次确认，依次清空三项）
-            Button(
+            // v8.2：与列表内「清除」一致，改为红字 TextButton
+            TextButton(
                 onClick = { confirmClearAll = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
                 Text(stringResource(R.string.storage_clear_all), fontWeight = FontWeight.SemiBold)

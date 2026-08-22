@@ -18,9 +18,12 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,7 +80,7 @@ fun NotificationDetailDialog(
                     // v7.51：弹窗宽度改为屏幕 90%
                     .fillMaxWidth(0.9f)
                     .heightIn(max = maxDialogHeight),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 6.dp
             ) {
@@ -93,7 +96,7 @@ fun NotificationDetailDialog(
                             packageName = packageName,
                             appName = displayAppName,
                             size = 36.dp,
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(8.dp),
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
@@ -158,10 +161,7 @@ fun NotificationDetailDialog(
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    // 底部按钮区：四按钮一排并排显示（v7.50：删除/打开/还原/创建规则，不再换行）
-                    val primaryColor = MaterialTheme.colorScheme.primary
-                    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
-                    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    // 底部按钮区：四按钮一排并排显示（v8.2：统一 Material3 Button 体系，圆角 8dp、labelLarge 字级）
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -169,82 +169,65 @@ fun NotificationDetailDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 删除：error 红底
-                        Surface(
+                        // 删除：error 红底（与其他危险操作同形态）
+                        Button(
                             onClick = {
                                 onDismiss()
                                 onDelete()
                             },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            color = errorColor
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notification_delete),
-                                color = errorFg,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = errorColor,
+                                contentColor = errorFg
                             )
+                        ) {
+                            Text(stringResource(R.string.notification_delete))
                         }
                         // 打开：主题色底
-                        Surface(
+                        Button(
                             onClick = {
                                 onDismiss()
                                 onOpen()
                             },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            color = primaryColor
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notification_open),
-                                color = onPrimaryColor,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             )
+                        ) {
+                            Text(stringResource(R.string.notification_open))
                         }
                         // 还原：灰底
-                        Surface(
+                        Button(
                             onClick = {
                                 onDismiss()
                                 onRestore?.invoke()
                             },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notification_restore),
-                                color = onSurfaceVariantColor,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        ) {
+                            Text(stringResource(R.string.notification_restore))
                         }
                         // 创建规则：主题色边框透明底
-                        Surface(
+                        OutlinedButton(
                             onClick = {
                                 onDismiss()
                                 onCreateRule()
                             },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color.Transparent,
-                            border = BorderStroke(1.dp, primaryColor)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notification_create_rule),
-                                color = primaryColor,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.primary
                             )
+                        ) {
+                            Text(stringResource(R.string.notification_create_rule))
                         }
                     }
                 }

@@ -55,6 +55,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Clear
@@ -915,10 +917,10 @@ internal fun ChartPanel(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "◀",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                     modifier = Modifier.padding(start = 6.dp)
                 )
                 StatsBarChart(
@@ -931,10 +933,10 @@ internal fun ChartPanel(
                     selectedDay = selectedDay,
                     onDayClick = onDayClick
                 )
-                Text(
-                    text = "▶",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
                     modifier = Modifier.padding(end = 6.dp)
                 )
             }
@@ -1013,7 +1015,7 @@ private fun StatsBarChart(
                         modifier = Modifier
                             .width(18.dp)
                             .height(barHeight)
-                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                             .background(
                                 when {
                                     isSelected -> MaterialTheme.colorScheme.primary
@@ -1201,7 +1203,7 @@ private fun HistoryTitleRow(
     ) {
         Text(
             text = stringResource(R.string.history_title),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
@@ -1251,7 +1253,7 @@ private fun HistorySubTabs(
             val isSelected = selectedTab == tab
             Card(
                 onClick = { onTabSelected(tab) },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
@@ -1278,7 +1280,7 @@ private fun SearchButton(onClick: () -> Unit, onLongClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .size(48.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(16.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         contentAlignment = Alignment.Center
     ) {
@@ -1498,7 +1500,7 @@ private fun AppGroupHeader(
             // v7.8：变更计数角标——主色深色版底 + 白色文字
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(accent)
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
@@ -1689,7 +1691,7 @@ private fun RuleGroupHeader(
 
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(accent)
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
@@ -1779,7 +1781,7 @@ private fun NotificationCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = displayAppName,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -1822,7 +1824,7 @@ private fun NotificationCard(
                 if (entry.count > 1) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(accent)
                             .clickable { onHistoryClick() }
                             .padding(horizontal = 8.dp, vertical = 2.dp),
@@ -1854,7 +1856,7 @@ private fun NotificationCard(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 12.dp + indent, bottom = 12.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(errorColor)
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
