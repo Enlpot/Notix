@@ -74,8 +74,8 @@ fun NotificationDetailDialog(
             val maxDialogHeight = this.maxHeight * 0.8f
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                    // v7.51：弹窗宽度改为屏幕 90%
+                    .fillMaxWidth(0.9f)
                     .heightIn(max = maxDialogHeight),
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface,

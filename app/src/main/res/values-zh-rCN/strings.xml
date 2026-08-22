@@ -86,6 +86,7 @@
     <string name="no_blocked_notifications_desc">被您的规则拦截的通知将显示在此处。在规则标签页中创建规则，开始拦截不需要的通知。</string>
     <string name="clear_blocked_history">清除拦截历史</string>
     <string name="clear_blocked_history_title">清除拦截历史？</string>
+    <string name="history_total_today">总记录 %1$d，今日 %2$d</string>
     <string name="clear_blocked_history_confirm">确定要清除所有已拦截的通知历史吗？</string>
     <string name="ongoing_notification_partially_blocked">这是一条常驻通知，可能未被完全拦截。</string>
     <string name="delete_blocked_notification">删除已拦截通知</string>
@@ -476,7 +477,7 @@
     <string name="rules_count">共 %1$d 条规则</string>
     <string name="rule_wizard_name_hint">规则名称，如：屏蔽营销短信</string>
     <string name="rule_wizard_unnamed_prefix">未命名规则</string>
-    <string name="rule_wizard_section_workflow">工作流</string>
+    <string name="rule_wizard_section_workflow">动作流</string>
     <string name="rule_wizard_source_app">来源应用</string>
     <string name="rule_wizard_source_app_none">未选择应用</string>
     <string name="rule_wizard_source_app_count">已选 %1$d 个应用</string>

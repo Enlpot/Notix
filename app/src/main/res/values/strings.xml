@@ -42,7 +42,7 @@
 
     <!-- History screen (Phase 1 additions) -->
     <string name="history_title">通知历史</string>
-    <string name="history_total">总记录 %d</string>
+    <string name="history_total_today">总记录 %1$d，今日 %2$d</string>
     <string name="history_today">今日 %d</string>
     <string name="history_filtered_day">已筛选 %s 的通知</string>
     <string name="clear_filter">关闭筛选</string>
@@ -61,8 +61,8 @@
     <string name="week_fri">周五</string>
     <string name="week_sat">周六</string>
     <string name="week_sun">周日</string>
-    <string name="notification_restore">还原通知</string>
-    <string name="notification_open">打开通知</string>
+    <string name="notification_restore">还原</string>
+    <string name="notification_open">打开</string>
     <string name="notification_create_rule">创建规则</string>
     <string name="notification_delete">删除</string>
     <string name="change_count">%s changes</string>
@@ -586,7 +586,7 @@
     <string name="rules_count">%1$d rules</string>
     <string name="rule_wizard_name_hint">Rule name, e.g. Block spam SMS</string>
     <string name="rule_wizard_unnamed_prefix">Unnamed rule</string>
-    <string name="rule_wizard_section_workflow">Workflow</string>
+    <string name="rule_wizard_section_workflow">Action Flow</string>
     <string name="rule_wizard_source_app">Source apps</string>
     <string name="rule_wizard_source_app_none">No app selected</string>
     <string name="rule_wizard_source_app_count">%1$d selected</string>

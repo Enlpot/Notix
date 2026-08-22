@@ -74,6 +74,7 @@
     <string name="no_blocked_notifications_desc">Уведомления, заблокированные вашими правилами, появятся здесь. Создайте правила на вкладке «Правила», чтобы начать блокировать нежелательные уведомления.</string>
     <string name="clear_blocked_history">Очистить историю блокировок</string>
     <string name="clear_blocked_history_title">Очистить историю блокировок?</string>
+    <string name="history_total_today">Всего %1$d, сегодня %2$d</string>
     <string name="clear_blocked_history_confirm">Вы уверены, что хотите очистить всю историю заблокированных уведомлений?</string>
     <string name="ongoing_notification_partially_blocked">Это было постоянное уведомление. Оно могло быть заблокировано не полностью.</string>
     <string name="delete_blocked_notification">Удалить заблокированное уведомление</string>
@@ -348,7 +349,7 @@
     <string name="rules_count">%1$d правил</string>
     <string name="rule_wizard_name_hint">Название правила, напр. Блокировать спам-SMS</string>
     <string name="rule_wizard_unnamed_prefix">Правило без названия</string>
-    <string name="rule_wizard_section_workflow">Рабочий процесс</string>
+    <string name="rule_wizard_section_workflow">Поток действий</string>
     <string name="rule_wizard_source_app">Приложения-источники</string>
     <string name="rule_wizard_source_app_none">Приложение не выбрано</string>
     <string name="rule_wizard_source_app_count">Выбрано: %1$d</string>

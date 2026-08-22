@@ -396,32 +396,7 @@ fun RuleWizardScreen(
                     ),
                 )
             },
-            bottomBar = {
-                if (isEditMode && onDeleteRule != null) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 3.dp,
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .safeDrawingPadding()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                        ) {
-                            OutlinedButton(
-                                onClick = { onDeleteRule(editingRule!!) },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error,
-                                ),
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.delete))
-                            }
-                        }
-                    }
-                }
-            },
+            bottomBar = {},
         ) { innerPadding ->
             Column(
                 modifier = Modifier
@@ -480,12 +455,14 @@ fun RuleWizardScreen(
                 ConditionSummaryCard(
                     hasKeywords = hasKeywords,
                     keywordSummary = keywordSummaryText(matchMode, includeKeywords, excludeKeywords),
-                    extraSummary = extraConditionSummaryText(
+                    phoneStateSummary = phoneStateConditionSummaryText(
                         screenState = screenState,
                         chargingState = chargingState,
                         dndState = dndState,
                         bluetoothState = bluetoothState,
                         bluetoothDeviceNames = bluetoothDeviceNames,
+                    ),
+                    timeSummary = timeConditionSummaryText(
                         timeEnabled = timeEnabled,
                         startHour = startHour,
                         startMinute = startMinute,
@@ -972,18 +949,12 @@ private fun keywordSummaryText(
 }
 
 @Composable
-private fun extraConditionSummaryText(
+private fun phoneStateConditionSummaryText(
     screenState: ScreenState,
     chargingState: ChargingState,
     dndState: DndState,
     bluetoothState: BluetoothState,
     bluetoothDeviceNames: List<String>,
-    timeEnabled: Boolean,
-    startHour: Int,
-    startMinute: Int,
-    endHour: Int,
-    endMinute: Int,
-    selectedWeekdays: Set<Int>,
 ): String {
     val parts = mutableListOf<String>()
     if (screenState != ScreenState.ANY) parts.add(screenStateLabel(screenState))
@@ -993,13 +964,21 @@ private fun extraConditionSummaryText(
     if (bluetoothDeviceNames.isNotEmpty()) {
         parts.add(stringResource(R.string.rule_wizard_extra_bt_devices) + ": " + bluetoothDeviceNames.joinToString(","))
     }
-    if (timeEnabled) {
-        parts.add(
-            "%02d:%02d-%02d:%02d".format(startHour, startMinute, endHour, endMinute) +
-                if (selectedWeekdays.isNotEmpty()) " " + selectedWeekdays.sorted().joinToString(",") else ""
-        )
-    }
     return parts.joinToString(" · ")
+}
+
+@Composable
+private fun timeConditionSummaryText(
+    timeEnabled: Boolean,
+    startHour: Int,
+    startMinute: Int,
+    endHour: Int,
+    endMinute: Int,
+    selectedWeekdays: Set<Int>,
+): String {
+    if (!timeEnabled) return ""
+    return "%02d:%02d-%02d:%02d".format(startHour, startMinute, endHour, endMinute) +
+        if (selectedWeekdays.isNotEmpty()) " " + selectedWeekdays.sorted().joinToString(",") else ""
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,13 +989,14 @@ private fun extraConditionSummaryText(
 private fun ConditionSummaryCard(
     hasKeywords: Boolean,
     keywordSummary: String,
-    extraSummary: String,
+    phoneStateSummary: String,
+    timeSummary: String,
     onClick: () -> Unit,
 ) {
-    val hasExtra = extraSummary.isNotBlank()
-    val summaryParts = listOf(
+    val summaryLines = listOf(
         keywordSummary.takeIf { hasKeywords },
-        extraSummary.takeIf { hasExtra },
+        phoneStateSummary.takeIf { it.isNotBlank() },
+        timeSummary.takeIf { it.isNotBlank() },
     ).filterNotNull()
     Card(
         modifier = Modifier
@@ -1042,19 +1022,21 @@ private fun ConditionSummaryCard(
                 )
             }
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = if (summaryParts.isNotEmpty()) summaryParts.joinToString(" · ")
-                else stringResource(R.string.rule_wizard_condition_none),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onClick) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.rule_wizard_condition_add))
+            if (summaryLines.isNotEmpty()) {
+                summaryLines.forEachIndexed { index, line ->
+                    if (index > 0) Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+            } else {
+                Text(
+                    text = stringResource(R.string.rule_wizard_condition_none),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -1828,20 +1810,6 @@ private fun ActionFlowSection(
                         },
                         onCancel = onCloseEdit,
                     )
-                }
-                // 顺序连接箭头：卡片之间必须有明显顺序表达
-                if (index < actions.lastIndex) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 2.dp),
-                        )
-                    }
                 }
             }
         }

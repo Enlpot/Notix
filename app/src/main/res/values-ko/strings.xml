@@ -74,6 +74,7 @@
     <string name="no_blocked_notifications_desc">규칙에 의해 차단된 알림이 여기에 표시됩니다. 규칙 탭에서 규칙을 만들어 원치 않는 알림 차단을 시작하세요.</string>
     <string name="clear_blocked_history">차단 기록 지우기</string>
     <string name="clear_blocked_history_title">차단 기록을 지우시겠습니까?</string>
+    <string name="history_total_today">총 %1$d건, 오늘 %2$d건</string>
     <string name="clear_blocked_history_confirm">모든 차단된 알림 기록을 지우시겠습니까?</string>
     <string name="ongoing_notification_partially_blocked">진행 중인 알림입니다. 완전히 차단되지 않았을 수 있습니다.</string>
     <string name="delete_blocked_notification">차단된 알림 삭제</string>
@@ -352,7 +353,7 @@
     <string name="rules_count">총 %1$d개 규칙</string>
     <string name="rule_wizard_name_hint">규칙 이름(예: 스팸 SMS 차단)</string>
     <string name="rule_wizard_unnamed_prefix">이름 없는 규칙</string>
-    <string name="rule_wizard_section_workflow">워크플로우</string>
+    <string name="rule_wizard_section_workflow">액션 플로우</string>
     <string name="rule_wizard_source_app">원본 앱</string>
     <string name="rule_wizard_source_app_none">선택된 앱 없음</string>
     <string name="rule_wizard_source_app_count">%1$d개 선택됨</string>

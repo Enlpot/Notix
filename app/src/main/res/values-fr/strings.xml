@@ -74,6 +74,7 @@
     <string name="no_blocked_notifications_desc">Les notifications bloquées par vos règles apparaîtront ici. Créez des règles dans l\'onglet Règles pour commencer à bloquer les notifications indésirables.</string>
     <string name="clear_blocked_history">Effacer l\'historique des blocages</string>
     <string name="clear_blocked_history_title">Effacer l\'historique des blocages ?</string>
+    <string name="history_total_today">Total %1$d, aujourd\'hui %2$d</string>
     <string name="clear_blocked_history_confirm">Êtes-vous sûr de vouloir effacer tout l\'historique des notifications bloquées ?</string>
     <string name="ongoing_notification_partially_blocked">C\'était une notification persistante. Elle n\'a peut-être pas été entièrement bloquée.</string>
     <string name="delete_blocked_notification">Supprimer la notification bloquée</string>
@@ -348,7 +349,7 @@
     <string name="rules_count">%1$d règles</string>
     <string name="rule_wizard_name_hint">Nom de la règle, ex. Bloquer les SMS indésirables</string>
     <string name="rule_wizard_unnamed_prefix">Règle sans nom</string>
-    <string name="rule_wizard_section_workflow">Flux de travail</string>
+    <string name="rule_wizard_section_workflow">Flux d\'actions</string>
     <string name="rule_wizard_source_app">Applications sources</string>
     <string name="rule_wizard_source_app_none">Aucune app sélectionnée</string>
     <string name="rule_wizard_source_app_count">%1$d sélectionnée(s)</string>

@@ -4,7 +4,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
   <!-- 前景层：三行通知符号，上长下短，圆角 4.5（default = gray 灰浅色版） -->
-  <path android:fillColor="#34343A" android:pathData="M26.5,33h55a4.5,4.5 0 0 1 4.5,4.5v0a4.5,4.5 0 0 1 -4.5,4.5h-55a4.5,4.5 0 0 1 -4.5,-4.5v0a4.5,4.5 0 0 1 4.5,-4.5z"/>
-  <path android:fillColor="#34343A" android:pathData="M32.5,49h43a4.5,4.5 0 0 1 4.5,4.5v0a4.5,4.5 0 0 1 -4.5,4.5h-43a4.5,4.5 0 0 1 -4.5,-4.5v0a4.5,4.5 0 0 1 4.5,-4.5z"/>
-  <path android:fillColor="#34343A" android:pathData="M38.5,65h31a4.5,4.5 0 0 1 4.5,4.5v0a4.5,4.5 0 0 1 -4.5,4.5h-31a4.5,4.5 0 0 1 -4.5,-4.5v0a4.5,4.5 0 0 1 4.5,-4.5z"/>
+  <path android:fillColor="#34343A" android:pathData="M32,37.2h44a3.6,3.6 0 0 1 3.6,3.6v0a3.6,3.6 0 0 1 -3.6,3.6h-44a3.6,3.6 0 0 1 -3.6,-3.6v0a3.6,3.6 0 0 1 3.6,-3.6z"/>
+  <path android:fillColor="#34343A" android:pathData="M36.8,50h34.4a3.6,3.6 0 0 1 3.6,3.6v0a3.6,3.6 0 0 1 -3.6,3.6h-34.4a3.6,3.6 0 0 1 -3.6,-3.6v0a3.6,3.6 0 0 1 3.6,-3.6z"/>
+  <path android:fillColor="#34343A" android:pathData="M41.6,62.8h24.8a3.6,3.6 0 0 1 3.6,3.6v0a3.6,3.6 0 0 1 -3.6,3.6h-24.8a3.6,3.6 0 0 1 -3.6,-3.6v0a3.6,3.6 0 0 1 3.6,-3.6z"/>
 </vector>

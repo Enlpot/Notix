@@ -74,6 +74,7 @@
     <string name="no_blocked_notifications_desc">Powiadomienia zablokowane przez Twoje reguły pojawią się tutaj. Utwórz reguły na karcie Reguły, aby zacząć blokować niechciane powiadomienia.</string>
     <string name="clear_blocked_history">Wyczyść historię blokad</string>
     <string name="clear_blocked_history_title">Wyczyścić historię blokad?</string>
+    <string name="history_total_today">Łącznie %1$d, dziś %2$d</string>
     <string name="clear_blocked_history_confirm">Czy na pewno chcesz wyczyścić całą historię zablokowanych powiadomień?</string>
     <string name="ongoing_notification_partially_blocked">To było trwałe powiadomienie. Mogło nie zostać w pełni zablokowane.</string>
     <string name="delete_blocked_notification">Usuń zablokowane powiadomienie</string>
@@ -348,7 +349,7 @@
     <string name="rules_count">%1$d reguł</string>
     <string name="rule_wizard_name_hint">Nazwa reguły, np. Blokuj SMS-y spam</string>
     <string name="rule_wizard_unnamed_prefix">Reguła bez nazwy</string>
-    <string name="rule_wizard_section_workflow">Przepływ pracy</string>
+    <string name="rule_wizard_section_workflow">Przepływ akcji</string>
     <string name="rule_wizard_source_app">Aplikacje źródłowe</string>
     <string name="rule_wizard_source_app_none">Nie wybrano aplikacji</string>
     <string name="rule_wizard_source_app_count">Wybrano %1$d</string>

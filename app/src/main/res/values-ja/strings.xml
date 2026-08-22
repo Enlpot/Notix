@@ -74,6 +74,7 @@
     <string name="no_blocked_notifications_desc">ルールによってブロックされた通知がここに表示されます。「ルール」タブでルールを作成して、不要な通知のブロックを始めましょう。</string>
     <string name="clear_blocked_history">ブロック履歴をクリア</string>
     <string name="clear_blocked_history_title">ブロック履歴をクリアしますか？</string>
+    <string name="history_total_today">合計 %1$d、今日 %2$d</string>
     <string name="clear_blocked_history_confirm">すべてのブロック済み通知履歴をクリアしてもよろしいですか？</string>
     <string name="ongoing_notification_partially_blocked">これは常駐通知です。完全にはブロックされていない可能性があります。</string>
     <string name="delete_blocked_notification">ブロック済み通知を削除</string>
@@ -348,7 +349,7 @@
     <string name="rules_count">全%1$d件のルール</string>
     <string name="rule_wizard_name_hint">ルール名（例：迷惑SMSをブロック）</string>
     <string name="rule_wizard_unnamed_prefix">名前のないルール</string>
-    <string name="rule_wizard_section_workflow">ワークフロー</string>
+    <string name="rule_wizard_section_workflow">アクションフロー</string>
     <string name="rule_wizard_source_app">対象アプリ</string>
     <string name="rule_wizard_source_app_none">アプリ未選択</string>
     <string name="rule_wizard_source_app_count">%1$d件選択中</string>

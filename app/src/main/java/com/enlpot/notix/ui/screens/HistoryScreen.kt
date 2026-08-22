@@ -82,6 +82,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -420,106 +422,11 @@ fun HistoryScreen(
     val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        // v7.50：标题行 + 总记录/今日统计移至最顶部（tab 上方），柱状图内不再重复渲染
+        // v7.50：标题行 + 总记录/今日统计（移入 LazyColumn 顶部 item，随滚动滚出）
         val headerNowDate = LocalDate.now()
         val headerTotalCount = remember(entries) { entries.sumOf { it.count } }
         val headerTodayCount = remember(entries, headerNowDate) {
             entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, headerNowDate) } }
-        }
-        HistoryTitleRow(
-            totalCount = headerTotalCount,
-            todayCount = headerTodayCount,
-            listenerPaused = listenerPaused,
-            onToggleListenerPaused = { showListenerPauseConfirm = true },
-            onBackToCurrentWeek = onBackToCurrentWeek
-        )
-        // --- v7.7 吸顶搜索区：常规与吸顶统一紧凑样式（无动态缩放），仅区分展开/收起 ---
-        val headerMode = if (searchExpanded) SearchHeaderMode.SEARCH_EXPANDED else SearchHeaderMode.NORMAL
-        AnimatedContent(
-            targetState = headerMode,
-            transitionSpec = {
-                // v7.6：平滑缓动曲线；搜索展开/收起从右侧按钮处向左缩放展开
-                val isSearchTransition =
-                    initialState == SearchHeaderMode.SEARCH_EXPANDED || targetState == SearchHeaderMode.SEARCH_EXPANDED
-                val tweenSpec = tween<Float>(
-                    durationMillis = if (isSearchTransition) 300 else 220,
-                    easing = FastOutSlowInEasing
-                )
-                if (isSearchTransition) {
-                    val origin = TransformOrigin(1f, 0.5f)
-                    (fadeIn(tweenSpec) + scaleIn(tweenSpec, initialScale = 0.9f, transformOrigin = origin))
-                        .togetherWith(fadeOut(tweenSpec) + scaleOut(tweenSpec, targetScale = 0.9f, transformOrigin = origin))
-                        .using(SizeTransform(clip = false))
-                } else {
-                    fadeIn(tweenSpec) togetherWith fadeOut(tweenSpec)
-                }
-            },
-            label = "search_header"
-        ) { mode ->
-            when (mode) {
-                SearchHeaderMode.NORMAL -> Row(
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // v7.7：常规与吸顶统一紧凑样式——小字号 tab、紧凑高度、搜索按钮在 tab 行最右侧
-                    HistorySubTabs(
-                        selectedTab = selectedTab,
-                        onTabSelected = { tab ->
-                            coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
-                        },
-                        modifier = Modifier.weight(1f),
-                        compact = true
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    SearchButton(
-                        onClick = { searchExpanded = true },
-                        onLongClick = { showCrashLogDialog = true }
-                    )
-                }
-                SearchHeaderMode.SEARCH_EXPANDED -> Row(
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // v7.7：改用 BasicTextField 自绘紧凑输入框，显式指定文字/光标颜色修复不可见问题
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(32.dp)
-                            .focusRequester(searchFocusRequester)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(horizontal = 12.dp),
-                        textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        singleLine = true,
-                        decorationBox = { innerTextField ->
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = stringResource(R.string.search_notifications),
-                                        fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    // v7.7：关闭搜索时清除搜索条件与输入内容，列表恢复显示全部
-                    IconButton(onClick = {
-                        searchExpanded = false
-                        searchQuery = ""
-                    }) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear_search))
-                    }
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -553,6 +460,16 @@ fun HistoryScreen(
                 val listScope = rememberCoroutineScope()
                 // v7.40：横屏时图表固定左栏、通知列表右栏；竖屏保持原滚动结构
                 val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+                // v7.53：sub_tabs 两级吸顶——原 sub_tabs item 完全滚出视口时显示顶部浮动层
+                // （竖屏 sub_tabs 为第 3 个 item：title=0/header=1/sub_tabs=2；横屏为第 1 个 item=0）
+                val subTabsIndex = if (isLandscape) 0 else 2
+                val subTabsOverlayState = remember(tabListStates[page], subTabsIndex) {
+                    derivedStateOf {
+                        val ls = tabListStates[page]
+                        ls.firstVisibleItemIndex > subTabsIndex ||
+                            (ls.firstVisibleItemIndex == subTabsIndex && ls.firstVisibleItemScrollOffset > 0)
+                    }
+                }
                 // 图表头部块：标题行 + 统计 + 柱状图 + 日期筛选行（v7.41：抽为 ChartPanel 通用图表面板）
                 val headerBlock: @Composable () -> Unit = {
                     ChartPanel(
@@ -573,92 +490,196 @@ fun HistoryScreen(
                 }
                 if (isLandscape) {
                     // v7.41：横屏——图表已由外层 TabbedScreen 左栏渲染（ChartPanel），此处仅渲染通知列表
-                    LazyColumn(
-                        state = tabListStates[page],
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
-                    ) {
-                        val itemIndex = IntArray(1)
-                        historyListItems(
-                            tab = tab,
-                            entries = entries,
-                            filteredEntries = filteredEntries,
-                            filteredBlocked = filteredBlocked,
-                            unmonitoredApps = unmonitoredApps,
-                            expandedApps = expandedApps,
-                            expandedRuleIds = expandedRuleIds,
-                            expandedFoldPackages = expandedFoldPackages,
-                            onToggleFold = toggleFold,
-                            timeFoldSegments = timeFoldSegments,
-                            appFoldSegments = appFoldSegments,
-                            ruleFoldSegments = ruleFoldSegments,
-                            rules = rules,
-                            appGrouped = appGrouped,
-                            ruleById = ruleById,
-                            ruleGrouped = ruleGrouped,
-                            unknownRuleLabel = unknownRuleLabel,
-                            onEntryHistoryClick = onEntryHistoryClick,
-                            onOpenNotification = onOpenNotification,
-                            onRestoreNotification = onRestoreNotification,
-                            onCreateRuleFromNotification = onCreateRuleFromNotification,
-                            onDeleteNotification = onDeleteNotification,
-                            onResumeMonitoring = onResumeMonitoring,
-                            onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
-                            context = context,
-                            itemIndex = itemIndex,
-                            listState = tabListStates[page],
-                            scope = listScope
-                        )
-                        itemIndex[0]++
-                        item(key = "scroll_room") {
-                            Spacer(modifier = Modifier.fillParentMaxHeight())
+                    // v7.54：外层 Column——浮动 sub_tabs 固定占位 + LazyColumn(weight 1f)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // v7.54：sub_tabs 浮动占位层（原 item 滚出视口后显示，占列表顶部固定高度）
+                        if (subTabsOverlayState.value) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                SubTabsHeader(
+                                    searchExpanded = searchExpanded,
+                                    onSearchExpandedChange = { searchExpanded = it },
+                                    searchQuery = searchQuery,
+                                    onSearchQueryChange = { searchQuery = it },
+                                    searchFocusRequester = searchFocusRequester,
+                                    selectedTab = selectedTab,
+                                    onTabSelected = { tab ->
+                                        coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
+                                    },
+                                    onLongClickSearch = { showCrashLogDialog = true }
+                                )
+                            }
+                        }
+                        LazyColumn(
+                            state = tabListStates[page],
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                        ) {
+                            val itemIndex = IntArray(1)
+                            itemIndex[0]++
+                            // v7.53：sub_tabs 由 stickyHeader 改为普通 item，吸顶交给浮动层
+                            item(key = "sub_tabs") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surface)
+                                ) {
+                                    SubTabsHeader(
+                                        searchExpanded = searchExpanded,
+                                        onSearchExpandedChange = { searchExpanded = it },
+                                        searchQuery = searchQuery,
+                                        onSearchQueryChange = { searchQuery = it },
+                                        searchFocusRequester = searchFocusRequester,
+                                        selectedTab = selectedTab,
+                                        onTabSelected = { tab ->
+                                            coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
+                                        },
+                                        onLongClickSearch = { showCrashLogDialog = true }
+                                    )
+                                }
+                            }
+                            historyListItems(
+                                tab = tab,
+                                entries = entries,
+                                filteredEntries = filteredEntries,
+                                filteredBlocked = filteredBlocked,
+                                unmonitoredApps = unmonitoredApps,
+                                expandedApps = expandedApps,
+                                expandedRuleIds = expandedRuleIds,
+                                expandedFoldPackages = expandedFoldPackages,
+                                onToggleFold = toggleFold,
+                                timeFoldSegments = timeFoldSegments,
+                                appFoldSegments = appFoldSegments,
+                                ruleFoldSegments = ruleFoldSegments,
+                                rules = rules,
+                                appGrouped = appGrouped,
+                                ruleById = ruleById,
+                                ruleGrouped = ruleGrouped,
+                                unknownRuleLabel = unknownRuleLabel,
+                                onEntryHistoryClick = onEntryHistoryClick,
+                                onOpenNotification = onOpenNotification,
+                                onRestoreNotification = onRestoreNotification,
+                                onCreateRuleFromNotification = onCreateRuleFromNotification,
+                                onDeleteNotification = onDeleteNotification,
+                                onResumeMonitoring = onResumeMonitoring,
+                                onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
+                                context = context,
+                                itemIndex = itemIndex,
+                                listState = tabListStates[page],
+                                scope = listScope,
+                                subTabsOverlayVisible = subTabsOverlayState
+                            )
+                            itemIndex[0]++
+                            item(key = "scroll_room") {
+                                Spacer(modifier = Modifier.fillParentMaxHeight())
+                            }
                         }
                     }
                 } else {
-                    LazyColumn(
-                        state = tabListStates[page],
-                        modifier = Modifier.fillMaxSize(),
-                        // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
-                        contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
-                    ) {
-                        val itemIndex = IntArray(1)
-                        itemIndex[0]++
-                        item(key = "history_header") {
-                            headerBlock()
+                    // v7.54：外层 Column——浮动 sub_tabs 固定占位 + LazyColumn(weight 1f)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // v7.54：sub_tabs 浮动占位层（原 item 滚出视口后显示，占列表顶部固定高度）
+                        if (subTabsOverlayState.value) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                SubTabsHeader(
+                                    searchExpanded = searchExpanded,
+                                    onSearchExpandedChange = { searchExpanded = it },
+                                    searchQuery = searchQuery,
+                                    onSearchQueryChange = { searchQuery = it },
+                                    searchFocusRequester = searchFocusRequester,
+                                    selectedTab = selectedTab,
+                                    onTabSelected = { tab ->
+                                        coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
+                                    },
+                                    onLongClickSearch = { showCrashLogDialog = true }
+                                )
+                            }
                         }
-                        historyListItems(
-                            tab = tab,
-                            entries = entries,
-                            filteredEntries = filteredEntries,
-                            filteredBlocked = filteredBlocked,
-                            unmonitoredApps = unmonitoredApps,
-                            expandedApps = expandedApps,
-                            expandedRuleIds = expandedRuleIds,
-                            expandedFoldPackages = expandedFoldPackages,
-                            onToggleFold = toggleFold,
-                            timeFoldSegments = timeFoldSegments,
-                            appFoldSegments = appFoldSegments,
-                            ruleFoldSegments = ruleFoldSegments,
-                            rules = rules,
-                            appGrouped = appGrouped,
-                            ruleById = ruleById,
-                            ruleGrouped = ruleGrouped,
-                            unknownRuleLabel = unknownRuleLabel,
-                            onEntryHistoryClick = onEntryHistoryClick,
-                            onOpenNotification = onOpenNotification,
-                            onRestoreNotification = onRestoreNotification,
-                            onCreateRuleFromNotification = onCreateRuleFromNotification,
-                            onDeleteNotification = onDeleteNotification,
-                            onResumeMonitoring = onResumeMonitoring,
-                            onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
-                            context = context,
-                            itemIndex = itemIndex,
-                            listState = tabListStates[page],
-                            scope = listScope
-                        )
-                        itemIndex[0]++
-                        item(key = "scroll_room") {
-                            Spacer(modifier = Modifier.fillParentMaxHeight())
+                        LazyColumn(
+                            state = tabListStates[page],
+                            modifier = Modifier.weight(1f),
+                            // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
+                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                        ) {
+                            val itemIndex = IntArray(1)
+                            itemIndex[0]++
+                            item(key = "history_title") {
+                                HistoryTitleRow(
+                                    totalCount = headerTotalCount,
+                                    todayCount = headerTodayCount,
+                                    listenerPaused = listenerPaused,
+                                    onToggleListenerPaused = { showListenerPauseConfirm = true },
+                                    onBackToCurrentWeek = onBackToCurrentWeek
+                                )
+                            }
+                            itemIndex[0]++
+                            item(key = "history_header") {
+                                headerBlock()
+                            }
+                            itemIndex[0]++
+                            // v7.53：sub_tabs 由 stickyHeader 改为普通 item，吸顶交给浮动层
+                            item(key = "sub_tabs") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surface)
+                                ) {
+                                    SubTabsHeader(
+                                        searchExpanded = searchExpanded,
+                                        onSearchExpandedChange = { searchExpanded = it },
+                                        searchQuery = searchQuery,
+                                        onSearchQueryChange = { searchQuery = it },
+                                        searchFocusRequester = searchFocusRequester,
+                                        selectedTab = selectedTab,
+                                        onTabSelected = { tab ->
+                                            coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
+                                        },
+                                        onLongClickSearch = { showCrashLogDialog = true }
+                                    )
+                                }
+                            }
+                            historyListItems(
+                                tab = tab,
+                                entries = entries,
+                                filteredEntries = filteredEntries,
+                                filteredBlocked = filteredBlocked,
+                                unmonitoredApps = unmonitoredApps,
+                                expandedApps = expandedApps,
+                                expandedRuleIds = expandedRuleIds,
+                                expandedFoldPackages = expandedFoldPackages,
+                                onToggleFold = toggleFold,
+                                timeFoldSegments = timeFoldSegments,
+                                appFoldSegments = appFoldSegments,
+                                ruleFoldSegments = ruleFoldSegments,
+                                rules = rules,
+                                appGrouped = appGrouped,
+                                ruleById = ruleById,
+                                ruleGrouped = ruleGrouped,
+                                unknownRuleLabel = unknownRuleLabel,
+                                onEntryHistoryClick = onEntryHistoryClick,
+                                onOpenNotification = onOpenNotification,
+                                onRestoreNotification = onRestoreNotification,
+                                onCreateRuleFromNotification = onCreateRuleFromNotification,
+                                onDeleteNotification = onDeleteNotification,
+                                onResumeMonitoring = onResumeMonitoring,
+                                onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
+                                context = context,
+                                itemIndex = itemIndex,
+                                listState = tabListStates[page],
+                                scope = listScope,
+                                subTabsOverlayVisible = subTabsOverlayState
+                            )
+                            itemIndex[0]++
+                            item(key = "scroll_room") {
+                                Spacer(modifier = Modifier.fillParentMaxHeight())
+                            }
                         }
                     }
                 }
@@ -697,7 +718,8 @@ private fun LazyListScope.historyListItems(
     context: android.content.Context,
     itemIndex: IntArray,
     listState: LazyListState,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    subTabsOverlayVisible: State<Boolean>
 ) {
     when (tab) {
         HistoryTab.BY_TIME -> {
@@ -718,7 +740,8 @@ private fun LazyListScope.historyListItems(
                     context = context,
                     itemIndex = itemIndex,
                     listState = listState,
-                    scope = scope
+                    scope = scope,
+                    subTabsOverlayVisible = subTabsOverlayVisible
                 )
             }
         }
@@ -745,7 +768,8 @@ private fun LazyListScope.historyListItems(
                     context = context,
                     itemIndex = itemIndex,
                     listState = listState,
-                    scope = scope
+                    scope = scope,
+                    subTabsOverlayVisible = subTabsOverlayVisible
                 )
             }
         }
@@ -769,7 +793,8 @@ private fun LazyListScope.historyListItems(
                     context = context,
                     itemIndex = itemIndex,
                     listState = listState,
-                    scope = scope
+                    scope = scope,
+                    subTabsOverlayVisible = subTabsOverlayVisible
                 )
             }
         }
@@ -870,18 +895,12 @@ internal fun ChartPanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Spacer(modifier = Modifier.weight(1f))
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = stringResource(R.string.history_total, totalCount),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(R.string.history_today, todayCount),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                // v7.51：总记录/今日合并为单行
+                Text(
+                    text = stringResource(R.string.history_total_today, totalCount, todayCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         // v7.49：柱状图独立为圆角深灰卡片；左右小箭头（◀/▶）仅作滑动提示，不可点击
@@ -1062,8 +1081,108 @@ private fun androidx.compose.foundation.lazy.LazyItemScope.EmptyStateBox(
     }
 }
 
+// --- v7.51：三个分组 tab + 搜索按钮（吸顶 stickyHeader 区域，随列表滚到顶部即吸附） ---
+@Composable
+private fun SubTabsHeader(
+    searchExpanded: Boolean,
+    onSearchExpandedChange: (Boolean) -> Unit,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    searchFocusRequester: FocusRequester,
+    selectedTab: HistoryTab,
+    onTabSelected: (HistoryTab) -> Unit,
+    onLongClickSearch: () -> Unit,
+) {
+    val headerMode = if (searchExpanded) SearchHeaderMode.SEARCH_EXPANDED else SearchHeaderMode.NORMAL
+    AnimatedContent(
+        targetState = headerMode,
+        transitionSpec = {
+            // v7.6：平滑缓动曲线；搜索展开/收起从右侧按钮处向左缩放展开
+            val isSearchTransition =
+                initialState == SearchHeaderMode.SEARCH_EXPANDED || targetState == SearchHeaderMode.SEARCH_EXPANDED
+            val tweenSpec = tween<Float>(
+                durationMillis = if (isSearchTransition) 300 else 220,
+                easing = FastOutSlowInEasing
+            )
+            if (isSearchTransition) {
+                val origin = TransformOrigin(1f, 0.5f)
+                (fadeIn(tweenSpec) + scaleIn(tweenSpec, initialScale = 0.9f, transformOrigin = origin))
+                    .togetherWith(fadeOut(tweenSpec) + scaleOut(tweenSpec, targetScale = 0.9f, transformOrigin = origin))
+                    .using(SizeTransform(clip = false))
+            } else {
+                fadeIn(tweenSpec) togetherWith fadeOut(tweenSpec)
+            }
+        },
+        label = "search_header"
+    ) { mode ->
+        when (mode) {
+            SearchHeaderMode.NORMAL -> Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // v7.7：常规与吸顶统一紧凑样式——小字号 tab、紧凑高度、搜索按钮在 tab 行最右侧
+                HistorySubTabs(
+                    selectedTab = selectedTab,
+                    onTabSelected = onTabSelected,
+                    modifier = Modifier.weight(1f),
+                    compact = true
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                SearchButton(
+                    onClick = { onSearchExpandedChange(true) },
+                    onLongClick = onLongClickSearch
+                )
+            }
+            SearchHeaderMode.SEARCH_EXPANDED -> Row(
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // v7.7：改用 BasicTextField 自绘紧凑输入框，显式指定文字/光标颜色修复不可见问题
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(32.dp)
+                        .focusRequester(searchFocusRequester)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(horizontal = 12.dp),
+                    textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    singleLine = true,
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.search_notifications),
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                // v7.7：关闭搜索时清除搜索条件与输入内容，列表恢复显示全部
+                IconButton(onClick = {
+                    onSearchExpandedChange(false)
+                    onSearchQueryChange("")
+                }) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear_search))
+                }
+            }
+        }
+    }
+}
+
 // --- v7.7：标题行（"通知历史" + 总记录/今日统计 + 通知监听铃铛），作为列表项随内容滑出 ---
 // v7.50：统计移至标题行右侧（竖屏顶部固定展示；横屏左栏 ChartPanel 内展示）
+// v7.51：竖屏标题行移入 LazyColumn 顶部 item，随滚动滚出
 @Composable
 private fun HistoryTitleRow(
     totalCount: Int,
@@ -1086,18 +1205,12 @@ private fun HistoryTitleRow(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = stringResource(R.string.history_total, totalCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = stringResource(R.string.history_today, todayCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        // v7.51：总记录/今日合并为单行
+        Text(
+            text = stringResource(R.string.history_total_today, totalCount, todayCount),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(modifier = Modifier.width(8.dp))
         IconButton(onClick = { onToggleListenerPaused() }) {
             if (listenerPaused) {
@@ -1191,7 +1304,8 @@ private fun LazyListScope.byTimeItems(
     context: android.content.Context,
     itemIndex: IntArray,
     listState: LazyListState,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    subTabsOverlayVisible: State<Boolean>
 ) {
     foldSegments(
         segments = segments,
@@ -1205,7 +1319,8 @@ private fun LazyListScope.byTimeItems(
         context = context,
         itemIndex = itemIndex,
         listState = listState,
-        scope = scope
+        scope = scope,
+        subTabsOverlayVisible = subTabsOverlayVisible
     )
 }
 
@@ -1228,7 +1343,8 @@ private fun LazyListScope.byAppItems(
     context: android.content.Context,
     itemIndex: IntArray,
     listState: LazyListState,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    subTabsOverlayVisible: State<Boolean>
 ) {
     // v7.44：分组结果由上层 remember 缓存传入，此处直接遍历
     // v7.45：组内按折叠分段渲染（同 app 组内 count 合计 >= 4 时折叠）
@@ -1237,19 +1353,26 @@ private fun LazyListScope.byAppItems(
         val isExpanded = expandedApps.value.contains(appName)
 
         itemIndex[0]++
+        // v7.54：分组头 stickyHeader 吸顶（浮动 tab 已由 Column 占位，吸顶位置自然位于其下方）
         stickyHeader(key = "header_$appName") {
-            AppGroupHeader(
-                appName = appName,
-                count = appEntries.sumOf { it.count },
-                packageName = packageName,
-                isExpanded = isExpanded,
-                onClick = {
-                    expandedApps.value = if (isExpanded) expandedApps.value - appName else expandedApps.value + appName
-                },
-                onStopMonitoringClick = {
-                    if (packageName != null) onShowStopMonitoringDialog(packageName to appName)
-                }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                AppGroupHeader(
+                    appName = appName,
+                    count = appEntries.sumOf { it.count },
+                    packageName = packageName,
+                    isExpanded = isExpanded,
+                    onClick = {
+                        expandedApps.value = if (isExpanded) expandedApps.value - appName else expandedApps.value + appName
+                    },
+                    onStopMonitoringClick = {
+                        if (packageName != null) onShowStopMonitoringDialog(packageName to appName)
+                    }
+                )
+            }
         }
 
         if (isExpanded) {
@@ -1265,7 +1388,8 @@ private fun LazyListScope.byAppItems(
                 context = context,
                 itemIndex = itemIndex,
                 listState = listState,
-                scope = scope
+                scope = scope,
+                subTabsOverlayVisible = subTabsOverlayVisible
             )
         }
     }
@@ -1424,7 +1548,8 @@ private fun LazyListScope.byRuleItems(
     context: android.content.Context,
     itemIndex: IntArray,
     listState: LazyListState,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    subTabsOverlayVisible: State<Boolean>
 ) {
     // v7.44：ruleById/分组/排序结果由上层 remember 缓存传入，此处直接遍历
     // v7.45：组内按折叠分段渲染（规则组内再按连续同 app 分段）
@@ -1442,18 +1567,25 @@ private fun LazyListScope.byRuleItems(
         val isExpanded = expandedRuleIds.value.contains(groupKey)
 
         itemIndex[0]++
+        // v7.54：规则分组头 stickyHeader 吸顶（浮动 tab 已由 Column 占位，吸顶位置自然位于其下方）
         stickyHeader(key = "rule_header_$groupKey") {
-            RuleGroupHeader(
-                title = title,
-                count = groupEntries.sumOf { it.count },
-                packageName = packageName,
-                isExpanded = isExpanded,
-                isUnknown = rule == null,
-                onClick = {
-                    expandedRuleIds.value =
-                        if (isExpanded) expandedRuleIds.value - groupKey else expandedRuleIds.value + groupKey
-                }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                RuleGroupHeader(
+                    title = title,
+                    count = groupEntries.sumOf { it.count },
+                    packageName = packageName,
+                    isExpanded = isExpanded,
+                    isUnknown = rule == null,
+                    onClick = {
+                        expandedRuleIds.value =
+                            if (isExpanded) expandedRuleIds.value - groupKey else expandedRuleIds.value + groupKey
+                    }
+                )
+            }
         }
 
         if (isExpanded) {
@@ -1469,7 +1601,8 @@ private fun LazyListScope.byRuleItems(
                 context = context,
                 itemIndex = itemIndex,
                 listState = listState,
-                scope = scope
+                scope = scope,
+                subTabsOverlayVisible = subTabsOverlayVisible
             )
         }
     }
@@ -1715,11 +1848,12 @@ private fun NotificationCard(
         }
 
         // v7.15：已过滤标签——固定卡片右下角（BottomEnd），右边缘与变更计数角标右侧竖直线对齐（end=12.dp 同卡片内边距）
+        // v7.51：缩进态下 badge 同步右移 indent，避免超出卡片右边界
         if (entry.blocked) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 12.dp)
+                    .padding(end = 12.dp + indent, bottom = 12.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(errorColor)
                     .padding(horizontal = 8.dp, vertical = 2.dp),
@@ -1865,7 +1999,7 @@ private fun FoldToggleCard(
  * v7.45：通用折叠分段渲染（LazyListScope 扩展，三个 tab 共用）。
  * - 段 count 合计 < 4 或单条段：正常逐条渲染普通卡片；
  * - 段 count 合计 >= 4：最新一条正常显示，其下方插入折叠提示卡；
- *   展开后其余条目以缩宽卡片渲染，收起提示卡改用 stickyHeader 吸顶（与 AppGroupHeader 一致）。
+ *   展开后其余条目以缩宽卡片渲染，收起提示卡为普通 item（随滚动滚出，仅 sub_tabs 吸顶）。
  */
 @OptIn(ExperimentalFoundationApi::class)
 private fun LazyListScope.foldSegments(
@@ -1880,7 +2014,8 @@ private fun LazyListScope.foldSegments(
     context: android.content.Context,
     itemIndex: IntArray,
     listState: LazyListState,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    subTabsOverlayVisible: State<Boolean>
 ) {
     segments.forEach { seg ->
         val pkg = seg.packageName
@@ -1925,23 +2060,29 @@ private fun LazyListScope.foldSegments(
                 )
             }
             if (isExpanded) {
-                // 收起提示卡：仍在最新一条下方，stickyHeader 吸顶方便随时折叠
+                // 收起提示卡：stickyHeader 吸顶（浮动 tab 已由 Column 占位，吸顶位置自然位于其下方）
                 itemIndex[0]++
                 stickyHeader(key = "fold_toggle_${pkg}_${first.id}_expanded") {
-                    FoldToggleCard(
-                        appLabel = appLabel,
-                        hiddenCount = hiddenCount,
-                        isExpanded = true,
-                        onClick = {
-                            // v7.50：仅当段头已滚出视口（靠 stickyHeader 吸顶显示）时才回滚到段头；
-                            // 段头仍在视口内时保持原滚动位置，避免突兀跳转
-                            val headVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == headIndex }
-                            onToggleFold(pkg)
-                            if (!headVisible) {
-                                scope.launch { listState.scrollToItem(headIndex) }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        FoldToggleCard(
+                            appLabel = appLabel,
+                            hiddenCount = hiddenCount,
+                            isExpanded = true,
+                            onClick = {
+                                // v7.50：仅当段头已滚出视口（靠 stickyHeader 吸顶显示）时才回滚到段头；
+                                // 段头仍在视口内时保持原滚动位置，避免突兀跳转
+                                val headVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == headIndex }
+                                onToggleFold(pkg)
+                                if (!headVisible) {
+                                    scope.launch { listState.scrollToItem(headIndex) }
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
                 // 其余 n 条：普通卡片但宽度略缩（水平缩进）
                 seg.entries.drop(1).forEachIndexed { idx, entry ->
