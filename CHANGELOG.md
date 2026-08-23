@@ -52,3 +52,13 @@
 **受保护组件（未做任何改动）**：`HistoryScreen` 的 `AppGroupHeader`、按应用/已过滤分组卡片、聚合卡片，以及 `RulesScreen` 的 `RuleCard`——其配色均来自 `NotificationColorEngine.getNotificationColors()` 派生的 `accent`/`accentFg`（按 App 图标动态取色），不引用 background/surface 令牌，本次基面改动对其零影响。
 
 **无障碍**：`onSurface #E2E2E6` 配 `#1B1B1F` 对比度 ≈ 13.8:1、`onSurfaceVariant #C2C7CE` ≈ 11.3:1，均超 WCAG AAA（7:1）。
+
+## 本轮修改（发布配置 · 2026-08-23）
+
+> 目标：修复 GitHub Action 自动发布，并随 v8.3 改造一并推送。
+
+- `app/build.gradle.kts` | `versionCode` 115 → **116**，`versionName` "8.2" → **"8.3"**。
+- `.github/workflows/release.yml` | 修复自动发布触发条件：原 `paths: ['app/build.gradle.kts']` 导致非该文件改动时**永不触发发布**；改为「`push` 到 `main` 即触发」。`actions/checkout` 由 v5 降为稳定 v4（两处）。签名仍走 `NOTIX_KEYSTORE_*` secret（已配置）。
+- `RELEASE_NOTES.md` | 新增 `## 8.3` 章节，汇总本轮弹窗加宽 / 点遮罩关闭 / MD3 深色基面 / 保留受保护卡片 / 构建修复等变更。
+
+**回灌完整性核对（2026-08-23）**：对 `output/notix-ui-refactor/Notix_full_8.2/` 与 `D:\AndroidDevelop\Notix` 做全量 diff，除 `.gradle/` 缓存与构建产物外，源码文件一致性核对结论——仓库内 5 个未参与本轮改造的 kt 文件（`AutoAddedRulesDialog`/`DeleteConfirmationDialog`/`HistoryScreen`/`RuleWizardScreen`/`RulesScreen`/`SetupWizardScreen`）在 output 工作区为更旧的基线写法，仓库版已是 v8.3 首轮改造后的权威版，**无需回灌**；`gradle.properties` 仓库版含修复注释亦为权威版。仓库当前状态完整且正确。
