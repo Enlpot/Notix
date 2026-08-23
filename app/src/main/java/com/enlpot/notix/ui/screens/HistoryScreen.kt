@@ -180,7 +180,8 @@ fun HistoryScreen(
     val expandedApps = rememberSaveable { mutableStateOf(setOf<String>()) }
     // v7.36：Filtered tab 按规则分组的展开状态（默认收起，与按应用一致）
     val expandedRuleIds = rememberSaveable { mutableStateOf(setOf<String>()) }
-    // v7.45：通知折叠——连续同 app 段的展开状态（默认收起，按 packageName 保存，旋转不丢失）
+    // v7.51：通知折叠——折叠段的展开状态（默认收起，按"pkg_firstId"段级唯一标识保存，旋转不丢失）。
+    // 此前按 packageName 保存会导致同包名多个折叠段被一个开关联动展开，现改为段级隔离。
     val expandedFoldPackages = rememberSaveable { mutableStateOf(setOf<String>()) }
 
     // --- v7.5：列表滚动状态 / 吸顶搜索区 / 下拉刷新 / 回顶 / 权限掉线提示 ---
@@ -411,11 +412,12 @@ fun HistoryScreen(
     val ruleFoldSegments = remember(ruleGrouped) {
         ruleGrouped.map { (_, list) -> buildFoldSegments(list.sortedByDescending { it.lastTimestamp }) }
     }
-    val toggleFold = { pkg: String ->
-        expandedFoldPackages.value = if (expandedFoldPackages.value.contains(pkg)) {
-            expandedFoldPackages.value - pkg
+    // v7.51：折叠段开关——入参为段级唯一标识"${pkg}_${firstId}"，实现各折叠段独立展开/收起
+    val toggleFold = { foldKey: String ->
+        expandedFoldPackages.value = if (expandedFoldPackages.value.contains(foldKey)) {
+            expandedFoldPackages.value - foldKey
         } else {
-            expandedFoldPackages.value + pkg
+            expandedFoldPackages.value + foldKey
         }
     }
 
@@ -1969,7 +1971,9 @@ private fun LazyListScope.foldSegments(
                 }
             }
         } else {
-            val isExpanded = expandedFoldPackages.value.contains(pkg)
+            // v7.51：段级唯一标识——同包名但时间不连续被拆成多段时，各段独立展开/收起
+            val foldKey = "${pkg}_${seg.entries.first().id}"
+            val isExpanded = expandedFoldPackages.value.contains(foldKey)
             val appLabel = seg.appLabel ?: pkg
             // v7.50：折叠卡数字显示该折叠段的通知总条数（所有 entry 的 count 之和），展开/收起态一致
             val hiddenCount = seg.entries.sumOf { it.count }
@@ -2007,7 +2011,7 @@ private fun LazyListScope.foldSegments(
                                 // v7.50：仅当段头已滚出视口（靠 stickyHeader 吸顶显示）时才回滚到段头；
                                 // 段头仍在视口内时保持原滚动位置，避免突兀跳转
                                 val headVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == headIndex }
-                                onToggleFold(pkg)
+                                onToggleFold(foldKey)
                                 if (!headVisible) {
                                     scope.launch { listState.scrollToItem(headIndex) }
                                 }
@@ -2040,7 +2044,7 @@ private fun LazyListScope.foldSegments(
                         appLabel = appLabel,
                         hiddenCount = hiddenCount,
                         isExpanded = false,
-                        onClick = { onToggleFold(pkg) }
+                        onClick = { onToggleFold(foldKey) }
                     )
                 }
             }
