@@ -220,11 +220,8 @@
 
     <!-- Settings permission guidance -->
     <string name="settings_permission_notification_title">通知访问权限</string>
-    <string name="settings_permission_notification_granted">已授予</string>
-    <string name="settings_permission_notification_not_granted">未授予</string>
     <string name="settings_permission_notification_desc">必需权限，用于监听和处理系统通知。</string>
     <string name="settings_permission_battery_title">电池优化白名单</string>
-    <string name="settings_permission_battery_not_granted">未授予</string>
     <string name="settings_permission_battery_desc">防止后台被杀，保证服务持续运行。</string>
     <string name="settings_permission_go_to_settings">前往设置</string>
     <!-- v8.6：权限管理二级界面 -->
@@ -433,7 +430,6 @@
     <string name="clear_blocked_history_desc">删除所有已拦截的通知历史记录。</string>
     <string name="rule_wizard_title_edit_rule">编辑规则</string>
     <string name="rule_wizard_edit_keyword">编辑关键词</string>
-    <string name="settings_permission_battery_granted">已授予</string>
     <string name="settings_permission_battery_one_click">一键设置</string>
     <string name="history_filtered_day">已筛选 %s 的通知</string>
     <string name="clear_filter">关闭筛选</string>

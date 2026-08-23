@@ -264,12 +264,8 @@
 
     <!-- Settings permission guidance -->
     <string name="settings_permission_notification_title">Notification Access</string>
-    <string name="settings_permission_notification_granted">Granted</string>
-    <string name="settings_permission_notification_not_granted">Not granted</string>
     <string name="settings_permission_notification_desc">Required to listen and process system notifications.</string>
     <string name="settings_permission_battery_title">Battery Optimization Ignore</string>
-    <string name="settings_permission_battery_granted">Granted</string>
-    <string name="settings_permission_battery_not_granted">Not granted</string>
     <string name="settings_permission_battery_desc">Prevents background service from being killed.</string>
     <string name="settings_permission_go_to_settings">Go to Settings</string>
     <!-- v8.6：权限管理二级界面 -->
