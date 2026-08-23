@@ -345,6 +345,10 @@
     <string name="clear_date_90d">90 jours</string>
     <string name="clear_date_all">Tout</string>
     <string name="clear_this_range_history">Effacer l\'historique de cette période</string>
+    <string name="clear_by_date_range_confirm_title">Clear History in This Range?</string>
+    <string name="clear_by_date_range_confirm_body">This will permanently delete notification history within the selected date range and cannot be undone. Continue?</string>
+    <string name="clear_by_app_confirm_title">Clear History for Selected Apps?</string>
+    <string name="clear_by_app_confirm_body">This will permanently delete notification history for the selected apps and cannot be undone. Continue?</string>
     <string name="rules_title">Règles</string>
     <string name="rules_count">%1$d règles</string>
     <string name="rule_wizard_name_hint">Nom de la règle, ex. Bloquer les SMS indésirables</string>

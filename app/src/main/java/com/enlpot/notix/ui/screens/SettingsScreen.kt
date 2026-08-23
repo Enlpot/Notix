@@ -109,6 +109,10 @@ import com.enlpot.notix.RuleWizardSupport
 import com.enlpot.notix.setup.SetupState
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.ui.components.CrashLogDialog
+import com.enlpot.notix.ui.components.NotixConfirmDialog
+import com.enlpot.notix.ui.components.NotixDangerButton
+import com.enlpot.notix.ui.components.NotixDialog
+import com.enlpot.notix.ui.components.NotixDialogButton
 import com.enlpot.notix.ui.components.RealAppIcon
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -288,284 +292,256 @@ fun SettingsScreen(
     }
 
     if (showExportImportDialog) {
-        AlertDialog(
-            onDismissRequest = { showExportImportDialog = false },
-            title = { Text(stringResource(R.string.export_import_rules)) },
-            text = { Text(stringResource(R.string.choose_action)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showExportImportDialog = false
-                    exportLauncher.launch("Notix_rules.json")
-                }) {
-                    Text(stringResource(R.string.export))
-                }
+        NotixDialog(
+            onDismiss = { showExportImportDialog = false },
+            title = stringResource(R.string.export_import_rules),
+            content = {
+                Text(
+                    text = stringResource(R.string.choose_action),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(16.dp))
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    showExportImportDialog = false
-                    importLauncher.launch(arrayOf("application/json"))
-                }) {
-                    Text(stringResource(R.string.import_rules))
+            buttons = {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    NotixDialogButton(
+                        onClick = {
+                            showExportImportDialog = false
+                            exportLauncher.launch("Notix_rules.json")
+                        },
+                        modifier = Modifier.weight(1f),
+                        text = stringResource(R.string.export)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    NotixDialogButton(
+                        onClick = {
+                            showExportImportDialog = false
+                            importLauncher.launch(arrayOf("application/json"))
+                        },
+                        modifier = Modifier.weight(1f),
+                        text = stringResource(R.string.import_rules)
+                    )
                 }
             }
         )
     }
 
     if (exportImportMessage != null) {
-        AlertDialog(
-            onDismissRequest = { exportImportMessage = null },
-            title = { Text(stringResource(R.string.status)) },
-            text = { Text(exportImportMessage!!) },
-            confirmButton = {
-                TextButton(onClick = { exportImportMessage = null }) {
-                    Text(stringResource(R.string.ok))
-                }
+        NotixDialog(
+            onDismiss = { exportImportMessage = null },
+            title = stringResource(R.string.status),
+            content = {
+                Text(
+                    text = exportImportMessage!!,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(16.dp))
+            },
+            buttons = {
+                NotixDialogButton(
+                    onClick = { exportImportMessage = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.ok)
+                )
             }
         )
     }
 
     // Clear history — mode picker
     if (showClearModeDialog) {
-        // v7.24：清除历史弹窗——深色 Material 卡片风格（替代默认 AlertDialog）
-        Dialog(
-            onDismissRequest = { showClearModeDialog = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .padding(24.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = stringResource(R.string.clear_history),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.clear_history_mode_prompt),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    TextButton(
-                        onClick = {
-                            showClearModeDialog = false
-                            showClearAllConfirmDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            stringResource(R.string.clear_all_history),
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    TextButton(
-                        onClick = {
-                            showClearModeDialog = false
-                            showClearByDateDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text(stringResource(R.string.clear_by_date_range)) }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    TextButton(
-                        onClick = {
-                            showClearModeDialog = false
-                            selectedPackages = emptySet()
-                            showClearByAppDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text(stringResource(R.string.clear_by_app)) }
-                    Spacer(Modifier.height(4.dp))
-                    TextButton(
-                        onClick = { showClearModeDialog = false },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text(stringResource(R.string.cancel)) }
-                }
+        NotixDialog(
+            onDismiss = { showClearModeDialog = false },
+            title = stringResource(R.string.clear_history),
+            content = {
+                Text(
+                    text = stringResource(R.string.clear_history_mode_prompt),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(16.dp))
+                NotixDialogButton(
+                    onClick = {
+                        showClearModeDialog = false
+                        showClearAllConfirmDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.clear_all_history),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+                Spacer(Modifier.height(8.dp))
+                NotixDialogButton(
+                    onClick = {
+                        showClearModeDialog = false
+                        showClearByDateDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.clear_by_date_range)
+                )
+                Spacer(Modifier.height(8.dp))
+                NotixDialogButton(
+                    onClick = {
+                        showClearModeDialog = false
+                        selectedPackages = emptySet()
+                        showClearByAppDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.clear_by_app)
+                )
+                Spacer(Modifier.height(8.dp))
+            },
+            buttons = {
+                NotixDialogButton(
+                    onClick = { showClearModeDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.cancel),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
             }
-        }
+        )
     }
 
     // Clear history — clear all (two-step confirmation)
     if (showClearAllConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearAllConfirmDialog = false },
-            title = { Text(stringResource(R.string.clear_all_history_confirm_title)) },
-            text = { Text(stringResource(R.string.clear_all_history_confirm_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showClearAllConfirmDialog = false
-                    onClearHistory()
-                }) {
-                    Text(
-                        stringResource(R.string.delete),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+        NotixConfirmDialog(
+            onDismiss = { showClearAllConfirmDialog = false },
+            onConfirm = {
+                showClearAllConfirmDialog = false
+                onClearHistory()
             },
-            dismissButton = {
-                TextButton(onClick = { showClearAllConfirmDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+            title = stringResource(R.string.clear_all_history_confirm_title),
+            body = stringResource(R.string.clear_all_history_confirm_body),
+            confirmText = stringResource(R.string.clear_all_history)
         )
     }
 
     // Clear history — by date range
     if (showClearByDateDialog) {
         val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
-        Dialog(
-            onDismissRequest = { showClearByDateDialog = false; dateError = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .padding(24.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.clear_by_date_range_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { showClearByDateDialog = false; dateError = null }) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.close)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
+        var showClearByDateConfirmDialog by remember { mutableStateOf(false) }
+        NotixDialog(
+            onDismiss = { showClearByDateDialog = false; dateError = null },
+            title = stringResource(R.string.clear_by_date_range_title),
+            content = {
+                Text(
+                    text = stringResource(R.string.clear_by_date_range_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                dateError?.let {
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = stringResource(R.string.clear_by_date_range_hint),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
                     )
-                    dateError?.let {
-                        Spacer(Modifier.height(4.dp))
-                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    DateField(
-                        label = stringResource(R.string.start_date),
-                        value = dateFormat.format(Date(startDateMillis)),
-                        onClick = { showStartDatePicker = true }
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    DateField(
-                        label = stringResource(R.string.end_date),
-                        value = dateFormat.format(Date(endDateMillis)),
-                        onClick = { showEndDatePicker = true }
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    // v7.50：快捷选项（7天/30天/90天/全部）——仅更新日期范围，不直接清除
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        TextButton(
-                            onClick = {
-                                cal.timeInMillis = System.currentTimeMillis()
-                                endDateMillis = cal.timeInMillis
-                                cal.add(Calendar.DAY_OF_MONTH, -6)
-                                startDateMillis = cal.timeInMillis
-                                dateError = null
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(R.string.clear_date_7d), maxLines = 1)
-                        }
-                        TextButton(
-                            onClick = {
-                                cal.timeInMillis = System.currentTimeMillis()
-                                endDateMillis = cal.timeInMillis
-                                cal.add(Calendar.DAY_OF_MONTH, -29)
-                                startDateMillis = cal.timeInMillis
-                                dateError = null
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(R.string.clear_date_30d), maxLines = 1)
-                        }
-                        TextButton(
-                            onClick = {
-                                cal.timeInMillis = System.currentTimeMillis()
-                                endDateMillis = cal.timeInMillis
-                                cal.add(Calendar.DAY_OF_MONTH, -89)
-                                startDateMillis = cal.timeInMillis
-                                dateError = null
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(R.string.clear_date_90d), maxLines = 1)
-                        }
-                        TextButton(
-                            onClick = {
-                                startDateMillis = 0L
-                                endDateMillis = System.currentTimeMillis()
-                                dateError = null
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(R.string.clear_date_all), maxLines = 1)
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            val startMs = startDateMillis
-                            cal.timeInMillis = endDateMillis
-                            cal.add(Calendar.DAY_OF_MONTH, 1)
-                            cal.add(Calendar.MILLISECOND, -1)
-                            val endMs = cal.timeInMillis
-                            if (endMs < startMs) {
-                                dateError = context.getString(R.string.invalid_date_range)
-                                return@Button
-                            }
-                            onClearHistoryByDate(startMs, endMs)
-                            showClearByDateDialog = false
-                            dateError = null
-                            showMessage(context.getString(R.string.toast_history_cleared))
-                        },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) {
-                        Text(
-                            stringResource(R.string.clear_this_range_history),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(
-                        onClick = { showClearByDateDialog = false; dateError = null },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text(stringResource(R.string.cancel)) }
                 }
+                Spacer(Modifier.height(16.dp))
+                DateField(
+                    label = stringResource(R.string.start_date),
+                    value = dateFormat.format(Date(startDateMillis)),
+                    onClick = { showStartDatePicker = true }
+                )
+                Spacer(Modifier.height(8.dp))
+                DateField(
+                    label = stringResource(R.string.end_date),
+                    value = dateFormat.format(Date(endDateMillis)),
+                    onClick = { showEndDatePicker = true }
+                )
+                Spacer(Modifier.height(16.dp))
+                // v7.50：快捷选项（7天/30天/90天/全部）——仅更新日期范围，不直接清除
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    NotixDialogButton(
+                        onClick = {
+                            cal.timeInMillis = System.currentTimeMillis()
+                            endDateMillis = cal.timeInMillis
+                            cal.add(Calendar.DAY_OF_MONTH, -6)
+                            startDateMillis = cal.timeInMillis
+                            dateError = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        text = stringResource(R.string.clear_date_7d)
+                    )
+                    NotixDialogButton(
+                        onClick = {
+                            cal.timeInMillis = System.currentTimeMillis()
+                            endDateMillis = cal.timeInMillis
+                            cal.add(Calendar.DAY_OF_MONTH, -29)
+                            startDateMillis = cal.timeInMillis
+                            dateError = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        text = stringResource(R.string.clear_date_30d)
+                    )
+                    NotixDialogButton(
+                        onClick = {
+                            cal.timeInMillis = System.currentTimeMillis()
+                            endDateMillis = cal.timeInMillis
+                            cal.add(Calendar.DAY_OF_MONTH, -89)
+                            startDateMillis = cal.timeInMillis
+                            dateError = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        text = stringResource(R.string.clear_date_90d)
+                    )
+                    NotixDialogButton(
+                        onClick = {
+                            startDateMillis = 0L
+                            endDateMillis = System.currentTimeMillis()
+                            dateError = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        text = stringResource(R.string.clear_date_all)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+            },
+            buttons = {
+                NotixDangerButton(
+                    onClick = { showClearByDateConfirmDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.clear_this_range_history)
+                )
+                Spacer(Modifier.height(8.dp))
+                NotixDialogButton(
+                    onClick = { showClearByDateDialog = false; dateError = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.cancel),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
             }
+        )
+        if (showClearByDateConfirmDialog) {
+            NotixConfirmDialog(
+                onDismiss = { showClearByDateConfirmDialog = false },
+                onConfirm = {
+                    val startMs = startDateMillis
+                    cal.timeInMillis = endDateMillis
+                    cal.add(Calendar.DAY_OF_MONTH, 1)
+                    cal.add(Calendar.MILLISECOND, -1)
+                    val endMs = cal.timeInMillis
+                    if (endMs < startMs) {
+                        dateError = context.getString(R.string.invalid_date_range)
+                        showClearByDateConfirmDialog = false
+                        return@NotixConfirmDialog
+                    }
+                    onClearHistoryByDate(startMs, endMs)
+                    showClearByDateDialog = false
+                    dateError = null
+                    showClearByDateConfirmDialog = false
+                    showMessage(context.getString(R.string.toast_history_cleared))
+                },
+                title = stringResource(R.string.clear_by_date_range_confirm_title),
+                body = stringResource(R.string.clear_by_date_range_confirm_body),
+                confirmText = stringResource(R.string.clear_this_range_history)
+            )
         }
     }
 
@@ -616,145 +592,127 @@ fun SettingsScreen(
 
     // Clear history — by app
     if (showClearByAppDialog) {
-        Dialog(
-            onDismissRequest = { showClearByAppDialog = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .padding(24.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.clear_by_app_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
+        var showClearByAppConfirmDialog by remember { mutableStateOf(false) }
+        NotixDialog(
+            onDismiss = { showClearByAppDialog = false },
+            title = stringResource(R.string.clear_by_app_title),
+            content = {
+                Text(
+                    text = stringResource(R.string.clear_by_app_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(16.dp))
+                if (uniqueApps.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.no_apps_in_history),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = appSearchQuery,
+                            onValueChange = { appSearchQuery = it },
+                            label = { Text(stringResource(R.string.search_apps)) },
+                            singleLine = true,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = { showClearByAppDialog = false }) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.close)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.clear_by_app_hint),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    if (uniqueApps.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.no_apps_in_history),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = appSearchQuery,
-                                onValueChange = { appSearchQuery = it },
-                                label = { Text(stringResource(R.string.search_apps)) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            // v7.50：全选（切换式）——作用于当前 filteredApps
-                            TextButton(onClick = {
+                        Spacer(Modifier.width(8.dp))
+                        // v7.50：全选（切换式）——作用于当前 filteredApps
+                        NotixDialogButton(
+                            onClick = {
                                 val filteredPkgs = filteredApps.map { it.first }.toSet()
                                 selectedPackages = if (filteredPkgs.all { it in selectedPackages }) {
                                     selectedPackages - filteredPkgs
                                 } else {
                                     selectedPackages + filteredPkgs
                                 }
-                            }) {
-                                Text(stringResource(R.string.select_all))
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        if (filteredApps.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.no_results_found),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 12.dp)
-                            )
-                        } else {
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                                items(filteredApps) { (pkg, label) ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .clickable {
-                                                selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg
-                                                else selectedPackages + pkg
-                                            }
-                                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        RealAppIcon(
-                                            packageName = pkg,
-                                            appName = label,
-                                            size = 32.dp
-                                        )
-                                        Spacer(Modifier.width(12.dp))
-                                        Text(
-                                            text = label,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Checkbox(
-                                            checked = pkg in selectedPackages,
-                                            onCheckedChange = { checked ->
-                                                selectedPackages = if (checked) selectedPackages + pkg
-                                                else selectedPackages - pkg
-                                            }
-                                        )
-                                    }
+                            },
+                            text = stringResource(R.string.select_all),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    if (filteredApps.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.no_results_found),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                            items(filteredApps) { (pkg, label) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            selectedPackages = if (pkg in selectedPackages) selectedPackages - pkg
+                                            else selectedPackages + pkg
+                                        }
+                                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RealAppIcon(
+                                        packageName = pkg,
+                                        appName = label,
+                                        size = 32.dp
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        text = label,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Checkbox(
+                                        checked = pkg in selectedPackages,
+                                        onCheckedChange = { checked ->
+                                            selectedPackages = if (checked) selectedPackages + pkg
+                                            else selectedPackages - pkg
+                                        }
+                                    )
                                 }
                             }
                         }
                     }
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            if (selectedPackages.isNotEmpty()) {
-                                onClearHistoryByPackages(selectedPackages)
-                                showClearByAppDialog = false
-                                showMessage(context.getString(R.string.toast_history_cleared))
-                            }
-                        },
-                        enabled = selectedPackages.isNotEmpty(),
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) {
-                        Text(
-                            stringResource(R.string.clear_selected_apps_history),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
                 }
+                Spacer(Modifier.height(8.dp))
+            },
+            buttons = {
+                NotixDangerButton(
+                    onClick = { showClearByAppConfirmDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.clear_selected_apps_history)
+                )
+                Spacer(Modifier.height(8.dp))
+                NotixDialogButton(
+                    onClick = { showClearByAppDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.cancel),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
             }
+        )
+        if (showClearByAppConfirmDialog) {
+            NotixConfirmDialog(
+                onDismiss = { showClearByAppConfirmDialog = false },
+                onConfirm = {
+                    onClearHistoryByPackages(selectedPackages)
+                    showClearByAppDialog = false
+                    showClearByAppConfirmDialog = false
+                    showMessage(context.getString(R.string.toast_history_cleared))
+                },
+                title = stringResource(R.string.clear_by_app_confirm_title),
+                body = stringResource(R.string.clear_by_app_confirm_body),
+                confirmText = stringResource(R.string.clear_selected_apps_history)
+            )
         }
     }
 
@@ -1198,160 +1156,121 @@ fun PermissionScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Dialog(
-        onDismissRequest = onBack,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .heightIn(max = 640.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
+    NotixDialog(
+        onDismiss = onBack,
+        title = stringResource(R.string.settings_permission_section_title),
+        content = {
+            // 实时监控中 徽标
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_permission_section_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    // 实时监控中 徽标
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_permission_monitoring_pill),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.close)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
                 Text(
-                    text = stringResource(R.string.settings_permission_monitor_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    text = stringResource(R.string.settings_permission_monitoring_pill),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
                 )
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.settings_permission_monitor_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
 
-                // 聚合告警横幅
-                if (failedCount > 0) {
-                    ElevatedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
-                        )
+            // 聚合告警横幅
+            if (failedCount > 0) {
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                text = stringResource(R.string.settings_permission_abnormal_banner, failedCount),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.settings_permission_abnormal_banner, failedCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-                    Spacer(Modifier.height(12.dp))
                 }
+                Spacer(Modifier.height(12.dp))
+            }
 
-                PermissionCard(
-                    icon = Icons.Filled.Notifications,
-                    title = stringResource(R.string.settings_permission_notification_title),
-                    desc = stringResource(R.string.settings_permission_notification_desc),
-                    granted = listenerGranted,
-                    fixLabel = stringResource(R.string.settings_permission_go_to_settings),
-                    onFix = {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            PermissionCard(
+                icon = Icons.Filled.Notifications,
+                title = stringResource(R.string.settings_permission_notification_title),
+                desc = stringResource(R.string.settings_permission_notification_desc),
+                granted = listenerGranted,
+                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                onFix = {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+            )
+            Spacer(Modifier.height(12.dp))
+            PermissionCard(
+                icon = Icons.AutoMirrored.Filled.Send,
+                title = stringResource(R.string.settings_permission_postnotif_title),
+                desc = stringResource(R.string.settings_permission_postnotif_desc),
+                granted = postNotifGranted,
+                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                onFix = {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                     }
-                )
-                Spacer(Modifier.height(12.dp))
-                PermissionCard(
-                    icon = Icons.AutoMirrored.Filled.Send,
-                    title = stringResource(R.string.settings_permission_postnotif_title),
-                    desc = stringResource(R.string.settings_permission_postnotif_desc),
-                    granted = postNotifGranted,
-                    fixLabel = stringResource(R.string.settings_permission_go_to_settings),
-                    onFix = {
-                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                        }
-                        context.startActivity(intent)
+                    context.startActivity(intent)
+                }
+            )
+            Spacer(Modifier.height(12.dp))
+            PermissionCard(
+                icon = Icons.Filled.BatteryAlert,
+                title = stringResource(R.string.settings_permission_battery_title),
+                desc = stringResource(R.string.settings_permission_battery_desc),
+                granted = batteryGranted,
+                fixLabel = stringResource(R.string.settings_permission_battery_one_click),
+                onFix = {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
                     }
-                )
-                Spacer(Modifier.height(12.dp))
-                PermissionCard(
-                    icon = Icons.Filled.BatteryAlert,
-                    title = stringResource(R.string.settings_permission_battery_title),
-                    desc = stringResource(R.string.settings_permission_battery_desc),
-                    granted = batteryGranted,
-                    fixLabel = stringResource(R.string.settings_permission_battery_one_click),
-                    onFix = {
-                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    context.startActivity(intent)
+                }
+            )
+            Spacer(Modifier.height(12.dp))
+            PermissionCard(
+                icon = Icons.Filled.Security,
+                title = stringResource(R.string.settings_permission_foreground_title),
+                desc = stringResource(R.string.settings_permission_foreground_desc),
+                granted = foregroundGranted,
+                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                onFix = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                             data = Uri.parse("package:${context.packageName}")
                         }
-                        context.startActivity(intent)
-                    }
-                )
-                Spacer(Modifier.height(12.dp))
-                PermissionCard(
-                    icon = Icons.Filled.Security,
-                    title = stringResource(R.string.settings_permission_foreground_title),
-                    desc = stringResource(R.string.settings_permission_foreground_desc),
-                    granted = foregroundGranted,
-                    fixLabel = stringResource(R.string.settings_permission_go_to_settings),
-                    onFix = {
-                        context.startActivity(
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                        )
-                    }
-                )
-                Spacer(Modifier.height(8.dp))
-            }
+                    )
+                }
+            )
         }
-    }
+    )
 }
 
 @Composable

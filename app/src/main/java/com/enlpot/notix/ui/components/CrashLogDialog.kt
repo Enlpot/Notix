@@ -68,24 +68,15 @@ fun CrashLogDialog(
     var showClearConfirm by remember { mutableStateOf(false) }
 
     if (showClearConfirm) {
-        AlertDialog(
-            onDismissRequest = { showClearConfirm = false },
-            title = { Text(stringResource(R.string.crash_log_clear_title)) },
-            text = { Text(stringResource(R.string.crash_log_clear_confirm)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    CrashLogManager.clearLogs(context)
-                    showClearConfirm = false
-                    openError = context.getString(R.string.crash_log_cleared)
-                }) {
-                    Text(stringResource(R.string.confirm))
-                }
+        NotixConfirmDialog(
+            onDismiss = { showClearConfirm = false },
+            onConfirm = {
+                CrashLogManager.clearLogs(context)
+                showClearConfirm = false
+                openError = context.getString(R.string.crash_log_cleared)
             },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirm = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+            title = stringResource(R.string.crash_log_clear_title),
+            body = stringResource(R.string.crash_log_clear_confirm)
         )
     }
 

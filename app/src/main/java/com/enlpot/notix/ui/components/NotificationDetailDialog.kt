@@ -30,7 +30,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -73,6 +76,9 @@ fun NotificationDetailDialog(
 
     // v7.14：已过滤标签使用 error 实底 + 对比度文字色（与变更计数角标一致）
     val errorColor = MaterialTheme.colorScheme.error
+
+    // v8.6：删除通知前二次确认（与崩溃日志弹窗统一风格）
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -200,10 +206,7 @@ fun NotificationDetailDialog(
                         ) {
                             // 删除：保留破坏性语义，但用 error 文字色而非实心红块
                             Button(
-                                onClick = {
-                                    onDismiss()
-                                    onDelete()
-                                },
+                                onClick = { showDeleteConfirm = true },
                                 modifier = Modifier.weight(1f),
                                 shape = NotixCorner.Control,
                                 colors = ButtonDefaults.buttonColors(
@@ -265,5 +268,20 @@ fun NotificationDetailDialog(
             }
         }
         }
+    }
+
+    if (showDeleteConfirm) {
+        NotixConfirmDialog(
+            onDismiss = { showDeleteConfirm = false },
+            onConfirm = {
+                showDeleteConfirm = false
+                onDismiss()
+                onDelete()
+            },
+            title = stringResource(R.string.delete_item_title),
+            body = stringResource(R.string.delete_item_confirm, displayAppName),
+            confirmText = stringResource(R.string.delete),
+            danger = true
+        )
     }
 }

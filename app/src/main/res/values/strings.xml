@@ -86,6 +86,10 @@
     <string name="clear_all_history">Clear All</string>
     <string name="clear_all_history_confirm_title">Clear All History?</string>
     <string name="clear_all_history_confirm_body">This will permanently delete all notification history and cannot be undone. Continue?</string>
+    <string name="clear_by_date_range_confirm_title">Clear History in This Range?</string>
+    <string name="clear_by_date_range_confirm_body">This will permanently delete notification history within the selected date range and cannot be undone. Continue?</string>
+    <string name="clear_by_app_confirm_title">Clear History for Selected Apps?</string>
+    <string name="clear_by_app_confirm_body">This will permanently delete notification history for the selected apps and cannot be undone. Continue?</string>
     <string name="start_date">Start Date (yyyy-MM-dd)</string>
     <string name="end_date">End Date (yyyy-MM-dd)</string>
     <string name="invalid_date_range">Invalid date range. Please check your input.</string>

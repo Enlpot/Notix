@@ -99,3 +99,36 @@
 - 保留实时监控：`PermissionScreen` 内部仍用 `refreshTick + DisposableEffect(ON_RESUME)`，从系统设置返回后弹窗状态会即时刷新。
 - 构建：`gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）；APK 已 `adb -s emulator-5554 install -r` 安装，实测：设置页 → 存储占用 → 弹窗显示「共占用 2.3 KB」与 3 张卡片 → 关闭 → 权限管理 → 弹窗显示 4 张权限卡片（正常） → 关闭回到设置页。
 - 未升版（用户未要求本轮发版）。
+
+## 本轮修改（第 6 轮 · 2026-08-23）
+
+> 修改点：
+> 1. 统一设置页所有弹窗为崩溃日志弹窗同款设计语言（标题栏 + X 关闭、12dp 圆角按钮、垂直/水平自适应按钮布局、按钮文字强制单行）。
+> 2. App 内所有涉及删除 / 清空 / 清除的不可逆操作统一增加二次确认弹窗，风格与崩溃日志弹窗一致（明确「取消」+「确认」按钮，仅确认后执行）。
+> 3. 补齐按时间段 / 按应用清除历史的专用确认文案，避免文案与「全部清除」混淆；`NotixDialog` 标题支持最多两行，防止长标题截断。
+
+`app/src/main/java/com/enlpot/notix/ui/components/NotixDialog.kt` | **新增通用弹窗组件**：基于 `AlertDialog` 封装 `NotixDialog(title, content, buttons)`，统一标题栏（`Row` 内 `Text(Modifier.weight(1f), maxLines=2)` + `Close IconButton`），内容区与按钮区均接收 `ColumnScope` slot；配套 `NotixDialogButton`（surfaceVariant 底 + primary 字，12dp 圆角，`Text` 强制 `maxLines=1`）、`NotixDangerButton`（error 底 + onError 字）。所有按钮文字强制单行，超长自动省略；当一行两个按钮过长时调用方可自行改为 `fillMaxWidth()` 垂直堆叠。
+`app/src/main/java/com/enlpot/notix/ui/components/NotixConfirmDialog.kt` | **新增通用二次确认弹窗**：基于 `NotixDialog`，固定结构「标题 + 正文 + 垂直堆叠的取消/确认按钮」，`danger=true` 时确认按钮用 error 配色；默认文案「确认 / 取消」可被调用方覆盖。
+`app/src/main/java/com/enlpot/notix/ui/components/DeleteConfirmationDialog.kt` | 重写为直接委托 `NotixConfirmDialog`（标题 `delete_item_title`，正文 `delete_item_confirm`，确认文字 `delete`）。
+`app/src/main/java/com/enlpot/notix/ui/components/NotificationDetailDialog.kt` | 通知详情弹窗删除按钮改为先弹出 `NotixConfirmDialog`，确认后再调用 `onDismiss(); onDelete()`；新增 `showDeleteConfirm` 状态。
+`app/src/main/java/com/enlpot/notix/ui/components/CrashLogDialog.kt` | 内部「清空日志」二次确认由旧 `AlertDialog` 替换为 `NotixConfirmDialog`；主弹窗仍保持原有结构作为视觉基准。
+`app/src/main/java/com/enlpot/notix/ui/screens/StorageUsageScreen.kt` | 主弹窗由 `Dialog+Card` 替换为 `NotixDialog`；3 张分类卡片的「清除」与底部「清除全部」均沿用原危险按钮样式；4 处 `ConfirmClearDialog` 全部替换为 `NotixConfirmDialog`；移除已无人引用的私有 `ConfirmClearDialog` 死代码。
+`app/src/main/java/com/enlpot/notix/ui/screens/SettingsScreen.kt` | 设置页弹窗全面统一：
+- 导出/导入弹窗 → `NotixDialog` + 两个 `NotixDialogButton(Modifier.weight(1f))` 并排；
+- 导出/导入结果提示弹窗 → `NotixDialog` + 单个全宽确认按钮；
+- 清除历史模式弹窗 → `NotixDialog` + 全宽「全部清除」（error）/「按时间段」/「按应用」/「取消」；
+- 全部清除确认 → `NotixConfirmDialog`；
+- 按时间段弹窗 → `NotixDialog` + 日期选择 + 快捷选项 + 危险按钮「清除此时间段历史」+ 取消，新增嵌套 `NotixConfirmDialog` 承载真实清除逻辑；
+- 按应用弹窗 → `NotixDialog` + 应用多选 + 危险按钮「清除所选应用历史」+ 取消，新增嵌套 `NotixConfirmDialog`；
+- 权限管理弹窗 → `NotixDialog` 承载原 `PermissionScreen` 内容（标题 + 实时监控 pill + 4 张权限卡片），移除内部旧标题栏。
+`app/src/main/java/com/enlpot/notix/ui/screens/HistoryScreen.kt` | 三个确认弹窗统一为 `NotixConfirmDialog`：停止监控确认、监听暂停/恢复确认、通知访问权限掉线引导确认；移除旧的 `Dialog+Card` / `AlertDialog` 实现及冗余 import。
+`app/src/main/java/com/enlpot/notix/ui/screens/RulesScreen.kt` | 规则删除确认由旧 `AlertDialog` 替换为 `NotixConfirmDialog`。
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | 动作卡片长按删除前新增 `NotixConfirmDialog`（标题/正文使用既有 `rule_wizard_action_delete_*` 字符串）。
+`app/src/main/res/values/strings.xml` / `values-zh-rCN/strings.xml` | 新增按时间段/按应用清除的专用确认文案：`clear_by_date_range_confirm_title/body`、`clear_by_app_confirm_title/body`。
+`app/src/main/res/values-{ru,pl,ja,fr,ko,es}/strings.xml` | 同步新增上述 4 个字符串（英文占位，保证多语言文件完整）。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）。
+- APK 已 `adb -s emulator-5554 install -r` 安装并启动。
+- 实测覆盖：设置页 → 存储占用弹窗 / 清除历史弹窗 / 全部清除确认 / 按时间段选择及确认 / 按应用选择及确认 / 导出导入弹窗 / 权限管理弹窗 / 崩溃日志弹窗及清空确认；历史页 → 通知详情删除确认 / 停止监控确认 / 暂停监听确认；规则页 → 长按规则卡片删除确认；规则向导 → 长按动作卡片删除确认。所有弹窗标题/按钮文字均完整可读，按钮全部单行，视觉风格统一。
+- 未升版（用户未要求本轮发版）。

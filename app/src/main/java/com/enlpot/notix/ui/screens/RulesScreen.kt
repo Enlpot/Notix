@@ -60,6 +60,7 @@ import com.enlpot.notix.R
 import com.enlpot.notix.RuleCondition
 import com.enlpot.notix.RuleWizardSupport
 import com.enlpot.notix.ui.components.EmptyState
+import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.RealAppIcon
 
 @Composable
@@ -161,26 +162,15 @@ fun RulesScreen(
 
     // Delete confirmation dialog
     ruleToDelete?.let { rule ->
-        AlertDialog(
-            onDismissRequest = { ruleToDelete = null },
-            title = { Text(stringResource(R.string.confirm_delete_rule_title)) },
-            text = { Text(stringResource(R.string.confirm_delete_rule_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDeleteRule(rule)
-                    ruleToDelete = null
-                }) {
-                    Text(
-                        stringResource(R.string.confirm_delete),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+        NotixConfirmDialog(
+            onDismiss = { ruleToDelete = null },
+            onConfirm = {
+                onDeleteRule(rule)
+                ruleToDelete = null
             },
-            dismissButton = {
-                TextButton(onClick = { ruleToDelete = null }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+            title = stringResource(R.string.confirm_delete_rule_title),
+            body = stringResource(R.string.confirm_delete_rule_message),
+            confirmText = stringResource(R.string.confirm_delete)
         )
     }
 }

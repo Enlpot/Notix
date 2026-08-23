@@ -148,6 +148,7 @@ import com.enlpot.notix.SourceApp
 import com.enlpot.notix.TimeCondition
 import com.enlpot.notix.paramsGson
 import com.enlpot.notix.ui.components.EmptyState
+import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.RealAppIcon
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -1848,13 +1849,15 @@ private fun ActionCard(
     val accent = actionAccent(spec.type)
     val density = LocalDensity.current
     val currentOnMove by rememberUpdatedState(onMove)
+    // v8.6：长按删除动作前二次确认（与崩溃日志弹窗统一风格）
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onDelete,
+                onLongClick = { showDeleteConfirm = true },
             )
             .then(
                 if (isEditing) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
@@ -1934,6 +1937,20 @@ private fun ActionCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+
+    if (showDeleteConfirm) {
+        NotixConfirmDialog(
+            onDismiss = { showDeleteConfirm = false },
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
+            },
+            title = stringResource(R.string.rule_wizard_action_delete_title),
+            body = stringResource(R.string.rule_wizard_action_delete_message),
+            confirmText = stringResource(R.string.delete),
+            danger = true
+        )
     }
 }
 

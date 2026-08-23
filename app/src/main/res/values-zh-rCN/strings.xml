@@ -423,6 +423,10 @@
     <string name="clear_all_history">全部清除</string>
     <string name="clear_all_history_confirm_title">确认清除全部历史？</string>
     <string name="clear_all_history_confirm_body">此操作将永久删除全部通知历史记录，且无法恢复。确定要继续吗？</string>
+    <string name="clear_by_date_range_confirm_title">确认清除此时间段历史？</string>
+    <string name="clear_by_date_range_confirm_body">此操作将永久删除所选日期范围内的通知历史记录，且无法恢复。确定要继续吗？</string>
+    <string name="clear_by_app_confirm_title">确认清除所选应用历史？</string>
+    <string name="clear_by_app_confirm_body">此操作将永久删除所选应用的通知历史记录，且无法恢复。确定要继续吗？</string>
     <string name="start_date">开始日期</string>
     <string name="end_date">结束日期</string>
     <string name="invalid_date_range">日期范围无效，请检查输入。</string>

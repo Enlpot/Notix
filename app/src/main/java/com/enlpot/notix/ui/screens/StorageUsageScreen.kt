@@ -17,8 +17,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import com.enlpot.notix.ui.components.NotixConfirmDialog
+import com.enlpot.notix.ui.components.NotixDangerButton
+import com.enlpot.notix.ui.components.NotixDialog
+import com.enlpot.notix.ui.components.NotixDialogButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ButtonDefaults
@@ -134,128 +136,87 @@ fun StorageUsageScreen(
         refreshTick++
     }
 
-    Dialog(
-        onDismissRequest = onBack,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .heightIn(max = 640.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.storage_usage_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.close)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.storage_usage_total, formatStorageBytes(totalBytes)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(16.dp))
-                StorageItemCard(
-                    title = stringResource(R.string.storage_usage_history),
-                    sizeText = formatStorageBytes(historySize),
-                    desc = stringResource(R.string.storage_usage_history_desc),
-                    onClear = { confirmClearHistory = true }
-                )
-                Spacer(Modifier.height(12.dp))
-                StorageItemCard(
-                    title = stringResource(R.string.storage_usage_rules),
-                    sizeText = formatStorageBytes(rulesSize),
-                    desc = stringResource(R.string.storage_usage_rules_desc),
-                    onClear = { confirmClearRules = true }
-                )
-                Spacer(Modifier.height(12.dp))
-                StorageItemCard(
-                    title = stringResource(R.string.storage_usage_other),
-                    sizeText = formatStorageBytes(otherSize),
-                    desc = stringResource(R.string.storage_usage_other_desc),
-                    onClear = { confirmClearOther = true }
-                )
-                Spacer(Modifier.height(16.dp))
-                // v7.50：底部全宽红色「清除全部」（二次确认，依次清空三项）
-                // v8.2：与列表内「清除」一致，改为红字 TextButton
-                TextButton(
-                    onClick = { confirmClearAll = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.storage_clear_all), fontWeight = FontWeight.SemiBold)
-                }
-                Spacer(Modifier.height(8.dp))
-            }
+    NotixDialog(
+        onDismiss = onBack,
+        title = stringResource(R.string.storage_usage_title),
+        content = {
+            Text(
+                text = stringResource(R.string.storage_usage_total, formatStorageBytes(totalBytes)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(16.dp))
+            StorageItemCard(
+                title = stringResource(R.string.storage_usage_history),
+                sizeText = formatStorageBytes(historySize),
+                desc = stringResource(R.string.storage_usage_history_desc),
+                onClear = { confirmClearHistory = true }
+            )
+            Spacer(Modifier.height(12.dp))
+            StorageItemCard(
+                title = stringResource(R.string.storage_usage_rules),
+                sizeText = formatStorageBytes(rulesSize),
+                desc = stringResource(R.string.storage_usage_rules_desc),
+                onClear = { confirmClearRules = true }
+            )
+            Spacer(Modifier.height(12.dp))
+            StorageItemCard(
+                title = stringResource(R.string.storage_usage_other),
+                sizeText = formatStorageBytes(otherSize),
+                desc = stringResource(R.string.storage_usage_other_desc),
+                onClear = { confirmClearOther = true }
+            )
+            Spacer(Modifier.height(8.dp))
+        },
+        buttons = {
+            NotixDangerButton(
+                onClick = { confirmClearAll = true },
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.storage_clear_all)
+            )
         }
-    }
+    )
 
     // 二次确认弹窗（覆盖在存储占用弹窗之上）
     if (confirmClearHistory) {
-        ConfirmClearDialog(
-            title = stringResource(R.string.storage_clear_history_confirm_title),
-            body = stringResource(R.string.storage_clear_history_confirm_body),
+        NotixConfirmDialog(
+            onDismiss = { confirmClearHistory = false },
             onConfirm = {
                 confirmClearHistory = false
                 runClear { onClearHistory() }
             },
-            onDismiss = { confirmClearHistory = false }
+            title = stringResource(R.string.storage_clear_history_confirm_title),
+            body = stringResource(R.string.storage_clear_history_confirm_body),
+            confirmText = stringResource(R.string.storage_clear)
         )
     }
     if (confirmClearRules) {
-        ConfirmClearDialog(
-            title = stringResource(R.string.storage_clear_rules_confirm_title),
-            body = stringResource(R.string.storage_clear_rules_confirm_body),
+        NotixConfirmDialog(
+            onDismiss = { confirmClearRules = false },
             onConfirm = {
                 confirmClearRules = false
                 runClear { onClearRules() }
             },
-            onDismiss = { confirmClearRules = false }
+            title = stringResource(R.string.storage_clear_rules_confirm_title),
+            body = stringResource(R.string.storage_clear_rules_confirm_body),
+            confirmText = stringResource(R.string.storage_clear)
         )
     }
     if (confirmClearOther) {
-        ConfirmClearDialog(
-            title = stringResource(R.string.storage_clear_other_confirm_title),
-            body = stringResource(R.string.storage_clear_other_confirm_body),
+        NotixConfirmDialog(
+            onDismiss = { confirmClearOther = false },
             onConfirm = {
                 confirmClearOther = false
                 runClear { clearOtherFiles(context) }
             },
-            onDismiss = { confirmClearOther = false }
+            title = stringResource(R.string.storage_clear_other_confirm_title),
+            body = stringResource(R.string.storage_clear_other_confirm_body),
+            confirmText = stringResource(R.string.storage_clear)
         )
     }
     if (confirmClearAll) {
-        ConfirmClearDialog(
-            title = stringResource(R.string.storage_clear_all_confirm_title),
-            body = stringResource(R.string.storage_clear_all_confirm_body),
+        NotixConfirmDialog(
+            onDismiss = { confirmClearAll = false },
             onConfirm = {
                 confirmClearAll = false
                 runClear {
@@ -264,7 +225,9 @@ fun StorageUsageScreen(
                     clearOtherFiles(context)
                 }
             },
-            onDismiss = { confirmClearAll = false }
+            title = stringResource(R.string.storage_clear_all_confirm_title),
+            body = stringResource(R.string.storage_clear_all_confirm_body),
+            confirmText = stringResource(R.string.storage_clear_all)
         )
     }
 }
@@ -316,31 +279,4 @@ private fun StorageItemCard(
             )
         }
     }
-}
-
-@Composable
-private fun ConfirmClearDialog(
-    title: String,
-    body: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(body) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    stringResource(R.string.delete),
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
 }

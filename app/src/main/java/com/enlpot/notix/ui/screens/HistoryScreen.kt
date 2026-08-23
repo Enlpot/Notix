@@ -70,7 +70,6 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.SearchOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -116,7 +115,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.enlpot.notix.BlockerRule
 import com.enlpot.notix.NotificationBlockerService
 import com.enlpot.notix.NotificationColorEngine
@@ -125,6 +123,7 @@ import com.enlpot.notix.NotificationHistoryEntry
 import com.enlpot.notix.R
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.StatsStorage
+import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.CrashLogDialog
 import com.enlpot.notix.ui.components.NotificationDetailDialog
 import com.enlpot.notix.ui.components.EmptyState
@@ -251,87 +250,67 @@ fun HistoryScreen(
 
     // --- Stop monitoring dialog ---
     showStopMonitoringDialog?.let { (packageName, appName) ->
-        Dialog(onDismissRequest = { showStopMonitoringDialog = null }) {
-            Card {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(stringResource(R.string.stop_monitoring_title), fontWeight = FontWeight.Bold, fontSize = 20.sp, modifier = Modifier.padding(bottom = 8.dp))
-                    Text(stringResource(R.string.stop_monitoring_confirm, appName), modifier = Modifier.padding(bottom = 16.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { showStopMonitoringDialog = null }, modifier = Modifier.padding(end = 8.dp)) { Text(stringResource(R.string.cancel)) }
-                        TextButton(onClick = { onStopMonitoring(packageName, appName); showStopMonitoringDialog = null }) { Text(stringResource(R.string.stop)) }
-                    }
-                }
-            }
-        }
+        NotixConfirmDialog(
+            onDismiss = { showStopMonitoringDialog = null },
+            onConfirm = {
+                onStopMonitoring(packageName, appName)
+                showStopMonitoringDialog = null
+            },
+            title = stringResource(R.string.stop_monitoring_title),
+            body = stringResource(R.string.stop_monitoring_confirm, appName),
+            confirmText = stringResource(R.string.stop),
+            danger = true
+        )
     }
 
     // --- v7.8：通知监听暂停/恢复二次确认 ---
     if (showListenerPauseConfirm) {
-        AlertDialog(
-            onDismissRequest = { showListenerPauseConfirm = false },
-            title = {
-                Text(
-                    stringResource(
-                        if (listenerPaused) R.string.listener_resume_confirm_title
-                        else R.string.listener_pause_confirm_title
-                    )
-                )
+        val pauseTitle = stringResource(
+            if (listenerPaused) R.string.listener_resume_confirm_title
+            else R.string.listener_pause_confirm_title
+        )
+        val pauseMessage = stringResource(
+            if (listenerPaused) R.string.listener_resume_confirm_message
+            else R.string.listener_pause_confirm_message
+        )
+        val pauseConfirm = stringResource(
+            if (listenerPaused) R.string.listener_resume else R.string.listener_pause
+        )
+        NotixConfirmDialog(
+            onDismiss = { showListenerPauseConfirm = false },
+            onConfirm = {
+                showListenerPauseConfirm = false
+                onToggleListenerPaused(!listenerPaused)
             },
-            text = {
-                Text(
-                    stringResource(
-                        if (listenerPaused) R.string.listener_resume_confirm_message
-                        else R.string.listener_pause_confirm_message
-                    )
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showListenerPauseConfirm = false
-                    onToggleListenerPaused(!listenerPaused)
-                }) {
-                    Text(stringResource(if (listenerPaused) R.string.listener_resume else R.string.listener_pause))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showListenerPauseConfirm = false }) { Text(stringResource(R.string.cancel)) }
-            }
+            title = pauseTitle,
+            body = pauseMessage,
+            confirmText = pauseConfirm,
+            danger = true
         )
     }
 
     // --- v7.5：通知监听权限掉线引导重新授权 ---
     if (showPermissionLostDialog) {
-        AlertDialog(
-            onDismissRequest = { showPermissionLostDialog = false },
-            title = { Text(stringResource(R.string.listener_permission_lost_title)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.listener_permission_lost_message))
-                    // v7.24：打开设置失败时在弹窗内展示提示（不再使用系统 Toast）
-                    if (openSettingsFailed) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.open_link_failed),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+        val permissionBody = if (openSettingsFailed) {
+            stringResource(R.string.listener_permission_lost_message) + "\n\n" + stringResource(R.string.open_link_failed)
+        } else {
+            stringResource(R.string.listener_permission_lost_message)
+        }
+        NotixConfirmDialog(
+            onDismiss = { showPermissionLostDialog = false },
+            onConfirm = {
+                openSettingsFailed = false
+                try {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    showPermissionLostDialog = false
+                } catch (_: Exception) {
+                    openSettingsFailed = true
                 }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    openSettingsFailed = false
-                    try {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                        showPermissionLostDialog = false
-                    } catch (_: Exception) {
-                        openSettingsFailed = true
-                    }
-                }) { Text(stringResource(R.string.grant_now)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPermissionLostDialog = false }) { Text(stringResource(R.string.cancel)) }
-            }
+            title = stringResource(R.string.listener_permission_lost_title),
+            body = permissionBody,
+            confirmText = stringResource(R.string.grant_now),
+            danger = false
         )
     }
 
