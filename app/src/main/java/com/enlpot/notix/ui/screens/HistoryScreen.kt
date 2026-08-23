@@ -1138,14 +1138,16 @@ private fun HistoryTitleRow(
         Text(
             text = stringResource(R.string.history_title),
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.alignByBaseline()
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        // v8.4：总记录/今日合并为单行，与标题底部对齐、紧凑间距
+        Spacer(modifier = Modifier.width(8.dp).alignByBaseline())
+        // v8.4：总记录/今日合并为单行，与标题按基线对齐、紧凑间距
         Text(
             text = stringResource(R.string.history_total_today, totalCount, todayCount),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.alignByBaseline()
         )
         Spacer(modifier = Modifier.weight(1f))
         IconButton(onClick = { onToggleListenerPaused() }) {
