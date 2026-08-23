@@ -12,16 +12,21 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,44 +91,77 @@ fun CrashLogDialog(
     } else {
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.crash_log_title)) },
-            text = {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.crash_log_capture_state),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = stringResource(
-                                    if (enabled) R.string.crash_log_capture_enabled
-                                    else R.string.crash_log_capture_disabled
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (enabled) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = enabled,
-                            onCheckedChange = {
-                                enabled = it
-                                CrashLogManager.setEnabled(context, it)
-                                onEnabledChanged(it)
-                            }
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.crash_log_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.close),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+            },
+            text = {
+                Column {
+                    // 日志抓取：圆角列表项（标题/副标题分行 + 开关居右），12dp 圆角
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.crash_log_capture_state),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(
+                                        if (enabled) R.string.crash_log_capture_enabled
+                                        else R.string.crash_log_capture_disabled
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (enabled) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = enabled,
+                                onCheckedChange = {
+                                    enabled = it
+                                    CrashLogManager.setEnabled(context, it)
+                                    onEnabledChanged(it)
+                                }
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
+                    // 查看日志 / 打开日志位置：两个等宽 Tonal 按钮（蓝色内容 + 灰色容器）
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(
+                        Button(
                             onClick = { showContent = true },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Visibility,
@@ -134,11 +172,14 @@ fun CrashLogDialog(
                             Text(stringResource(R.string.crash_log_view))
                         }
                         Spacer(Modifier.width(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                openError = openLogLocation(context)
-                            },
-                            modifier = Modifier.weight(1f)
+                        Button(
+                            onClick = { openError = openLogLocation(context) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FolderOpen,
@@ -149,11 +190,16 @@ fun CrashLogDialog(
                             Text(stringResource(R.string.crash_log_open_location))
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    // v7.29：清空日志（二次确认后删除全部日志）
-                    OutlinedButton(
+                    Spacer(Modifier.height(12.dp))
+                    // v7.29：清空日志（二次确认后删除全部日志）—— 红色填充危险按钮
+                    Button(
                         onClick = { showClearConfirm = true },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -161,10 +207,7 @@ fun CrashLogDialog(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(
-                            stringResource(R.string.crash_log_clear),
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        Text(stringResource(R.string.crash_log_clear))
                     }
                     // v7.24：打开失败时在弹窗内展示日志路径（不再使用系统 Toast）
                     openError?.let { err ->
@@ -177,11 +220,7 @@ fun CrashLogDialog(
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.close))
-                }
-            }
+            confirmButton = {}
         )
     }
 }
