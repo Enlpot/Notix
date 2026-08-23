@@ -1,10 +1,13 @@
 package com.enlpot.notix.ui.screens
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -43,6 +46,7 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -71,6 +75,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +88,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -100,6 +106,7 @@ import com.enlpot.notix.RuleExportSerializer
 import com.enlpot.notix.RuleImport
 import com.enlpot.notix.RuleStorage
 import com.enlpot.notix.RuleWizardSupport
+import com.enlpot.notix.setup.SetupState
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.ui.components.CrashLogDialog
 import com.enlpot.notix.ui.components.RealAppIcon
@@ -153,16 +160,26 @@ fun SettingsScreen(
     var aboutFeaturesExpanded by remember { mutableStateOf(false) }
     var aboutPrivacyExpanded by remember { mutableStateOf(false) }
 
-    // Permission status
-    val notificationAccessGranted = remember {
-        val listeners = Settings.Secure.getString(
-            context.contentResolver, "enabled_notification_listeners"
-        )
-        listeners?.contains(context.packageName) == true
-    }
-    val batteryOptimizationGranted = remember {
-        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        pm.isIgnoringBatteryOptimizations(context.packageName)
+    // v8.6：权限管理二级界面路由 + 主界面聚合状态（进入前台/返回时刷新）
+    var showPermissionScreen by remember { mutableStateOf(false) }
+    var permissionRefreshTick by remember { mutableStateOf(0) }
+
+    val permListenerGranted = remember(permissionRefreshTick) { SetupState.isNotificationListenerEnabled(context) }
+    val permPostNotifGranted = remember(permissionRefreshTick) { SetupState.isPostNotificationsGranted(context) }
+    val permBatteryGranted = remember(permissionRefreshTick) { SetupState.isIgnoringBatteryOptimizations(context) }
+    val permForegroundGranted = remember(permissionRefreshTick) { isKeepaliveServiceRunning(context) }
+    val permFailedCount = listOf(
+        permListenerGranted, permPostNotifGranted, permBatteryGranted, permForegroundGranted
+    ).count { !it }
+
+    // 进入前台重新检查权限状态
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) permissionRefreshTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Date range input state
@@ -754,7 +771,19 @@ fun SettingsScreen(
         // v7.24：应用内 Snackbar 提示（替代系统 Toast）
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        if (showStorageUsageScreen) {
+        if (showPermissionScreen) {
+            // v8.6：权限管理二级界面
+            PermissionScreen(
+                onBack = {
+                    showPermissionScreen = false
+                    permissionRefreshTick++
+                },
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+            )
+        } else if (showStorageUsageScreen) {
             // v7.50：存储占用二级界面
             StorageUsageScreen(
                 onBack = {
@@ -844,231 +873,62 @@ fun SettingsScreen(
                 )
             }
 
-            // Permission guidance cards
-            SettingsSection(title = stringResource(R.string.settings_permission_notification_title)) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (notificationAccessGranted)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.errorContainer
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (notificationAccessGranted) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-                                contentDescription = null,
-                                tint = if (notificationAccessGranted)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_permission_notification_title),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = if (notificationAccessGranted)
-                                    stringResource(R.string.settings_permission_notification_granted)
-                                else
-                                    stringResource(R.string.settings_permission_notification_not_granted),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (notificationAccessGranted)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+            // v8.6：权限管理——入口（仅展示实时状态，点击进入二级界面）
+            SettingsSection(title = stringResource(R.string.settings_permission_section_title)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showPermissionScreen = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_permission_notification_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (!notificationAccessGranted) {
-                        Spacer(Modifier.height(10.dp))
-                        Button(onClick = {
-                            context.startActivity(
-                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                            )
-                        }) {
-                            Text(stringResource(R.string.settings_permission_go_to_settings))
-                        }
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_permission_section_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = stringResource(R.string.settings_permission_monitoring_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            lineHeight = 18.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                }
-            }
-
-            SettingsSection(title = stringResource(R.string.settings_permission_battery_title)) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (batteryOptimizationGranted)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.errorContainer
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (batteryOptimizationGranted) Icons.Filled.CheckCircle else Icons.Filled.BatteryAlert,
-                                contentDescription = null,
-                                tint = if (batteryOptimizationGranted)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_permission_battery_title),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = if (batteryOptimizationGranted)
-                                    stringResource(R.string.settings_permission_battery_granted)
-                                else
-                                    stringResource(R.string.settings_permission_battery_not_granted),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (batteryOptimizationGranted)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                    Spacer(Modifier.width(12.dp))
+                    if (permFailedCount == 0) {
+                        Text(
+                            text = stringResource(R.string.settings_permission_all_normal),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.settings_permission_n_abnormal, permFailedCount),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_permission_battery_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (!batteryOptimizationGranted) {
-                        Spacer(Modifier.height(10.dp))
-                        Button(onClick = {
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        }) {
-                            Text(stringResource(R.string.settings_permission_battery_one_click))
-                        }
-                    }
-                }
-            }
-
-            // v7.23：后台保活引导分组
-            SettingsSection(title = stringResource(R.string.settings_keepalive_section_title)) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (batteryOptimizationGranted)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.errorContainer
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (batteryOptimizationGranted) Icons.Filled.CheckCircle else Icons.Filled.BatteryAlert,
-                                contentDescription = null,
-                                tint = if (batteryOptimizationGranted)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_permission_battery_title),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = if (batteryOptimizationGranted)
-                                    stringResource(R.string.settings_keepalive_battery_granted)
-                                else
-                                    stringResource(R.string.settings_permission_battery_not_granted),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (batteryOptimizationGranted)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_keepalive_battery_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (!batteryOptimizationGranted) {
-                        Spacer(Modifier.height(10.dp))
-                        Button(onClick = {
-                            // 优先电池优化白名单，action 不可用时回退应用详情页
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            try {
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = Uri.parse("package:${context.packageName}")
-                                        }
-                                    )
-                                }
-                            }
-                        }) {
-                            Text(stringResource(R.string.settings_keepalive_battery_button))
-                        }
-                    }
-                    Spacer(Modifier.height(14.dp))
-                    HorizontalDivider()
-                    Spacer(Modifier.height(14.dp))
-                    Text(
-                        text = stringResource(R.string.settings_keepalive_autostart_title),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_keepalive_autostart_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        lineHeight = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Spacer(Modifier.width(4.dp))
+                    NavChevron()
                 }
             }
 
@@ -1315,5 +1175,258 @@ private fun DateField(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+// v8.6：权限管理二级界面——实时监听 4 项系统权限
+@Composable
+fun PermissionScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var refreshTick by remember { mutableStateOf(0) }
+
+    // 实时状态：每次 refreshTick 变化时重算（进入前台/从系统设置返回时刷新）
+    val listenerGranted = remember(refreshTick) { SetupState.isNotificationListenerEnabled(context) }
+    val postNotifGranted = remember(refreshTick) { SetupState.isPostNotificationsGranted(context) }
+    val batteryGranted = remember(refreshTick) { SetupState.isIgnoringBatteryOptimizations(context) }
+    val foregroundGranted = remember(refreshTick) { isKeepaliveServiceRunning(context) }
+    val failedCount = listOf(listenerGranted, postNotifGranted, batteryGranted, foregroundGranted)
+        .count { !it }
+
+    // 从系统设置返回 / 进入前台时重新检查
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Column(modifier = modifier) {
+        // 顶部返回栏「< 权限管理」
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = stringResource(R.string.back)
+                )
+            }
+            Text(
+                text = stringResource(R.string.settings_permission_section_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.width(10.dp))
+            // 实时监控中 徽标
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_permission_monitoring_pill),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.settings_permission_monitor_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+            )
+
+            // 聚合告警横幅
+            if (failedCount > 0) {
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.settings_permission_abnormal_banner, failedCount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            PermissionCard(
+                icon = Icons.Filled.Notifications,
+                title = stringResource(R.string.settings_permission_notification_title),
+                desc = stringResource(R.string.settings_permission_notification_desc),
+                granted = listenerGranted,
+                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                onFix = {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+            )
+            Spacer(Modifier.height(12.dp))
+            PermissionCard(
+                icon = Icons.AutoMirrored.Filled.Send,
+                title = stringResource(R.string.settings_permission_postnotif_title),
+                desc = stringResource(R.string.settings_permission_postnotif_desc),
+                granted = postNotifGranted,
+                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                onFix = {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    }
+                    context.startActivity(intent)
+                }
+            )
+            Spacer(Modifier.height(12.dp))
+            PermissionCard(
+                icon = Icons.Filled.BatteryAlert,
+                title = stringResource(R.string.settings_permission_battery_title),
+                desc = stringResource(R.string.settings_permission_battery_desc),
+                granted = batteryGranted,
+                fixLabel = stringResource(R.string.settings_permission_battery_one_click),
+                onFix = {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                }
+            )
+            Spacer(Modifier.height(12.dp))
+            PermissionCard(
+                icon = Icons.Filled.Security,
+                title = stringResource(R.string.settings_permission_foreground_title),
+                desc = stringResource(R.string.settings_permission_foreground_desc),
+                granted = foregroundGranted,
+                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                onFix = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                    )
+                }
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun PermissionCard(
+    icon: ImageVector,
+    title: String,
+    desc: String,
+    granted: Boolean,
+    fixLabel: String,
+    onFix: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (granted) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.errorContainer
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (granted) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = if (granted) stringResource(R.string.settings_permission_status_normal)
+                                else stringResource(R.string.settings_permission_status_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (granted) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = desc,
+                style = MaterialTheme.typography.bodySmall,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!granted) {
+                Spacer(Modifier.height(12.dp))
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    TextButton(
+                        onClick = onFix,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text(fixLabel, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 前台服务（通知守护）是否正在以 fg 身份运行——用于「前台服务保活」实时监控 */
+private fun isKeepaliveServiceRunning(context: Context): Boolean {
+    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    @Suppress("DEPRECATION")
+    return am.getRunningServices(Int.MAX_VALUE).any {
+        it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }

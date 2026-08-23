@@ -272,6 +272,20 @@
     <string name="settings_permission_battery_not_granted">Not granted</string>
     <string name="settings_permission_battery_desc">Prevents background service from being killed.</string>
     <string name="settings_permission_go_to_settings">Go to Settings</string>
+    <!-- v8.6：权限管理二级界面 -->
+    <string name="settings_permission_section_title">Permissions</string>
+    <string name="settings_permission_monitoring_subtitle">Monitoring 4 system permissions in real time</string>
+    <string name="settings_permission_all_normal">Normal</string>
+    <string name="settings_permission_n_abnormal">%d abnormal</string>
+    <string name="settings_permission_monitoring_pill">Live monitoring</string>
+    <string name="settings_permission_monitor_title">Live Permission Monitor · 4 permissions</string>
+    <string name="settings_permission_abnormal_banner">%d permission(s) have failed; some features may be affected</string>
+    <string name="settings_permission_status_normal">Normal</string>
+    <string name="settings_permission_status_failed">Failed</string>
+    <string name="settings_permission_postnotif_title">Post Notifications</string>
+    <string name="settings_permission_postnotif_desc">Used to show blocking results and reminders (Android 13+ requires system grant)</string>
+    <string name="settings_permission_foreground_title">Foreground Service</string>
+    <string name="settings_permission_foreground_desc">Foreground service keeps notification listening alive when the system reclaims resources</string>
     <string name="settings_permission_battery_one_click">Set Up</string>
     <string name="settings_privacy_security_title">Privacy &amp; Security</string>
     <string name="settings_privacy_item_1">All notification data is stored locally only</string>
