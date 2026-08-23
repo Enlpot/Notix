@@ -84,3 +84,18 @@
 - 构建：`gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅 `LocalLifecycleOwner` 与 `Icons.Filled.Send` 两处 deprecation warning，与 `SetupWizardScreen` 等既有代码一致）；APK 已 `adb -s emulator-5554 install -r` 安装，启动后实测：主设置页 → 权限管理入口（盾牌 + 绿色「正常」） → 点击进入二级页（4 张绿色「正常」卡片 + 返回箭头 + 「实时监控中」pill） → 返回箭头回到主设置（状态同步刷新）。
 - 未改动：版本号 / `AndroidManifest.xml` / 数据层 / 通知拦截服务 / SetupState 逻辑 / `StorageUsageScreen` 与既有弹窗（仅在主设置页加了一处新二级路由，沿用 `showStorageUsageScreen` 相同的布尔位模式）。
 - 升版：未升版（用户尚未要求发版）；如需发布可由用户在 `app/build.gradle.kts` 将 `versionCode 118→119`、`versionName 8.5→8.6` 后触发 push 与 CI 自动发布。
+
+## 本轮修改（设置页二级界面弹窗化 · 2026-08-23）
+
+> 修改点：将设置页所有二级界面统一改为弹窗。基线：v8.6。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/SettingsScreen.kt` | **移除全屏路由**：原 `Scaffold` content 内的 `if (showPermissionScreen) PermissionScreen(...) else if (showStorageUsageScreen) StorageUsageScreen(...) else Column{...}` 改为 `Scaffold` 只渲染主设置 `Column`；权限 / 存储弹窗移到 `Scaffold` 之后、作为 `SettingsScreen` 函数体内的独立 `Dialog` 调用；保留 `permissionRefreshTick++` / `storageRefreshTick++` 的刷新语义。
+`app/src/main/java/com/enlpot/notix/ui/screens/SettingsScreen.kt` | **PermissionScreen 弹窗化**：去除 `modifier` 参数，整体包在 `Dialog(properties = DialogProperties(usePlatformDefaultWidth = false))` 内；容器 `Card(Modifier.fillMaxWidth(0.95f).heightIn(max = 640.dp), RoundedCornerShape(16.dp), surfaceVariant)`，内部 `Column(verticalScroll)`；顶部由「返回箭头 + 标题」改为「标题 + 实时监控中 pill + X 关闭按钮」；内容保持 4 张 `PermissionCard` + 聚合告警横幅。
+`app/src/main/java/com/enlpot/notix/ui/screens/StorageUsageScreen.kt` | **StorageUsageScreen 弹窗化**：同样包在 `Dialog(...)` 内，`Card` 容器约束同上；顶部改为「标题 + X 关闭按钮」；新增 `storage_usage_total` 文案与总占用展示「共占用 %s」；保持 3 张 `StorageItemCard` + 底部「清除全部」；4 个 `ConfirmClearDialog` 作为弹窗同级 `AlertDialog` 渲染。
+`app/src/main/res/values/strings.xml` / `values-zh-rCN/strings.xml` | 新增 `storage_usage_total`：默认 "Total used: %s" / 中文 "共占用 %s"。
+
+**行为变化**：
+- 用户视角：设置页点击「权限管理」/「存储占用」后，不再全屏切换，而是居中弹窗覆盖在设置页之上，点击弹窗外区域 / 返回键 / X 按钮关闭；关闭后主设置页状态不变。
+- 保留实时监控：`PermissionScreen` 内部仍用 `refreshTick + DisposableEffect(ON_RESUME)`，从系统设置返回后弹窗状态会即时刷新。
+- 构建：`gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）；APK 已 `adb -s emulator-5554 install -r` 安装，实测：设置页 → 存储占用 → 弹窗显示「共占用 2.3 KB」与 3 张卡片 → 关闭 → 权限管理 → 弹窗显示 4 张权限卡片（正常） → 关闭回到设置页。
+- 未升版（用户未要求本轮发版）。

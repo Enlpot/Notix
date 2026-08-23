@@ -451,6 +451,7 @@
     <!-- v7.50: 设置-存储占用 -->
     <string name="settings_storage_usage">存储占用</string>
     <string name="storage_usage_title">存储占用</string>
+    <string name="storage_usage_total">共占用 %s</string>
     <string name="storage_usage_history">通知历史</string>
     <string name="storage_usage_history_desc">notification_history.json 等文件。清除将清空全部通知历史。</string>
     <string name="storage_usage_rules">规则</string>

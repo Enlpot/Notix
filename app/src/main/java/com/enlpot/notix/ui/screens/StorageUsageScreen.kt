@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -15,8 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +42,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.CrashLogManager
 import com.enlpot.notix.R
 import java.io.File
@@ -108,11 +114,11 @@ fun StorageUsageScreen(
     onBack: () -> Unit,
     onClearHistory: () -> Unit,
     onClearRules: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var refreshTick by remember { mutableIntStateOf(0) }
 
+    val totalBytes = remember(refreshTick) { computeStorageUsageBytes(context) }
     val historySize = remember(refreshTick) { historyBytes(context) }
     val rulesSize = remember(refreshTick) { rulesBytes(context) }
     val otherSize = remember(refreshTick) { otherBytes(context) }
@@ -128,74 +134,91 @@ fun StorageUsageScreen(
         refreshTick++
     }
 
-    Column(modifier = modifier) {
-        // 顶部返回栏「< 存储占用」
-        Row(
+    Dialog(
+        onDismissRequest = onBack,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth(0.95f)
+                .heightIn(max = 640.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.98f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = stringResource(R.string.back)
-                )
-            }
-            Text(
-                text = stringResource(R.string.storage_usage_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-        ) {
-            StorageItemCard(
-                title = stringResource(R.string.storage_usage_history),
-                sizeText = formatStorageBytes(historySize),
-                desc = stringResource(R.string.storage_usage_history_desc),
-                onClear = { confirmClearHistory = true }
-            )
-            Spacer(Modifier.height(12.dp))
-            StorageItemCard(
-                title = stringResource(R.string.storage_usage_rules),
-                sizeText = formatStorageBytes(rulesSize),
-                desc = stringResource(R.string.storage_usage_rules_desc),
-                onClear = { confirmClearRules = true }
-            )
-            Spacer(Modifier.height(12.dp))
-            StorageItemCard(
-                title = stringResource(R.string.storage_usage_other),
-                sizeText = formatStorageBytes(otherSize),
-                desc = stringResource(R.string.storage_usage_other_desc),
-                onClear = { confirmClearOther = true }
-            )
-            Spacer(Modifier.height(24.dp))
-            // v7.50：底部全宽红色「清除全部」（二次确认，依次清空三项）
-            // v8.2：与列表内「清除」一致，改为红字 TextButton
-            TextButton(
-                onClick = { confirmClearAll = true },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp)
             ) {
-                Text(stringResource(R.string.storage_clear_all), fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.storage_usage_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.close)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.storage_usage_total, formatStorageBytes(totalBytes)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(16.dp))
+                StorageItemCard(
+                    title = stringResource(R.string.storage_usage_history),
+                    sizeText = formatStorageBytes(historySize),
+                    desc = stringResource(R.string.storage_usage_history_desc),
+                    onClear = { confirmClearHistory = true }
+                )
+                Spacer(Modifier.height(12.dp))
+                StorageItemCard(
+                    title = stringResource(R.string.storage_usage_rules),
+                    sizeText = formatStorageBytes(rulesSize),
+                    desc = stringResource(R.string.storage_usage_rules_desc),
+                    onClear = { confirmClearRules = true }
+                )
+                Spacer(Modifier.height(12.dp))
+                StorageItemCard(
+                    title = stringResource(R.string.storage_usage_other),
+                    sizeText = formatStorageBytes(otherSize),
+                    desc = stringResource(R.string.storage_usage_other_desc),
+                    onClear = { confirmClearOther = true }
+                )
+                Spacer(Modifier.height(16.dp))
+                // v7.50：底部全宽红色「清除全部」（二次确认，依次清空三项）
+                // v8.2：与列表内「清除」一致，改为红字 TextButton
+                TextButton(
+                    onClick = { confirmClearAll = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(R.string.storage_clear_all), fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
 
-    // 二次确认弹窗
+    // 二次确认弹窗（覆盖在存储占用弹窗之上）
     if (confirmClearHistory) {
         ConfirmClearDialog(
             title = stringResource(R.string.storage_clear_history_confirm_title),

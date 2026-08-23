@@ -560,6 +560,7 @@
     <!-- v7.50: Settings - storage usage -->
     <string name="settings_storage_usage">Storage Usage</string>
     <string name="storage_usage_title">Storage Usage</string>
+    <string name="storage_usage_total">Total used: %s</string>
     <string name="storage_usage_history">Notification History</string>
     <string name="storage_usage_history_desc">notification_history.json and related files. Clearing deletes all notification history.</string>
     <string name="storage_usage_rules">Rules</string>
