@@ -41,3 +41,6 @@ CLAUDE.md
 # CI secrets (local only, never commit)
 keystore_base64.txt
 keystore_secrets.txt
+
+# WorkBuddy local workspace (tool cache, screenshots, agent memory — not source)
+/.workbuddy/
