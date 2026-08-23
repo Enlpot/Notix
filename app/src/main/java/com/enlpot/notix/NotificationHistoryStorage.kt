@@ -26,6 +26,17 @@ class NotificationHistoryStorage(private val context: Context) {
 
     companion object {
         private const val TAG = "NotificationHistoryStorage"
+
+        /**
+         * v8.0：进程级内存缓存——Service 与 MainActivity/HistoryScreen 各自持有一个
+         * NotificationHistoryStorage 实例（同进程、同文件）。若缓存为实例级，服务写入后只刷新
+         * 自身那一份，UI 实例的缓存停留在首次读取时的旧值，广播刷新时 getEntries() 直接命中
+         * 陈旧缓存，历史便不再实时更新（H3 引入的回归）。改为伴生对象级（进程级）缓存后，
+         * 所有实例共享同一份，任何一次写盘都会让后续读取立即可见，缓存与磁盘始终一致。
+         */
+        private val lock = Any()
+        @Volatile
+        private var cachedEntries: List<NotificationHistoryEntry>? = null
     }
 
     private val gson = Gson()
@@ -33,17 +44,6 @@ class NotificationHistoryStorage(private val context: Context) {
     private val atomicFile = AtomicFile(historyFile)
     private val sharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val historyDays get() = sharedPreferences.getInt("historyDays", 5)
-
-    /**
-     * v8.0：内存缓存——Service 每条通知都在 background 线程聚合后写盘，若每次都从磁盘
-     * 全量 read + Gson 解析整个历史 JSON，O(N) 成本随历史增长放大（高频通知下 IO 积压）。
-     * 引入缓存后，常规写路径走内存聚合、仅写盘时序列化；读路径命中缓存即返回。
-     * historyExecutor 单线程串行，Service 侧读写天然无竞态；UI 线程（onResume/广播）读
-     * 可能与后台写并发，故缓存访问统一加锁。
-     */
-    private val lock = Any()
-    @Volatile
-    private var cachedEntries: List<NotificationHistoryEntry>? = null
 
     /** 读取全部聚合条目，按时间倒序（命中内存缓存直接返回，避免高频通知下重复解析全量 JSON）。 */
     fun getEntries(): List<NotificationHistoryEntry> {
