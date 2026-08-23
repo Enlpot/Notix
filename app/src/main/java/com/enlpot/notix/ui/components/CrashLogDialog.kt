@@ -2,6 +2,7 @@ package com.enlpot.notix.ui.components
 
 import android.content.Context
 import android.content.Intent
+import android.provider.DocumentsContract
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.enlpot.notix.CrashLogManager
@@ -161,7 +164,8 @@ fun CrashLogDialog(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                 contentColor = MaterialTheme.colorScheme.primary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Visibility,
@@ -169,7 +173,11 @@ fun CrashLogDialog(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.crash_log_view))
+                            Text(
+                                text = stringResource(R.string.crash_log_view),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                         Spacer(Modifier.width(8.dp))
                         Button(
@@ -179,7 +187,8 @@ fun CrashLogDialog(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                 contentColor = MaterialTheme.colorScheme.primary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FolderOpen,
@@ -187,7 +196,11 @@ fun CrashLogDialog(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.crash_log_open_location))
+                            Text(
+                                text = stringResource(R.string.crash_log_open_location),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                     Spacer(Modifier.height(12.dp))
@@ -255,11 +268,41 @@ private fun CrashLogContentDialog(onBack: () -> Unit) {
     )
 }
 
-/** 通过 FileProvider 打开日志文件；失败时返回可在弹窗内展示的提示文本（v7.24 起不再弹系统 Toast）。 */
+/**
+ * 打开日志所在目录；失败时尝试直接打开日志文件；再次失败时返回可在弹窗内展示的路径提示。
+ * v7.24 起不再弹系统 Toast，错误以弹窗内文本呈现。
+ */
 private fun openLogLocation(context: Context): String? {
     val file = CrashLogManager.logFile(context)
+    val parent = file.parentFile
+        ?: return context.getString(R.string.crash_log_path_toast, file.absolutePath)
+
+    // 1. 尝试用系统文件管理器打开日志目录
+    try {
+        val relativePath = parent.absolutePath
+            .removePrefix("/storage/emulated/0/")
+            .removePrefix("/sdcard/")
+        val documentId = "primary:$relativePath"
+        val dirUri = DocumentsContract.buildDocumentUri(
+            "com.android.externalstorage.documents",
+            documentId
+        )
+        val dirIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(dirUri, DocumentsContract.Document.MIME_TYPE_DIR)
+        }
+        context.startActivity(dirIntent)
+        return null
+    } catch (ignored: Exception) {
+        // 系统文件管理器无法打开该目录，继续回退
+    }
+
+    // 2. 回退：尝试直接打开日志文件
     return try {
-        val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+        val uri = FileProvider.getUriForFile(
+            context,
+            context.packageName + ".fileprovider",
+            file
+        )
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "text/plain")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
