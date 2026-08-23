@@ -1,14 +1,3 @@
----
-AIGC:
-    Label: "1"
-    ContentProducer: 001191440300708461136T1XGW3
-    ProduceID: 26c411d2a0f0a2e307f470b439631140_a3828a979dfc11f1a65b525400826444
-    ReservedCode1: 6b6yMipZNB9AVzfqAhBVnl/Xp8SN+5wu7JdmJcGutGGDJ5kKkWpB11+pPaQg/mKu215r7QUTHwDq2OiaJoh+eIVwAVJWMDBKaN7LptVtN1tcWBH4HnKMWCEBSUId97tNFvMejoig7dbsutSbx4Viq4NI1jpORgcYcmYsG6Ij+V72FI/yynOmTpLVaBM=
-    ContentPropagator: 001191440300708461136T1XGW3
-    PropagateID: 26c411d2a0f0a2e307f470b439631140_a3828a979dfc11f1a65b525400826444
-    ReservedCode2: 6b6yMipZNB9AVzfqAhBVnl/Xp8SN+5wu7JdmJcGutGGDJ5kKkWpB11+pPaQg/mKu215r7QUTHwDq2OiaJoh+eIVwAVJWMDBKaN7LptVtN1tcWBH4HnKMWCEBSUId97tNFvMejoig7dbsutSbx4Viq4NI1jpORgcYcmYsG6Ij+V72FI/yynOmTpLVaBM=
----
-
 # Notix Release Notes
 
 ## 8.1 (2026-08-22)
@@ -46,8 +35,6 @@ AIGC:
 - 仓库缺失 `Shape.kt`（`NotixCorner` 圆角令牌）导致 release 构建失败的引用错误
 - Gradle daemon JVM 在 Windows 上的 CompressedOops 地址冲突（提升堆上限并迁移基地址至 4GB 以上）
 
-*（内容由AI生成，仅供参考）*
-
 ## 8.2 (2026-08-23)
 
 自上一已发布版本 8.1 以来的变更汇总。
@@ -63,5 +50,3 @@ AIGC:
 
 - 移除设置页日期快捷入口与列表项不一致的描边按钮形态
 - 通知详情弹窗冗余组件合并，删除未使用的 NotificationDetailsDialog
-
-*（内容由AI生成，仅供参考）*
