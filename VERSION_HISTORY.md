@@ -126,4 +126,123 @@ Changes since the previous released version 8.0.
 - Notification history list layout order error.
 - Collapsed-section expand/collapse scroll position error: after collapsing, auto-return to section header.
 - Same-app multi-collapsed-section collapse count error.
+
+---
+
+## 8.0 (2026-08-22)
+
+Changes since the previous released version 7.47.
+
+### New Features
+
+- Storage Usage: Settings > General adds a "Storage Usage" entry and a secondary detail screen, showing the size of notification history / rules / other files by category, with per-item clear and one-tap clear-all (both with confirmation).
+- Clear history by app: dialog restyled as a dark card; list items now show app icons, support row tap to multi-select, and one-tap select-all / clear-selection after search filtering.
+- Clear history by time range: dialog restyled as a dark card; supports start/end date picking plus quick presets (7 / 30 / 90 days / all).
+- Rule creation split into three columns: the rule screen is divided into "Source / Condition / Workflow"; a rule name can be filled at the top (auto-named "Unnamed Rule N" when empty); conditions are configured via a dialog (Keyword / Phone State / Time tabs); action cards support drag-to-reorder, tap-to-configure, and long-press-to-delete.
+- Bottom three-tab (History / Rules / Settings) transition animation: fade + slight horizontal shift (~250ms), with each page's state preserved.
+
+### Improved
+
+- Rules screen: removed the floating new-button; replaced with a "Rules" main title + "N rules total" subtitle + a top banner new-button. Rule cards support long-press delete confirmation; the card-top delete button is removed while re-scan and the on/off switch are kept; empty state keeps the title and banner button.
+- Notification detail dialog widened (side padding reduced to 12dp), fixed display of Delete / Open / Create Rule / Restore four buttons.
+- Aggregation change window: top-right label changed from "Change n" to "n changes".
+- Notification history bar chart extracted into a standalone rounded dark-gray card, with ◀/▶ swipe hint arrows added (synced in landscape left pane).
+- Notification history search box auto-shows the keyboard when expanded and dismisses it on close.
+- Bottom tab selected state changed to a theme-color rounded pill (≈52×32dp, 16dp radius), with icons switching to a contrasting color.
+
+### Fixed
+
+- Notification collapsed-card scroll position error after expand/collapse: auto-returns to the section header after collapsing.
+- Same-app multi-collapsed-section key conflict caused an IllegalArgumentException crash in the list.
+- Per-app collapsed sections now ordered by notification send time, avoiding tab-switch jank.
+
+---
+
+## 7.47 (2026-08-21)
+
+### Fixed
+
+- Fixed a crash (IllegalArgumentException) in LazyColumn caused by duplicate fold-toggle keys when the same app appeared in multiple non-consecutive fold segments; fold segment keys now include the segment's newest entry id.
+
+### Improved
+
+- Fixed history tab switching jank: switching from the Filtered tab to By Time / By App no longer freezes for ~1 second before showing the target list. Data preparation is now decoupled from the selected tab, so all three tabs share one cached dataset and tab switches trigger no recomputation.
+- By App folding now segments entries by send time: within an app group, entries are only folded together when they are adjacent in the global timeline. If another app's notification falls between two entries of the same app, they form separate fold segments instead of one large collapsed group.
+
+---
+
+## 7.46 (2026-08-21)
+
+### New Features
+
+- Added notification card folding on the History screen: when an app has 4+ consecutive aggregated entries, they are collapsed into a single card with a "Show N more" toggle; works on all three tabs (By Time / By App / Filtered). The expand/collapse toggle stays sticky under the newest entry for one-tap folding, and expanded cards are slightly indented to distinguish from normal ones.
+
+### Improved
+
+- Added translations for the new folding strings in Spanish, French, Japanese, Korean, Polish and Russian.
+
+---
+
+## 7.45 (2026-08-20)
+
+### New Features
+
+- Added an optional "Extract remote views text" switch (default off): when enabled, notifications without visible text will have their action button labels and content descriptions extracted and used for rule matching and history records.
+
+### Fixed
+
+- Fixed lag when swiping between "Filtered" and "By App" tabs on the History screen: group-by/sort computation is now cached and no longer fully recomputed on every recomposition.
+- Fixed app icons appearing with delay after tab switches or list recycling: added an in-process memory cache for app icons so PackageManager is not hit repeatedly.
+
+---
+
+## 7.43 (2026-08-19)
+
+### Removed
+
+- Removed the incomplete Community Share feature: deleted CommunityShare.kt and its 80 related string resources across all 8 locales.
+
+---
+
+## 7.42 (2026-08-18)
+
+### New Features
+
+- Pure black (OLED-friendly) dark theme following the Material Design 3 dark color scheme.
+- Bottom navigation bar compacted to 56dp with icon-only items; long-press an icon to reveal its label.
+- Unified landscape layout for all three tabs: fixed chart panel on the left, page content on the right, separated by a vertical divider.
+
+### Improved
+
+- Selected day state persists across rotation in landscape mode (shared chart panel).
+- Adjacent history sub-tabs are pre-composed to avoid blank flashes when swiping.
+- Bottom tabs now switch by tap only, while the top sub-tabs remain swipeable.
+
+### Fixed
+
+- Fixed landscape screens showing the legacy gray window background instead of pure black.
+
+---
+
+## 7.39 (2026-08-18)
+
+### New Features
+
+- History tab now supports swipeable navigation between the three sub-tabs (HorizontalPager).
+- "Filtered" tab groups notification records by the matched rule.
+
+### Improved
+
+- History lists remain scrollable even with few notifications (fixed the issue where scrolling was impossible with short content).
+- Double-tapping the "History" tab in the bottom navigation quickly returns to the current week (clears date filter).
+
+### Fixed
+
+- Fixed rule wizard state being lost when the screen rotates.
+
+---
+
+## 7.38 (2026-08-18)
+
+- Initial release notes entry. Full changelog: https://github.com/Enlpot/Notix/commits/v7.38
 - Notification detail dialog button display anomaly.
