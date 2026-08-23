@@ -162,3 +162,34 @@
 - 合并后的 `AndroidManifest.xml` 已确认不含 `QUERY_ALL_PACKAGES` 与任何 hardcoded 包名。
 - APK 已 `adb -s emulator-5554 install -r` 安装并启动；实测：设置页 → 权限管理弹窗可滚动，4 张卡片的权限标识和使用组件均完整显示。
 - 未升版（用户未要求本轮发版）。
+
+## 本轮修改（第 8 轮 · 2026-08-23）
+
+> 修改点：
+> 1. 权限管理弹窗的 4 张权限卡片改为整卡可点击，点击即跳转对应系统设置页（通知访问 → 通知使用权设置、发送通知 → 应用通知设置、电池优化白名单 → 电池优化豁免、前台服务保活 → 应用详情页）。
+> 2. 弹窗太窄/太长：重构 `NotixDialog` 容器，由 M3 `AlertDialog` 改为与「通知详情弹窗」一致的自定义 `Dialog(usePlatformDefaultWidth=false)` + 屏幕宽度 92% + 高度上限 85% + 半透明遮罩点击外部关闭，所有使用 `NotixDialog` 的弹窗统一变宽变紧凑。
+> 3. 权限卡片内部压缩：内边距 16dp→14dp，卡片间距 12dp→8dp，权限标识/描述/使用组件间留白收紧；头部增加 `NavChevron()` 箭头提示「可点击进入设置」。
+
+`app/src/main/java/com/enlpot/notix/ui/components/NotixDialog.kt` |
+- 内部由 M3 `AlertDialog` 重构为自定义 `Dialog(usePlatformDefaultWidth=false)`；
+- 外层 `Box(Modifier.fillMaxSize())` 补半透明遮罩 `Color.Black.copy(alpha=0.32f)`，并加 `clickable` 实现点外部关闭；
+- Surface 宽度 `fillMaxWidth(0.92f)`、高度上限 `maxHeight * 0.85f`（过长时内容滚动），形状/颜色/阴影与通知详情弹窗一致（`NotixCorner.Dialog` + `surface` + `tonalElevation=6.dp`）；
+- Surface 加 `clickable(onClick={})` 吞掉内部点击，避免误关；
+- 标题/关闭按钮/内容/按钮区布局不变，保持 `NotixDialogButton` / `NotixDangerButton` 可用。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/SettingsScreen.kt` |
+- `PermissionCard` 的 `ElevatedCard` 加 `Modifier.clickable(onClick = onFix)`，整卡可点击；
+- 头部标题区右侧增加 `NavChevron()`（与设置列表项统一的可进入箭头），提示用户点击跳转；
+- 卡片内边距收紧、各文本区块间距收紧，`PermissionScreen` 卡片间距由 12dp 缩至 8dp，弹窗整体更短；
+- 未授予时的「前往设置」TextButton 保留，作为未授权状态的高亮入口。
+
+**影响评估**：
+- 所有调用 `NotixDialog` 的弹窗（设置页各弹窗、权限管理、存储占用、删除/清空二次确认等）同步变宽 92%、高度上限 85%、支持点外部关闭；与此前已存在的通知详情弹窗/历史详情弹窗宽屏模式一致，设计语言统一。
+- 权限卡片可跳转系统设置，提升修复效率；箭头 affordance 降低用户认知成本。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）。
+- APK 已 `adb -s emulator-5554 install -r` 安装并启动；权限管理弹窗 4 张卡一屏完整显示，宽度明显加宽。
+- 点击「通知访问权限」卡 → `com.android.settings.Settings$NotificationAccessSettingsActivity`；点击「前台服务保活」卡 → 应用详情页；跳转正确。
+- 回归测试：通知历史长按删除 → 删除确认弹窗正常渲染，宽度一致，按钮不溢出。
+- 未升版（用户未要求本轮发版）。

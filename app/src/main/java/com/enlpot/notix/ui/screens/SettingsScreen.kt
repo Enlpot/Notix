@@ -1177,13 +1177,13 @@ fun PermissionScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.settings_permission_monitor_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
 
@@ -1235,7 +1235,7 @@ fun PermissionScreen(
                             context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         }
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
                 item {
                     PermissionCard(
@@ -1253,7 +1253,7 @@ fun PermissionScreen(
                             context.startActivity(intent)
                         }
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
                 item {
                     PermissionCard(
@@ -1271,7 +1271,7 @@ fun PermissionScreen(
                             context.startActivity(intent)
                         }
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
                 item {
                     PermissionCard(
@@ -1308,10 +1308,12 @@ private fun PermissionCard(
     onFix: () -> Unit,
 ) {
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onFix),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -1348,8 +1350,11 @@ private fun PermissionCard(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+                Spacer(Modifier.width(8.dp))
+                // 整卡可点击跳转对应系统设置，用箭头提示可交互
+                NavChevron()
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             // 权限标识（Android 常量，跨语言一致）
             Text(
                 text = permName,
@@ -1357,14 +1362,14 @@ private fun PermissionCard(
                 fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = desc,
                 style = MaterialTheme.typography.bodySmall,
                 lineHeight = 18.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             // 使用组件：标注该权限被 App 中哪个组件用到
             Text(
                 text = stringResource(R.string.settings_permission_usedby_label) + "：" + usedBy,
@@ -1373,7 +1378,7 @@ private fun PermissionCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (!granted) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                     TextButton(
                         onClick = onFix,
