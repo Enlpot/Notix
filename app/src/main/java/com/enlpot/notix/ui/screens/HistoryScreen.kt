@@ -484,141 +484,142 @@ fun HistoryScreen(
                 }
                 if (isLandscape) {
                     // v8.4：横屏——图表已由外层 TabbedScreen 左栏渲染（ChartPanel），此处仅渲染通知列表
-                    // 筛选 tab 作为首个 stickyHeader 吸顶，分组头自动吸附其下方
-                    LazyColumn(
-                        state = tabListStates[page],
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
-                    ) {
-                        stickyHeader(key = "sub_tabs") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface)
-                            ) {
-                                SubTabsHeader(
-                                    searchExpanded = searchExpanded,
-                                    onSearchExpandedChange = { searchExpanded = it },
-                                    searchQuery = searchQuery,
-                                    onSearchQueryChange = { searchQuery = it },
-                                    searchFocusRequester = searchFocusRequester,
-                                    selectedTab = selectedTab,
-                                    onTabSelected = { tab ->
-                                        coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
-                                    },
-                                    onLongClickSearch = { showCrashLogDialog = true }
-                                )
-                            }
+                    // 筛选 tab 作为外层固定 header 常驻顶部；分组头 stickyHeader 在 LazyColumn 内吸顶在 tab 下方
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // 固定筛选 tab（不参与列表滚动，永远钉在顶部，不被分组头顶出）
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            SubTabsHeader(
+                                searchExpanded = searchExpanded,
+                                onSearchExpandedChange = { searchExpanded = it },
+                                searchQuery = searchQuery,
+                                onSearchQueryChange = { searchQuery = it },
+                                searchFocusRequester = searchFocusRequester,
+                                selectedTab = selectedTab,
+                                onTabSelected = { tab ->
+                                    coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
+                                },
+                                onLongClickSearch = { showCrashLogDialog = true }
+                            )
                         }
-                        historyListItems(
-                            tab = tab,
-                            entries = entries,
-                            filteredEntries = filteredEntries,
-                            filteredBlocked = filteredBlocked,
-                            unmonitoredApps = unmonitoredApps,
-                            expandedApps = expandedApps,
-                            expandedRuleIds = expandedRuleIds,
-                            expandedFoldPackages = expandedFoldPackages,
-                            onToggleFold = toggleFold,
-                            timeFoldSegments = timeFoldSegments,
-                            appFoldSegments = appFoldSegments,
-                            ruleFoldSegments = ruleFoldSegments,
-                            rules = rules,
-                            appGrouped = appGrouped,
-                            ruleById = ruleById,
-                            ruleGrouped = ruleGrouped,
-                            unknownRuleLabel = unknownRuleLabel,
-                            onEntryHistoryClick = onEntryHistoryClick,
-                            onOpenNotification = onOpenNotification,
-                            onRestoreNotification = onRestoreNotification,
-                            onCreateRuleFromNotification = onCreateRuleFromNotification,
-                            onDeleteNotification = onDeleteNotification,
-                            onResumeMonitoring = onResumeMonitoring,
-                            onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
-                            context = context,
-                            itemIndex = IntArray(1),
-                            listState = tabListStates[page],
-                            scope = listScope
-                        )
-                        item(key = "scroll_room") {
-                            Spacer(modifier = Modifier.fillParentMaxHeight())
+                        LazyColumn(
+                            state = tabListStates[page],
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                        ) {
+                            historyListItems(
+                                tab = tab,
+                                entries = entries,
+                                filteredEntries = filteredEntries,
+                                filteredBlocked = filteredBlocked,
+                                unmonitoredApps = unmonitoredApps,
+                                expandedApps = expandedApps,
+                                expandedRuleIds = expandedRuleIds,
+                                expandedFoldPackages = expandedFoldPackages,
+                                onToggleFold = toggleFold,
+                                timeFoldSegments = timeFoldSegments,
+                                appFoldSegments = appFoldSegments,
+                                ruleFoldSegments = ruleFoldSegments,
+                                rules = rules,
+                                appGrouped = appGrouped,
+                                ruleById = ruleById,
+                                ruleGrouped = ruleGrouped,
+                                unknownRuleLabel = unknownRuleLabel,
+                                onEntryHistoryClick = onEntryHistoryClick,
+                                onOpenNotification = onOpenNotification,
+                                onRestoreNotification = onRestoreNotification,
+                                onCreateRuleFromNotification = onCreateRuleFromNotification,
+                                onDeleteNotification = onDeleteNotification,
+                                onResumeMonitoring = onResumeMonitoring,
+                                onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
+                                context = context,
+                                itemIndex = IntArray(1),
+                                listState = tabListStates[page],
+                                scope = listScope
+                            )
+                            item(key = "scroll_room") {
+                                Spacer(modifier = Modifier.fillParentMaxHeight())
+                            }
                         }
                     }
                 } else {
-                    // v8.4：竖屏——title/图表区随滚动滑出，sub_tabs 作为首个 stickyHeader 吸顶，
-                    // 其后分组头（按应用/按规则/折叠卡）自动吸附在 sub_tabs 下方
-                    LazyColumn(
-                        state = tabListStates[page],
-                        modifier = Modifier.fillMaxSize(),
-                        // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
-                        contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
-                    ) {
-                        // v7.51：标题行作为普通 item 随滚动滑出
-                        item(key = "history_title") {
-                            HistoryTitleRow(
-                                totalCount = headerTotalCount,
-                                todayCount = headerTodayCount,
-                                listenerPaused = listenerPaused,
-                                onToggleListenerPaused = { showListenerPauseConfirm = true },
-                                onBackToCurrentWeek = onBackToCurrentWeek
+                    // v8.4：竖屏——筛选 tab 作为外层固定 header 常驻顶部（不参与滚动，不被分组头顶出）；
+                    // title/图表区作为列表顶部 item 随滚动滑出；分组头 stickyHeader 在 LazyColumn 内吸顶在 tab 下方
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // 固定筛选 tab（常驻顶部）
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            SubTabsHeader(
+                                searchExpanded = searchExpanded,
+                                onSearchExpandedChange = { searchExpanded = it },
+                                searchQuery = searchQuery,
+                                onSearchQueryChange = { searchQuery = it },
+                                searchFocusRequester = searchFocusRequester,
+                                selectedTab = selectedTab,
+                                onTabSelected = { tab ->
+                                    coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
+                                },
+                                onLongClickSearch = { showCrashLogDialog = true }
                             )
                         }
-                        item(key = "history_header") {
-                            headerBlock()
-                        }
-                        // v8.4：sub_tabs 改回原生 stickyHeader（修复双栏/卡顿），分组头自动吸附其下方
-                        stickyHeader(key = "sub_tabs") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface)
-                            ) {
-                                SubTabsHeader(
-                                    searchExpanded = searchExpanded,
-                                    onSearchExpandedChange = { searchExpanded = it },
-                                    searchQuery = searchQuery,
-                                    onSearchQueryChange = { searchQuery = it },
-                                    searchFocusRequester = searchFocusRequester,
-                                    selectedTab = selectedTab,
-                                    onTabSelected = { tab ->
-                                        coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
-                                    },
-                                    onLongClickSearch = { showCrashLogDialog = true }
+                        LazyColumn(
+                            state = tabListStates[page],
+                            modifier = Modifier.weight(1f),
+                            // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
+                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                        ) {
+                            // v7.51：标题行作为普通 item 随滚动滑出
+                            item(key = "history_title") {
+                                HistoryTitleRow(
+                                    totalCount = headerTotalCount,
+                                    todayCount = headerTodayCount,
+                                    listenerPaused = listenerPaused,
+                                    onToggleListenerPaused = { showListenerPauseConfirm = true },
+                                    onBackToCurrentWeek = onBackToCurrentWeek
                                 )
                             }
-                        }
-                        historyListItems(
-                            tab = tab,
-                            entries = entries,
-                            filteredEntries = filteredEntries,
-                            filteredBlocked = filteredBlocked,
-                            unmonitoredApps = unmonitoredApps,
-                            expandedApps = expandedApps,
-                            expandedRuleIds = expandedRuleIds,
-                            expandedFoldPackages = expandedFoldPackages,
-                            onToggleFold = toggleFold,
-                            timeFoldSegments = timeFoldSegments,
-                            appFoldSegments = appFoldSegments,
-                            ruleFoldSegments = ruleFoldSegments,
-                            rules = rules,
-                            appGrouped = appGrouped,
-                            ruleById = ruleById,
-                            ruleGrouped = ruleGrouped,
-                            unknownRuleLabel = unknownRuleLabel,
-                            onEntryHistoryClick = onEntryHistoryClick,
-                            onOpenNotification = onOpenNotification,
-                            onRestoreNotification = onRestoreNotification,
-                            onCreateRuleFromNotification = onCreateRuleFromNotification,
-                            onDeleteNotification = onDeleteNotification,
-                            onResumeMonitoring = onResumeMonitoring,
-                            onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
-                            context = context,
-                            itemIndex = IntArray(1),
-                            listState = tabListStates[page],
-                            scope = listScope
-                        )
-                        item(key = "scroll_room") {
-                            Spacer(modifier = Modifier.fillParentMaxHeight())
+                            item(key = "history_header") {
+                                headerBlock()
+                            }
+                            historyListItems(
+                                tab = tab,
+                                entries = entries,
+                                filteredEntries = filteredEntries,
+                                filteredBlocked = filteredBlocked,
+                                unmonitoredApps = unmonitoredApps,
+                                expandedApps = expandedApps,
+                                expandedRuleIds = expandedRuleIds,
+                                expandedFoldPackages = expandedFoldPackages,
+                                onToggleFold = toggleFold,
+                                timeFoldSegments = timeFoldSegments,
+                                appFoldSegments = appFoldSegments,
+                                ruleFoldSegments = ruleFoldSegments,
+                                rules = rules,
+                                appGrouped = appGrouped,
+                                ruleById = ruleById,
+                                ruleGrouped = ruleGrouped,
+                                unknownRuleLabel = unknownRuleLabel,
+                                onEntryHistoryClick = onEntryHistoryClick,
+                                onOpenNotification = onOpenNotification,
+                                onRestoreNotification = onRestoreNotification,
+                                onCreateRuleFromNotification = onCreateRuleFromNotification,
+                                onDeleteNotification = onDeleteNotification,
+                                onResumeMonitoring = onResumeMonitoring,
+                                onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
+                                context = context,
+                                itemIndex = IntArray(1),
+                                listState = tabListStates[page],
+                                scope = listScope
+                            )
+                            item(key = "scroll_room") {
+                                Spacer(modifier = Modifier.fillParentMaxHeight())
+                            }
                         }
                     }
                 }
