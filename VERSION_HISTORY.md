@@ -6,6 +6,23 @@
 
 ---
 
+## 8.8 (2026-08-23)
+
+Changes since the previous released version 8.7.
+
+### Improved
+
+- Unified all Settings-page dialogs to the same visual style as the Crash Log dialog: consistent background, button layout, spacing, title and text typography across the app.
+- Added a second-confirmation dialog to every delete / clear / 清除 operation (notification, rule, rule action, clear history by all / date range / app, stop monitoring, listener pause, crash-log clear). Confirmation matches the unified style with explicit 确认 / 取消 buttons; the action runs only after 确认.
+
+### Fixed
+
+- Dialog buttons now always stay single-line (one per row when a row is too wide) instead of wrapping.
+- Long dialog titles no longer truncate; they wrap safely to a second line.
+- Clear-by-date-range and clear-by-app confirmations now use dedicated strings instead of reusing the "clear all history" wording (added in all supported languages).
+
+---
+
 ## 8.7 (2026-08-23)
 
 Changes since the previous released version 8.6.
