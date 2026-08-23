@@ -1,11 +1,12 @@
 package com.enlpot.notix.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -23,23 +27,22 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.enlpot.notix.NotificationColorEngine
+import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.R
 import com.enlpot.notix.SimpleNotification
+import com.enlpot.notix.ui.theme.NotixCorner
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,17 +73,39 @@ fun NotificationDetailDialog(
 
     // v7.14：已过滤标签使用 error 实底 + 对比度文字色（与变更计数角标一致）
     val errorColor = MaterialTheme.colorScheme.error
-    val errorFg = remember(errorColor) { Color(NotificationColorEngine.chooseTextColor(errorColor.toArgb())) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        // v8.3：关闭平台默认窄窗口，让弹窗按屏幕宽度 90% 真实生效
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // v8.3：关闭平台默认窗口后，原生 scrim 失效，这里手动补半透明遮罩
+                .background(Color.Black.copy(alpha = 0.32f))
+                // 点击遮罩（弹窗外部）即关闭
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
+        ) {
         BoxWithConstraints {
             val maxDialogHeight = this.maxHeight * 0.8f
             Surface(
                 modifier = Modifier
-                    // v7.51：弹窗宽度改为屏幕 90%
+                    // v8.3：弹窗宽度改为屏幕 90%（关闭平台窄窗口后真实生效）
                     .fillMaxWidth(0.9f)
-                    .heightIn(max = maxDialogHeight),
-                shape = RoundedCornerShape(16.dp),
+                    .heightIn(max = maxDialogHeight)
+                    // 点弹窗内部不关闭（吞掉点击，避免穿透到外部遮罩）
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    ),
+                shape = NotixCorner.Dialog,
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 6.dp
             ) {
@@ -161,70 +186,76 @@ fun NotificationDetailDialog(
                         }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    // 底部按钮区：四按钮一排并排显示（v8.2：统一 Material3 Button 体系，圆角 8dp、labelLarge 字级）
-                    Row(
+                    // 底部按钮区：上排「删除/打开/还原」三个次级按钮，下排「创建规则」主题色主按钮
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
                     ) {
-                        // 删除：error 红底（与其他危险操作同形态）
-                        Button(
-                            onClick = {
-                                onDismiss()
-                                onDelete()
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = errorColor,
-                                contentColor = errorFg
-                            )
+                        // 上排：删除 / 打开 / 还原（三个等宽次级按钮）
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(stringResource(R.string.notification_delete))
+                            // 删除：保留破坏性语义，但用 error 文字色而非实心红块
+                            Button(
+                                onClick = {
+                                    onDismiss()
+                                    onDelete()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = NotixCorner.Control,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = errorColor
+                                )
+                            ) {
+                                Text(stringResource(R.string.notification_delete))
+                            }
+                            // 打开：次级按钮
+                            Button(
+                                onClick = {
+                                    onDismiss()
+                                    onOpen()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = NotixCorner.Control,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            ) {
+                                Text(stringResource(R.string.notification_open))
+                            }
+                            // 还原：次级按钮
+                            Button(
+                                onClick = {
+                                    onDismiss()
+                                    onRestore?.invoke()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = NotixCorner.Control,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            ) {
+                                Text(stringResource(R.string.notification_restore))
+                            }
                         }
-                        // 打开：主题色底
+                        Spacer(modifier = Modifier.height(8.dp))
+                        // 下排：创建规则（主题色主按钮，单独一行、整宽）
                         Button(
-                            onClick = {
-                                onDismiss()
-                                onOpen()
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            Text(stringResource(R.string.notification_open))
-                        }
-                        // 还原：灰底
-                        Button(
-                            onClick = {
-                                onDismiss()
-                                onRestore?.invoke()
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        ) {
-                            Text(stringResource(R.string.notification_restore))
-                        }
-                        // 创建规则：主题色边框透明底
-                        OutlinedButton(
                             onClick = {
                                 onDismiss()
                                 onCreateRule()
                             },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = NotixCorner.Control,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
                             Text(stringResource(R.string.notification_create_rule))
@@ -232,6 +263,7 @@ fun NotificationDetailDialog(
                     }
                 }
             }
+        }
         }
     }
 }

@@ -2,12 +2,14 @@ package com.enlpot.notix.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -41,12 +43,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.NotificationColorEngine
 import com.enlpot.notix.NotificationHistoryEntry
 import com.enlpot.notix.R
 import com.enlpot.notix.SimpleNotification
+import com.enlpot.notix.ui.theme.NotixCorner
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,14 +73,34 @@ fun HistoryNotificationDetailsDialog(
     val timeFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
     val changes = entry.changes
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        // v8.3：关闭平台默认窄窗口，宽度 90% 真实生效，并手动补遮罩实现点外部关闭
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
+        ) {
         BoxWithConstraints {
             val maxDialogHeight = this.maxHeight * 0.8f
             Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = maxDialogHeight),
-                shape = RoundedCornerShape(20.dp),
+                    .fillMaxWidth(0.9f)
+                    .heightIn(max = maxDialogHeight)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    ),
+                shape = NotixCorner.Dialog,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -96,8 +119,7 @@ fun HistoryNotificationDetailsDialog(
                         )
                         Text(
                             text = entry.title ?: "",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
+                            style = MaterialTheme.typography.titleLarge,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -145,10 +167,11 @@ fun HistoryNotificationDetailsDialog(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Text(stringResource(R.string.close), fontSize = 16.sp)
+                    Text(stringResource(R.string.close), style = MaterialTheme.typography.labelLarge)
                 }
             }
             }
+        }
         }
     }
 }
