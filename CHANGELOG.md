@@ -132,3 +132,33 @@
 - APK 已 `adb -s emulator-5554 install -r` 安装并启动。
 - 实测覆盖：设置页 → 存储占用弹窗 / 清除历史弹窗 / 全部清除确认 / 按时间段选择及确认 / 按应用选择及确认 / 导出导入弹窗 / 权限管理弹窗 / 崩溃日志弹窗及清空确认；历史页 → 通知详情删除确认 / 停止监控确认 / 暂停监听确认；规则页 → 长按规则卡片删除确认；规则向导 → 长按动作卡片删除确认。所有弹窗标题/按钮文字均完整可读，按钮全部单行，视觉风格统一。
 - 未升版（用户未要求本轮发版）。
+
+## 本轮修改（第 7 轮 · 2026-08-23）
+
+> 修改点：
+> 1. 按权限审计结论移除冗余且受 Google Play 审查的 `QUERY_ALL_PACKAGES` 权限，并清空 `<queries>` 里 32 个无用包名（App 仅处理已发送通知的应用，不依赖全量包查询）。
+> 2. 设置页「权限管理」弹窗补全每个权限的 Android 权限标识与使用组件说明，让全部 App 权限及其用途一目了然。
+> 3. 权限管理弹窗内容较长，改为 `LazyColumn` 承载，确保 4 张权限卡片均可滚动查看。
+
+`app/src/main/AndroidManifest.xml` | 移除 `android.permission.QUERY_ALL_PACKAGES`（含 `tools:ignore`）; 删除整段 `<queries>` 包名列表，缩小包可见性面。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/SettingsScreen.kt` | 
+- `PermissionCard` 新增 `permName`（权限常量，等宽字体展示）和 `usedBy`（使用组件）参数；
+- 4 张权限卡分别标注：
+  - 通知访问权限 → `BIND_NOTIFICATION_LISTENER_SERVICE` → `NotificationBlockerService（通知监听服务）`;
+  - 发送通知 → `POST_NOTIFICATIONS` → `NotificationBlockerService（强提醒）、HealthCheckWorker（健康检查）、MainActivity`;
+  - 电池优化白名单 → `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` → `保活前台服务、设置页一键设置`;
+  - 前台服务保活 → `FOREGROUND_SERVICE + FOREGROUND_SERVICE_SPECIAL_USE` → `NotificationBlockerService（specialUse 保活前台服务）`。
+- `PermissionScreen` 内容区改为 `LazyColumn`，避免卡片过长被截断。
+
+`app/src/main/res/values/strings.xml` / `values-zh-rCN/strings.xml` | 新增 `settings_permission_usedby_label` 与 4 个 `settings_permission_*_usedby` 字符串；前台服务描述改为明确说明 `Foreground Service + Special Use`。
+
+**影响评估**：
+- 包可见性缩小：App 不调用 `getInstalledPackages/Applications`，图标/应用名均来自通知到达时直接抓取并存入 `AppInfoStorage` 的数据；移除后仅在极端情况下（AppInfoStorage 被清空但历史仍在）图标回退为首字母占位、名称回退为包名，正常流程无影响。模拟器实测通知历史页应用图标正常显示。
+- Google Play 政策风险降低：`QUERY_ALL_PACKAGES` 为受限权限，移除后不再触发该权限的声明审查。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）。
+- 合并后的 `AndroidManifest.xml` 已确认不含 `QUERY_ALL_PACKAGES` 与任何 hardcoded 包名。
+- APK 已 `adb -s emulator-5554 install -r` 安装并启动；实测：设置页 → 权限管理弹窗可滚动，4 张卡片的权限标识和使用组件均完整显示。
+- 未升版（用户未要求本轮发版）。

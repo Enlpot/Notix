@@ -285,7 +285,12 @@
     <string name="settings_permission_postnotif_title">Post Notifications</string>
     <string name="settings_permission_postnotif_desc">Used to show blocking results and reminders (Android 13+ requires system grant)</string>
     <string name="settings_permission_foreground_title">Foreground Service</string>
-    <string name="settings_permission_foreground_desc">Foreground service keeps notification listening alive when the system reclaims resources</string>
+    <string name="settings_permission_foreground_desc">Foreground Service + Special Use keep the notification listener alive when the system reclaims resources</string>
+    <string name="settings_permission_usedby_label">Used by</string>
+    <string name="settings_permission_notification_usedby">NotificationBlockerService (notification listener)</string>
+    <string name="settings_permission_postnotif_usedby">NotificationBlockerService (alerts), HealthCheckWorker, MainActivity</string>
+    <string name="settings_permission_battery_usedby">Keep-alive foreground service, Settings one-tap</string>
+    <string name="settings_permission_foreground_usedby">NotificationBlockerService (specialUse foreground service)</string>
     <string name="settings_permission_battery_one_click">Set Up</string>
     <string name="settings_privacy_security_title">Privacy &amp; Security</string>
     <string name="settings_privacy_item_1">All notification data is stored locally only</string>

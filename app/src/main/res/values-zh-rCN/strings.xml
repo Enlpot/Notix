@@ -237,7 +237,12 @@
     <string name="settings_permission_postnotif_title">发送通知</string>
     <string name="settings_permission_postnotif_desc">用于展示拦截结果与提醒（Android 13+ 需在系统中授权）</string>
     <string name="settings_permission_foreground_title">前台服务保活</string>
-    <string name="settings_permission_foreground_desc">前台服务常驻，保证通知监听不被系统回收</string>
+    <string name="settings_permission_foreground_desc">前台服务（Foreground Service + Special Use）常驻，保证通知监听不被系统回收</string>
+    <string name="settings_permission_usedby_label">使用组件</string>
+    <string name="settings_permission_notification_usedby">NotificationBlockerService（通知监听服务）</string>
+    <string name="settings_permission_postnotif_usedby">NotificationBlockerService（强提醒）、HealthCheckWorker（健康检查）、MainActivity</string>
+    <string name="settings_permission_battery_usedby">保活前台服务、设置页一键设置</string>
+    <string name="settings_permission_foreground_usedby">NotificationBlockerService（specialUse 保活前台服务）</string>
     <string name="settings_privacy_security_title">隐私与安全</string>
     <string name="settings_privacy_item_1">所有通知数据仅存储在本地</string>
     <string name="settings_privacy_item_2">不上传任何数据到服务器</string>

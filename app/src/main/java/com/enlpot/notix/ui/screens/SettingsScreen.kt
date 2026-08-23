@@ -90,6 +90,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1160,115 +1161,137 @@ fun PermissionScreen(
         onDismiss = onBack,
         title = stringResource(R.string.settings_permission_section_title),
         content = {
-            // 实时监控中 徽标
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_permission_monitoring_pill),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.settings_permission_monitor_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            // 聚合告警横幅
-            if (failedCount > 0) {
-                ElevatedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                item {
+                    // 实时监控中 徽标
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(Modifier.width(12.dp))
                         Text(
-                            text = stringResource(R.string.settings_permission_abnormal_banner, failedCount),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontWeight = FontWeight.Medium
+                            text = stringResource(R.string.settings_permission_monitoring_pill),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.settings_permission_monitor_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
                 }
-                Spacer(Modifier.height(12.dp))
-            }
 
-            PermissionCard(
-                icon = Icons.Filled.Notifications,
-                title = stringResource(R.string.settings_permission_notification_title),
-                desc = stringResource(R.string.settings_permission_notification_desc),
-                granted = listenerGranted,
-                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
-                onFix = {
-                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                }
-            )
-            Spacer(Modifier.height(12.dp))
-            PermissionCard(
-                icon = Icons.AutoMirrored.Filled.Send,
-                title = stringResource(R.string.settings_permission_postnotif_title),
-                desc = stringResource(R.string.settings_permission_postnotif_desc),
-                granted = postNotifGranted,
-                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
-                onFix = {
-                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                // 聚合告警横幅
+                if (failedCount > 0) {
+                    item {
+                        ElevatedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = stringResource(R.string.settings_permission_abnormal_banner, failedCount),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
                     }
-                    context.startActivity(intent)
                 }
-            )
-            Spacer(Modifier.height(12.dp))
-            PermissionCard(
-                icon = Icons.Filled.BatteryAlert,
-                title = stringResource(R.string.settings_permission_battery_title),
-                desc = stringResource(R.string.settings_permission_battery_desc),
-                granted = batteryGranted,
-                fixLabel = stringResource(R.string.settings_permission_battery_one_click),
-                onFix = {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
+
+                item {
+                    PermissionCard(
+                        icon = Icons.Filled.Notifications,
+                        title = stringResource(R.string.settings_permission_notification_title),
+                        desc = stringResource(R.string.settings_permission_notification_desc),
+                        granted = listenerGranted,
+                        permName = "BIND_NOTIFICATION_LISTENER_SERVICE",
+                        usedBy = stringResource(R.string.settings_permission_notification_usedby),
+                        fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                        onFix = {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        }
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
-            )
-            Spacer(Modifier.height(12.dp))
-            PermissionCard(
-                icon = Icons.Filled.Security,
-                title = stringResource(R.string.settings_permission_foreground_title),
-                desc = stringResource(R.string.settings_permission_foreground_desc),
-                granted = foregroundGranted,
-                fixLabel = stringResource(R.string.settings_permission_go_to_settings),
-                onFix = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.parse("package:${context.packageName}")
+                item {
+                    PermissionCard(
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        title = stringResource(R.string.settings_permission_postnotif_title),
+                        desc = stringResource(R.string.settings_permission_postnotif_desc),
+                        granted = postNotifGranted,
+                        permName = "POST_NOTIFICATIONS",
+                        usedBy = stringResource(R.string.settings_permission_postnotif_usedby),
+                        fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                        onFix = {
+                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                            context.startActivity(intent)
+                        }
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                item {
+                    PermissionCard(
+                        icon = Icons.Filled.BatteryAlert,
+                        title = stringResource(R.string.settings_permission_battery_title),
+                        desc = stringResource(R.string.settings_permission_battery_desc),
+                        granted = batteryGranted,
+                        permName = "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+                        usedBy = stringResource(R.string.settings_permission_battery_usedby),
+                        fixLabel = stringResource(R.string.settings_permission_battery_one_click),
+                        onFix = {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        }
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                item {
+                    PermissionCard(
+                        icon = Icons.Filled.Security,
+                        title = stringResource(R.string.settings_permission_foreground_title),
+                        desc = stringResource(R.string.settings_permission_foreground_desc),
+                        granted = foregroundGranted,
+                        permName = "FOREGROUND_SERVICE + FOREGROUND_SERVICE_SPECIAL_USE",
+                        usedBy = stringResource(R.string.settings_permission_foreground_usedby),
+                        fixLabel = stringResource(R.string.settings_permission_go_to_settings),
+                        onFix = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            )
                         }
                     )
                 }
-            )
+            }
         }
     )
 }
@@ -1279,6 +1302,8 @@ private fun PermissionCard(
     title: String,
     desc: String,
     granted: Boolean,
+    permName: String,
+    usedBy: String,
     fixLabel: String,
     onFix: () -> Unit,
 ) {
@@ -1325,8 +1350,24 @@ private fun PermissionCard(
                 }
             }
             Spacer(Modifier.height(10.dp))
+            // 权限标识（Android 常量，跨语言一致）
+            Text(
+                text = permName,
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+            )
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = desc,
+                style = MaterialTheme.typography.bodySmall,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            // 使用组件：标注该权限被 App 中哪个组件用到
+            Text(
+                text = stringResource(R.string.settings_permission_usedby_label) + "：" + usedBy,
                 style = MaterialTheme.typography.bodySmall,
                 lineHeight = 18.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
