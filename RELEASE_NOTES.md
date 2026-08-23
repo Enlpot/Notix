@@ -1,14 +1,13 @@
-# Notix 8.8 Release Notes
+# Notix 8.9 Release Notes
 
-Changes since the previous released version 8.7.
+Changes since the previous released version 8.8.
 
 ### Improved
 
-- Unified all Settings-page dialogs to the same visual style as the Crash Log dialog: consistent background, button layout, spacing, title and text typography. The whole app now shares one cohesive dialog design language.
-- Added a second-confirmation dialog to every delete / clear / 清除 operation across the app (notification delete, rule delete, rule action delete, clear history by all / by date range / by app, stop monitoring, listener pause, and crash-log clear). The confirmation matches the unified dialog style and shows explicit 确认 / 取消 buttons; the destructive action runs only after 确认 is tapped.
+- Permission Management: every permission card is now tappable and jumps straight to the matching system settings screen (Notification Access → notification listener settings, Post Notifications → app notification settings, Battery Optimization → battery-optimization exemption, Foreground Service → app details). A chevron on each card signals the entry point.
+- Permission Management screen now lists all app permissions with their Android constant name and the exact component that uses them, so every granted/required permission is fully explained in one place.
 
-### Fixed
+### Changed
 
-- Dialog buttons could wrap to two lines when two buttons shared a row; they now always stay single-line, falling back to one button per row when a row would be too wide.
-- Long dialog titles were truncated at a single line; titles now wrap safely to a second line instead of being cut off.
-- The clear-by-date-range and clear-by-app confirmations reused the "clear all history" wording; they now use their own dedicated, accurate strings (added in all supported languages).
+- Removed the restricted `QUERY_ALL_PACKAGES` permission and 32 unused package-visibility entries from the manifest. App icons and app names come from captured notifications, not a full package scan, so behavior is unchanged while the Play Store restricted-permission review risk is eliminated.
+- Unified dialog sizing: all `NotixDialog`-based dialogs (Settings dialogs, Permission Management, storage usage, and every delete/clear confirmation) now use a wide, compact layout (92% width, 85% height cap) consistent with the notification detail dialog, with tap-scrim-to-dismiss. The permission dialog fits all four cards on one screen.
