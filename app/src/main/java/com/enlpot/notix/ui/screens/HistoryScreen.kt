@@ -904,13 +904,13 @@ private fun StatsBarChart(
     onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val maxBarHeight = 64.dp
+    val maxBarHeight = 96.dp
 
     HorizontalPager(
         state = pagerState,
         modifier = modifier
             .fillMaxWidth()
-            .height(96.dp)
+            .height(144.dp)
     ) { page ->
         val weekStart = firstWeekStart.plusWeeks(page.toLong())
         val isCurrentWeek = weekStart == currentWeekStart
