@@ -204,6 +204,11 @@ class ActionFlowExecutor(
     private val syncRunner: SyncActionRunner,
     private val asyncRunner: AsyncActionRunner,
     private val log: (String) -> Unit = {},
+    /**
+     * v8.0：宿主存活检查（注入 Service 的 !isDestroyed）。宿主销毁后，挂起的 DELAY/TTS
+     * 回调不再推进后续动作，避免在已销毁 Service 上对失效通知执行取消/重发等副作用。
+     */
+    private val hostAlive: () -> Boolean = { true },
 ) {
 
     /**
@@ -230,6 +235,11 @@ class ActionFlowExecutor(
         synchronized(exec) {
             if (exec.isCancelled) return
             if (exec.isCompleted) return
+            // v8.0：宿主已销毁则静默终止——避免销毁后 DELAY/TTS 回调继续推进动作
+            if (!hostAlive()) {
+                exec.cancel()
+                return
+            }
             if (index >= exec.actions.size) {
                 val status = when {
                     exec.actions.isEmpty() -> FlowStatus.EMPTY
@@ -330,6 +340,11 @@ class ActionFlowExecutor(
     ) {
         synchronized(exec) {
             if (exec.isCancelled || exec.isCompleted) return
+            // v8.0：宿主已销毁则静默终止
+            if (!hostAlive()) {
+                exec.cancel()
+                return
+            }
             // at-most-once：重复/过期回调（onDone+onError / onDone+onDone / 取消后到期）一律忽略
             val accepted = exec.tryFinishAction(index, failure)
             if (!accepted) return

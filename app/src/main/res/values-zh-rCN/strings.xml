@@ -314,6 +314,7 @@
     <string name="toast_resumed_monitoring">已恢复监控 %s</string>
     <string name="rules_file_too_large">规则文件过大。</string>
     <string name="import_no_rules">没有可导入的规则。</string>
+    <string name="import_no_new_rules">无新规则（全部已存在）。</string>
     <string name="imported_rules_some_skipped">已导入 %1$d 条规则（跳过 %2$d 条）。</string>
     <string name="not_applicable">不适用</string>
     <string name="unknown">未知</string>

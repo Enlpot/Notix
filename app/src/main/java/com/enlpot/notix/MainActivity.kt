@@ -194,8 +194,13 @@ class MainActivity : ComponentActivity() {
 
         isServiceEnabled = isNotificationServiceEnabled()
         wizardShowsWelcome = !isServiceEnabled && SetupState.lastSeenSetupVersion(this) == 0
-        showSetupWizard = SetupState.shouldShowSetupWizard(this) ||
-            intent?.getBooleanExtra(HealthCheckWorker.EXTRA_OPEN_WIZARD, false) == true
+        // v8.0：重建时若 savedInstanceState 显式保存过 showSetupWizard，优先尊重之（避免向导进行中旋转被强制退出）
+        showSetupWizard = if (savedInstanceState != null) {
+            savedInstanceState.getBoolean(STATE_SHOW_SETUP_WIZARD, false)
+        } else {
+            SetupState.shouldShowSetupWizard(this) ||
+                intent?.getBooleanExtra(HealthCheckWorker.EXTRA_OPEN_WIZARD, false) == true
+        }
         setContent {
             NotixTheme {
                 val systemUiController = rememberSystemUiController()
@@ -1067,6 +1072,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean(STATE_SHOW_RULE_WIZARD, showRuleWizard)
+        outState.putBoolean(STATE_SHOW_SETUP_WIZARD, showSetupWizard)
         editingRule?.let { outState.putString(STATE_EDITING_RULE, paramsGson.toJson(it)) }
         prefillNotification?.let { outState.putParcelable(STATE_PREFILL_NOTIFICATION, it) }
         super.onSaveInstanceState(outState)
@@ -1134,6 +1140,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val STATE_SHOW_RULE_WIZARD = "state_show_rule_wizard"
+        private const val STATE_SHOW_SETUP_WIZARD = "state_show_setup_wizard"
         private const val STATE_EDITING_RULE = "state_editing_rule"
         private const val STATE_PREFILL_NOTIFICATION = "state_prefill_notification"
     }

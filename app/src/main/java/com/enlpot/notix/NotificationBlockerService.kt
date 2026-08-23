@@ -55,6 +55,14 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         private const val TTS_DEBOUNCE_MS = 5000L
 
         /**
+         * L3：环境快照缓存窗口。buildEnvironmentSnapshot 每次需 registerReceiver(BATTERY)
+         * + 枚举蓝牙音频设备，开销不低；通知高频到达时重复构建会拖慢 binder 线程。
+         * 缓存 10s 即可覆盖绝大多数连续到达场景，且快照字段（屏幕/充电/勿扰/蓝牙）变化不频繁，
+         * env.now 仅用于分钟级时间条件判断，10s 内失真可忽略。
+         */
+        private const val ENV_CACHE_MS = 10_000L
+
+        /**
          * 阶段4C-B P1-1：Action Flow 防抖时间源。生产默认系统时钟；
          * Instrumentation 测试可覆盖为可控时间推进，避免真实等待窗口。
          */
@@ -259,7 +267,8 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         ActionFlowExecutor(
             syncRunner = RealSyncActionRunner(this),
             asyncRunner = RealAsyncRunner(this),
-            log = { msg -> Log.i(TAG, msg) }
+            log = { msg -> Log.i(TAG, msg) },
+            hostAlive = { !isDestroyed }
         )
     }
 
@@ -411,7 +420,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
         // v7.11 决策：来源App过滤 → 关键字匹配 → 额外条件 → 动作
         val rules = ruleStorage.getRules()
-        val env = buildEnvironmentSnapshot()
+        val env = getEnvironmentSnapshot()
         val decision = RuleMatcher.planNotificationDecision(rules, packageName, title, text, env)
         val matchedRule: BlockerRule? = (decision as? RuleDecision.Apply)?.rule
 
@@ -671,6 +680,25 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         Log.d(TAG, "TTS speaking for ${ctx.packageName} (key=${ctx.notificationKey})")
     }
 
+    /** L3：环境快照缓存——最近一次构建结果与时间戳，命中缓存窗口时直接复用 */
+    @Volatile
+    private var cachedEnv: EnvironmentSnapshot? = null
+    @Volatile
+    private var cachedEnvAt: Long = 0L
+
+    /** L3：带缓存的环境快照获取。命中 10s 窗口返回缓存，否则重建并刷新缓存 */
+    private fun getEnvironmentSnapshot(): EnvironmentSnapshot {
+        val now = System.currentTimeMillis()
+        val cached = cachedEnv
+        if (cached != null && now - cachedEnvAt < ENV_CACHE_MS) {
+            return cached
+        }
+        val fresh = buildEnvironmentSnapshot()
+        cachedEnv = fresh
+        cachedEnvAt = now
+        return fresh
+    }
+
     /** 收集环境快照：屏幕 / 充电状态 / 勿扰模式 / 蓝牙耳机 */
     private fun buildEnvironmentSnapshot(): EnvironmentSnapshot {
         var screenOn = true
@@ -849,7 +877,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             Log.d(TAG, "Rescan: no enabled rules")
             return
         }
-        val env = buildEnvironmentSnapshot()
+        val env = getEnvironmentSnapshot()
         val currentTime = System.currentTimeMillis()
         for (sbn in active) {
             if (sbn.packageName == BuildConfig.APPLICATION_ID) {

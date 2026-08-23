@@ -249,14 +249,18 @@ fun SettingsScreen(
                         if (newRules.isNotEmpty()) {
                             ruleStorage.addRules(newRules)
                         }
-                        exportImportMessage = if (result.droppedCount > 0) {
-                            context.getString(
-                                R.string.imported_rules_some_skipped,
-                                newRules.size,
-                                result.droppedCount
-                            )
-                        } else {
-                            context.getString(R.string.successfully_imported_rules, newRules.size)
+                        exportImportMessage = when {
+                            // v8.0：导入文件有规则但全部与现有重复 → 明确提示"无新规则"，避免误导为"导入 0 条"
+                            newRules.isEmpty() && result.rules.isNotEmpty() ->
+                                context.getString(R.string.import_no_new_rules)
+                            result.droppedCount > 0 ->
+                                context.getString(
+                                    R.string.imported_rules_some_skipped,
+                                    newRules.size,
+                                    result.droppedCount
+                                )
+                            else ->
+                                context.getString(R.string.successfully_imported_rules, newRules.size)
                         }
                     }
                 }

@@ -30,15 +30,20 @@ class UnmonitoredAppsStorage(context: Context) {
     }
 
     fun addApp(packageName: String) {
-        val currentApps = getUnmonitoredApps().toMutableSet()
-        currentApps.add(packageName)
-        saveApps(currentApps)
+        // v8.0：读-改-写整体加锁，避免并发 add/remove 时基于同一缓存副本修改后互相覆盖导致丢 app
+        synchronized(lock) {
+            val currentApps = (cachedApps ?: getUnmonitoredApps()).toMutableSet()
+            currentApps.add(packageName)
+            saveApps(currentApps)
+        }
     }
 
     fun removeApp(packageName: String) {
-        val currentApps = getUnmonitoredApps().toMutableSet()
-        currentApps.remove(packageName)
-        saveApps(currentApps)
+        synchronized(lock) {
+            val currentApps = (cachedApps ?: getUnmonitoredApps()).toMutableSet()
+            currentApps.remove(packageName)
+            saveApps(currentApps)
+        }
     }
 
     fun isAppUnmonitored(packageName: String): Boolean {
@@ -46,10 +51,8 @@ class UnmonitoredAppsStorage(context: Context) {
     }
 
     private fun saveApps(apps: Set<String>) {
-        synchronized(lock) {
-            val json = gson.toJson(apps)
-            prefs.edit().putString(key, json).apply()
-            cachedApps = apps
-        }
+        val json = gson.toJson(apps)
+        prefs.edit().putString(key, json).apply()
+        cachedApps = apps
     }
 }

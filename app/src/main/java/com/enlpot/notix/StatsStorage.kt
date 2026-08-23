@@ -23,22 +23,28 @@ class StatsStorage(private val context: Context) {
     private val prefs = context.getSharedPreferences("stats", Context.MODE_PRIVATE)
     private val blockedCountKey = "blocked_count"
     private val dailyPrefix = "day_"
+    /** v8.0：读改写加锁，避免高频命中时并发 getInt+putInt 丢计数 */
+    private val lock = Any()
 
     fun getBlockedNotificationsCount(): Int {
         return prefs.getInt(blockedCountKey, 0)
     }
 
     fun incrementBlockedNotificationsCount() {
-        val currentCount = getBlockedNotificationsCount()
-        prefs.edit().putInt(blockedCountKey, currentCount + 1).apply()
+        synchronized(lock) {
+            val currentCount = getBlockedNotificationsCount()
+            prefs.edit().putInt(blockedCountKey, currentCount + 1).apply()
+        }
     }
 
     /** 记录一条通知（按通知到达时间归属当天）。 */
     fun recordNotification(timestamp: Long = System.currentTimeMillis()) {
         val day = LocalDate.ofEpochDay(timestamp / 86_400_000L).format(DAY_FORMAT)
         val key = dailyPrefix + day
-        val current = prefs.getInt(key, 0)
-        prefs.edit().putInt(key, current + 1).apply()
+        synchronized(lock) {
+            val current = prefs.getInt(key, 0)
+            prefs.edit().putInt(key, current + 1).apply()
+        }
         trimOldDays()
     }
 
