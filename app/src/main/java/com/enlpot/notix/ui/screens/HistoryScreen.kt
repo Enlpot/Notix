@@ -1975,8 +1975,8 @@ private fun LazyListScope.foldSegments(
             val foldKey = "${pkg}_${seg.entries.first().id}"
             val isExpanded = expandedFoldPackages.value.contains(foldKey)
             val appLabel = seg.appLabel ?: pkg
-            // v7.50：折叠卡数字显示该折叠段的通知总条数（所有 entry 的 count 之和），展开/收起态一致
-            val hiddenCount = seg.entries.sumOf { it.count }
+            // v8.0：折叠卡数字显示该折叠段"隐藏"的通知条数（总条数 - 1，因最新一条始终常显），展开/收起态一致
+            val hiddenCount = (seg.entries.sumOf { it.count } - 1).coerceAtLeast(0)
             // 最新一条（时间倒序第一位）正常显示
             val first = seg.entries.first()
             // v7.48：段头 index（该 item 在全局 LazyColumn 中的位置），收起后列表项数变化但段头 index 不变

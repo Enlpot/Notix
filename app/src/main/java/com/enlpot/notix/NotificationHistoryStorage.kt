@@ -1,11 +1,13 @@
 package com.enlpot.notix
 
 import android.content.Context
+import android.util.AtomicFile
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
 import java.io.File
+import java.io.FileOutputStream
 
 /**
  * 通知历史存储（聚合模型）。
@@ -16,6 +18,9 @@ import java.io.File
  *
  * 保留“隐藏而非删除”语义：聚合只追加变更，不丢弃任何记录。
  * 兼容旧版 List<SimpleNotification> JSON：读取时自动迁移。
+ *
+ * v8.0：写盘改用 AtomicFile（与 RuleStorage 一致），避免写入中途进程被杀/断电导致
+ * 整个历史文件丢失（原先 delete + renameTo 非原子）。
  */
 class NotificationHistoryStorage(private val context: Context) {
 
@@ -25,28 +30,56 @@ class NotificationHistoryStorage(private val context: Context) {
 
     private val gson = Gson()
     private val historyFile = File(context.filesDir, "notification_history.json")
-    private val historyTmpFile = File(context.filesDir, "notification_history.json.tmp")
+    private val atomicFile = AtomicFile(historyFile)
     private val sharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val historyDays get() = sharedPreferences.getInt("historyDays", 5)
 
-    /** 读取全部聚合条目，按时间倒序。 */
+    /**
+     * v8.0：内存缓存——Service 每条通知都在 background 线程聚合后写盘，若每次都从磁盘
+     * 全量 read + Gson 解析整个历史 JSON，O(N) 成本随历史增长放大（高频通知下 IO 积压）。
+     * 引入缓存后，常规写路径走内存聚合、仅写盘时序列化；读路径命中缓存即返回。
+     * historyExecutor 单线程串行，Service 侧读写天然无竞态；UI 线程（onResume/广播）读
+     * 可能与后台写并发，故缓存访问统一加锁。
+     */
+    private val lock = Any()
+    @Volatile
+    private var cachedEntries: List<NotificationHistoryEntry>? = null
+
+    /** 读取全部聚合条目，按时间倒序（命中内存缓存直接返回，避免高频通知下重复解析全量 JSON）。 */
     fun getEntries(): List<NotificationHistoryEntry> {
+        synchronized(lock) {
+            cachedEntries?.let { return it }
+        }
         if (!historyFile.exists()) {
             return emptyList()
         }
         return try {
-            val json = historyFile.readText()
+            val json = atomicFile.readFully().toString(Charsets.UTF_8)
             try {
-                val type = object : TypeToken<List<NotificationHistoryEntry>>() {}.type
-                gson.fromJson<List<NotificationHistoryEntry>>(json, type) ?: emptyList()
+                val parsed = gson.fromJson<List<NotificationHistoryEntry>>(
+                    json, object : TypeToken<List<NotificationHistoryEntry>>() {}.type
+                ) ?: emptyList()
+                synchronized(lock) { cachedEntries = parsed }
+                parsed
             } catch (_: JsonSyntaxException) {
                 // 旧格式（List<SimpleNotification>）迁移为聚合条目
-                migrateLegacy(json)
+                val migrated = migrateLegacy(json)
+                synchronized(lock) { cachedEntries = migrated }
+                migrated
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error reading notification history", e)
             emptyList()
         }
+    }
+
+    /**
+     * v8.0：统一写盘 + 刷新内存缓存（所有写路径必经，保证缓存与磁盘一致，且缓存永不行于磁盘）。
+     * 调用方需自行保证对外语义（如删除/聚合），本方法只负责持久化与缓存同步。
+     */
+    private fun replaceEntries(entries: List<NotificationHistoryEntry>) {
+        writeEntries(entries)
+        synchronized(lock) { cachedEntries = entries }
     }
 
     /** 最新通知列表（每个聚合组取 latest），兼容旧调用方。 */
@@ -70,8 +103,8 @@ class NotificationHistoryStorage(private val context: Context) {
                     changes = listOf(n)
                 )
             }.also { migrated ->
-                // 立即迁移为聚合格式落盘
-                writeEntries(migrated)
+                // 立即迁移为聚合格式落盘并同步缓存
+                replaceEntries(migrated)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Corrupted notification history file, deleting", e)
@@ -112,7 +145,7 @@ class NotificationHistoryStorage(private val context: Context) {
                 lastTimestamp = notification.timestamp,
                 changes = listOf(notification) + head.changes
             )
-            writeEntries(entries)
+            replaceEntries(entries)
             return false
         } else {
             entries.add(0, NotificationHistoryEntry(
@@ -125,7 +158,7 @@ class NotificationHistoryStorage(private val context: Context) {
                 blocked = blocked,
                 changes = listOf(notification)
             ))
-            writeEntries(entries)
+            replaceEntries(entries)
             return true
         }
     }
@@ -172,13 +205,13 @@ class NotificationHistoryStorage(private val context: Context) {
                 }
             }
         }
-        writeEntries(entries)
+        replaceEntries(entries)
     }
 
     /** 删除所有被过滤（blocked）的聚合组。 */
     fun clearBlockedHistory() {
         val filtered = getEntries().filterNot { it.blocked }
-        writeEntries(filtered)
+        replaceEntries(filtered)
     }
 
     /** 删除包含该通知的聚合组（同 pkg + 同标题）。 */
@@ -187,14 +220,14 @@ class NotificationHistoryStorage(private val context: Context) {
         entries.removeAll {
             it.packageName == notification.packageName && it.title == notification.title
         }
-        writeEntries(entries)
+        replaceEntries(entries)
     }
 
     /** 删除指定 pkg 的全部历史（仅保留方法，用于设置页清除；监控暂停不再调用）。 */
     fun deleteNotificationsFromPackage(packageName: String) {
         val entries = getEntries().toMutableList()
         entries.removeAll { it.packageName == packageName }
-        writeEntries(entries)
+        replaceEntries(entries)
     }
 
     /** 更新某 pkg 下所有聚合组及其变更列表中的 app 名称。 */
@@ -209,32 +242,36 @@ class NotificationHistoryStorage(private val context: Context) {
                 entry
             }
         }
-        writeEntries(updated)
+        replaceEntries(updated)
     }
 
     fun clearHistory() {
         if (historyFile.exists()) {
             historyFile.delete()
         }
+        synchronized(lock) { cachedEntries = emptyList() }
     }
 
     fun clearHistoryBetween(startTime: Long, endTime: Long) {
         val filtered = getEntries().filter { it.lastTimestamp < startTime || it.firstTimestamp > endTime }
-        writeEntries(filtered)
+        replaceEntries(filtered)
     }
 
     fun clearHistoryByPackages(packages: Set<String>) {
         if (packages.isEmpty()) return
         val filtered = getEntries().filter { it.packageName !in packages }
-        writeEntries(filtered)
+        replaceEntries(filtered)
     }
 
     private fun writeEntries(entries: List<NotificationHistoryEntry>) {
-        val json = gson.toJson(entries)
-        historyTmpFile.writeText(json)
-        if (historyFile.exists()) {
-            historyFile.delete()
+        var stream: FileOutputStream? = null
+        try {
+            stream = atomicFile.startWrite()
+            stream.write(gson.toJson(entries).toByteArray(Charsets.UTF_8))
+            atomicFile.finishWrite(stream)
+        } catch (e: Exception) {
+            stream?.let { atomicFile.failWrite(it) }
+            Log.e(TAG, "Failed to write notification history", e)
         }
-        historyTmpFile.renameTo(historyFile)
     }
 }

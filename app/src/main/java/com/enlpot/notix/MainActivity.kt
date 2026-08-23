@@ -93,6 +93,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.enlpot.notix.setup.SetupState
 import java.time.LocalDate
 import com.enlpot.notix.ui.screens.HistoryScreen
@@ -130,6 +131,27 @@ class MainActivity : ComponentActivity() {
     private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private fun showMessage(msg: String) {
         uiScope.launch { snackbarHostState.showSnackbar(msg) }
+    }
+
+    /**
+     * v8.0：历史/规则刷新节流——服务每条通知都发 ACTION_HISTORY_UPDATED，密集推送时若每次都
+     * 主线程全量读取+重组会卡顿。这里做 400ms 去抖：高频广播只合并为一次刷新，且读盘在 IO 线程
+     * （配合 NotificationHistoryStorage 的内存缓存，历史文件再大也不阻塞主线程/不掉帧）。
+     */
+    private var historyRefreshScheduled = false
+    private fun scheduleHistoryRefresh() {
+        if (historyRefreshScheduled) return
+        historyRefreshScheduled = true
+        uiScope.launch {
+            delay(400)
+            historyRefreshScheduled = false
+            val entries = withContext(Dispatchers.IO) { notificationHistoryStorage.getEntries() }
+            historyEntries = entries
+            pastNotifications = entries.flatMap { it.changes }
+            rules = ruleStorage.getRules().filter { it.isValid }
+            unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
+            listenerPaused = NotificationBlockerService.isListenerPaused(this@MainActivity)
+        }
     }
 
     // v7.50：存储占用——清空全部规则并刷新状态
@@ -195,12 +217,15 @@ class MainActivity : ComponentActivity() {
         if (!isServiceEnabled) {
             showSetupWizard = true
         }
-        historyEntries = notificationHistoryStorage.getEntries()
-        pastNotifications = historyEntries.flatMap { it.changes }
-        // v7.13：加载后同样过滤，防御旧数据残留
-        rules = ruleStorage.getRules().filter { it.isValid }
-        unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
-        listenerPaused = NotificationBlockerService.isListenerPaused(this)
+        // v8.0：历史/规则读取移到 IO 线程，避免大历史文件在主线程 Gson 解析导致进入页面卡顿
+        uiScope.launch {
+            val entries = withContext(Dispatchers.IO) { notificationHistoryStorage.getEntries() }
+            historyEntries = entries
+            pastNotifications = entries.flatMap { it.changes }
+            rules = ruleStorage.getRules().filter { it.isValid }
+            unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
+            listenerPaused = NotificationBlockerService.isListenerPaused(this@MainActivity)
+        }
     }
 
     @Composable
@@ -233,11 +258,8 @@ class MainActivity : ComponentActivity() {
             val historyUpdateReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     if (intent?.action == NotificationBlockerService.ACTION_HISTORY_UPDATED) {
-                        historyEntries = notificationHistoryStorage.getEntries()
-                        pastNotifications = historyEntries.flatMap { it.changes }
-                        listenerPaused = NotificationBlockerService.isListenerPaused(context!!)
-                        // v7.24：规则命中计数变更后同步刷新 rules 列表，UI 立即显示最新命中数
-                        rules = ruleStorage.getRules()
+                        // v8.0：交由节流刷新（IO 线程读盘 + 400ms 去抖），避免高频通知下主线程卡顿
+                        scheduleHistoryRefresh()
                     }
                 }
             }
