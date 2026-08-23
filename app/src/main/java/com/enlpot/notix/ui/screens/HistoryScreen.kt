@@ -1133,21 +1133,21 @@ private fun HistoryTitleRow(
             .fillMaxWidth()
             .clickable { onBackToCurrentWeek() }
             .padding(top = 8.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Bottom
     ) {
         Text(
             text = stringResource(R.string.history_title),
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f)
+            fontWeight = FontWeight.Bold
         )
-        // v7.51：总记录/今日合并为单行
+        Spacer(modifier = Modifier.width(8.dp))
+        // v8.4：总记录/今日合并为单行，与标题底部对齐、紧凑间距
         Text(
             text = stringResource(R.string.history_total_today, totalCount, todayCount),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.weight(1f))
         IconButton(onClick = { onToggleListenerPaused() }) {
             if (listenerPaused) {
                 Icon(
