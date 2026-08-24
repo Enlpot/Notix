@@ -6,6 +6,22 @@
 
 ---
 
+## 8.12 (2026-08-24)
+
+**Improved**
+- Rule condition "Configure condition" dialog upgraded to the app-wide `NotixDialog` style (was `AlertDialog`): fixed 520dp height with a three-tab (Keyword / Phone State / Time) scrollable content area.
+- Match-mode picker is now a dedicated `NotixDialog` (was inline `DropdownMenu`): scrollable list, check-circle on the selected item, divider-separated rows, `ADVANCED` shown disabled.
+- Keyword input moved into a popup `NotixDialog` opened from a trigger; MIXED ("include A and not include B") shows two inputs (include A / exclude B), other modes show one.
+
+**Changed**
+- Keywords rendered as chips directly on the condition screen; tap a chip to open the dialog prefilled for editing, trailing × to remove.
+- Keyword input dialog: dropped the inline "+" button; the bottom "OK" button commits the current text and closes; input field wraps long text (min 2 / max 5 lines).
+
+**Notes**
+- `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells in v8.12; their real execution lands in a future release.
+
+---
+
 ## 8.11 (2026-08-24)
 
 **Improved**
