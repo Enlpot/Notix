@@ -211,6 +211,12 @@
     <string name="settings_extract_remoteviews_title">Extract button text from textless notifications</string>
     <string name="settings_extract_remoteviews_desc">When enabled, notifications without title/text will try to extract button text for rule matching (off by default)</string>
     <string name="settings_section_rules">Rules &amp; Data</string>
+    <string name="settings_restore_snoozed">Restore ongoing notifications</string>
+    <string name="settings_restore_snoozed_desc">Bring back ongoing notifications that were frozen by rules</string>
+    <string name="settings_restore_snoozed_confirm_title">Restore ongoing notifications</string>
+    <string name="settings_restore_snoozed_confirm_body">This will restore all ongoing notifications that were frozen (removed) by rules, such as music, foreground services or picture-in-picture.</string>
+    <string name="settings_restore_snoozed_done">Restored %1$d ongoing notification(s)</string>
+    <string name="settings_restore_snoozed_none">No frozen ongoing notifications to restore</string>
     <string name="settings_section_about">Support &amp; About</string>
     <string name="history_retention">History retention</string>
     <string name="history_retention_desc">Notifications older than this are deleted automatically</string>
@@ -406,7 +412,9 @@
     <string name="rule_action_dismiss">移除</string>
     <string name="rule_action_desc_dismiss">立即移除当前通知。</string>
     <string name="rule_wizard_dismiss_include_ongoing">包括常驻通知</string>
-    <string name="rule_wizard_dismiss_include_ongoing_desc">对通知栏无法滑动消除的通知（如音乐、前台服务、画中画）也生效。手机重启后失效。</string>
+    <string name="rule_wizard_dismiss_include_ongoing_desc">对通知栏无法滑动消除的通知（如音乐、前台服务、画中画）也生效。</string>
+    <string name="rule_wizard_dismiss_snooze_duration">冻结时长</string>
+    <string name="rule_wizard_dismiss_snooze_duration_desc">到期后通知会自动恢复；也可在设置页「恢复常驻通知」即时恢复。</string>
     <string name="rule_action_desc_mute">Silence the notification but keep it visible.</string>
     <string name="rule_action_desc_delay_remind">Dismiss now and show again later.</string>
     <string name="rule_action_desc_copy_content">Copy the notification text to clipboard.</string>

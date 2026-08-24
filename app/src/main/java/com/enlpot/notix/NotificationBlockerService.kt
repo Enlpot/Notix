@@ -19,7 +19,11 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.enlpot.notix.setup.SetupState
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.text.SimpleDateFormat
+import java.util.Collections
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -42,6 +46,9 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         const val ACTION_HISTORY_UPDATED = "com.enlpot.notix.HISTORY_UPDATED"
         const val ACTION_APPLY_RULE = "com.enlpot.notix.APPLY_RULE"
         const val ACTION_RESCAN_ALL = "com.enlpot.notix.RESCAN_ALL"
+
+        /** v8.14：调试/用户入口——恢复全部被冻结的常驻通知（un-snooze），由设置页「恢复常驻通知」或 adb 触发 */
+        const val ACTION_RESTORE_SNOOZED = "com.enlpot.notix.RESTORE_SNOOZED"
         const val EXTRA_RULE_JSON = "rule_json"
         private const val DEBOUNCE_PERIOD_MS = 3000L
 
@@ -97,6 +104,21 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         private const val PREFS_SETTINGS = "settings"
         private const val KEY_LISTENER_PAUSED = "listener_paused"
         private const val KEY_EXTRACT_REMOTEVIEWS_TEXT = "extract_remoteviews_text"
+
+        /** v8.13+：被冻结常驻通知 key 持久化（snooze 为系统级、跨 Service 重启仍有效，需落盘以便恢复） */
+        private const val PREFS_SNOOZED = "snoozed_ongoing"
+        private const val KEY_SNOOZED_KEYS = "snoozed_keys"
+
+        /** v8.14：一次性迁移用的占位规则 id——旧 v8.13（StringSet 格式）落盘的 key 归入此规则，便于恢复 */
+        private const val LEGACY_RULE_ID = "__legacy__"
+
+        /**
+         * v8.14：恢复冻结常驻通知用的「短时长 re-snooze」值（毫秒）。
+         * Android 公开 API 无 unSnooze；实测（2026-08-24）对同一 key 再调 snoozeNotification(key, 极小值)
+         * 会覆盖原到期时间，短值到期后通知自动回栏——这就是第三方 App 的「恢复」手段。
+         * 100ms 足够短，恢复几乎即时。
+         */
+        private const val RESTORE_RESNOOZE_MS = 100L
 
         /** 全局暂停状态：暂停时停止处理通知监听。 */
         fun isListenerPaused(context: Context): Boolean =
@@ -233,6 +255,14 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
     private val recentlyBlocked = mutableMapOf<String, Long>()
 
+    /**
+     * v8.14：被 snooze 冻结的常驻通知 key，按「所属规则 id」分组（同步 Map，跨线程安全）。
+     * 规则删除时只恢复该规则冻结的 key，避免误恢复其它规则的通知；
+     * snooze 是系统级冻结、**持久化、Android 11+ 重启不失效**，故落盘到 PREFS_SNOOZED 以便跨 Service 重启后恢复；
+     * 恢复时对 key 用短时长 re-snooze（见 [restoreKeys]），对失效 key（如冻结时长已自然到期）为 no-op，不报错。
+     */
+    private val snoozedByRule = Collections.synchronizedMap(mutableMapOf<String, MutableSet<String>>())
+
     /** v7.25：TTS 播报防抖登记（sbn.key → 上次播报的 postTime 与时间戳） */
     private class TtsDebounceEntry(val postTime: Long, val speakTime: Long)
     private val ttsDebounce = mutableMapOf<String, TtsDebounceEntry>()
@@ -288,6 +318,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         appInfoStorage = AppInfoStorage(this)
         ensureRepostChannel()
         ensureKeepAliveChannel()
+        loadSnoozedKeys()
     }
 
     private fun ensureRepostChannel() {
@@ -552,13 +583,19 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         }
         actionFlowDebounce[flowKey] = debounceNow
         actionFlowDebounce.entries.removeIf { (_, ts) -> debounceNow - ts >= ACTION_FLOW_DEBOUNCE_MS }
-        // v8.13：从规则首个 DISMISS 动作读 includeOngoing，传入 ActionContext
-        val includeOngoing = rule.actions
+        // v8.13：从规则首个 DISMISS 动作读 includeOngoing；v8.14 加读 snoozeDurationMs，一并传入 ActionContext
+        val dismissParams = rule.actions
             .firstOrNull { it.type == RuleAction.DISMISS }
             ?.params
+        val includeOngoing = dismissParams
             ?.takeIf { it.has("includeOngoing") }
             ?.get("includeOngoing")
             ?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
+        val snoozeDurationMs = dismissParams
+            ?.takeIf { it.has("snoozeDurationMs") }
+            ?.get("snoozeDurationMs")
+            ?.takeIf { it.isJsonPrimitive }?.asLong
+            ?.takeIf { it > 0L } ?: SnoozeDurations.DAY_7
         val ctx = ActionContext(
             ruleId = rule.id,
             packageName = sbn.packageName,
@@ -568,6 +605,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             notificationKey = sbn.key,
             postTime = sbn.postTime,
             includeOngoing = includeOngoing,
+            snoozeDurationMs = snoozeDurationMs,
             sbn = sbn,
             notificationActions = sbn.notification.actions,
             contentIntent = sbn.notification.contentIntent,
@@ -646,21 +684,144 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
     }
 
     /**
-     * v8.13：DISMISS 对常驻通知的冻结实现。
-     * API 26+ 走 [snoozeNotification]（key + durationMs），设极大值（≈274 年）模拟永久冻结；
+     * v8.13+：DISMISS 对常驻通知的冻结实现。
+     * API 26+ 走 [snoozeNotification]（key + durationMs），冻结时长由调用方传入（用户可选）；
      * API <26 无 snoozeNotification，降级到 [cancelNotification]（常驻通知上可能无效）。
-     * 副作用：snooze 在手机重启后失效（系统限制），届时常驻通知会重新出现。
+     *
+     * 关键事实（2026-08-24 实测坐实，纠正旧注释）：
+     * - NotificationListenerService **只有 snooze、没有 unSnooze**（公开 API 无此方法）。
+     * - **snooze 是持久化的、Android 11+ 重启不失效**（写入 /data/system/notification_policy.xml）。
+     * - 恢复手段 = 对同一 key 再调 snoozeNotification(key, 极小值)（见 [RESTORE_RESNOOZE_MS]），
+     *   短值到期后通知自动回栏；或等冻结时长自然到期。
+     * 冻结成功后把 key 归入 [ruleId] 分组并落盘，用于「规则删除时恢复 / UI 展示可恢复项」。
+     *
+     * @param ruleId 触发本次冻结的规则 id（来自 [ActionContext.ruleId]）；为 null 时不计入分组表。
+     * @param durationMs 冻结时长（毫秒，用户可选；来自 [ActionContext.snoozeDurationMs]）。
      */
-    override fun snoozeNotificationCompat(key: String) {
+    override fun snoozeNotificationCompat(key: String, ruleId: String?, durationMs: Long) {
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             try {
-                snoozeNotification(key, Long.MAX_VALUE / 2)
+                snoozeNotification(key, durationMs)
+                if (ruleId != null) {
+                    synchronized(snoozedByRule) {
+                        snoozedByRule.getOrPut(ruleId) { mutableSetOf() }.add(key)
+                    }
+                }
+                persistSnoozedKeys()
             } catch (e: Exception) {
                 Log.w(TAG, "snoozeNotification failed for key=$key, fallback to cancel", e)
                 cancelNotification(key)
             }
         } else {
             cancelNotification(key)
+        }
+    }
+
+    /**
+     * v8.14：真正恢复被冻结常驻通知——对每个 key 用 [RESTORE_RESNOOZE_MS] 短时长 re-snooze。
+     * 短值到期后通知自动回到通知栏（实测有效）。同时把 key 从分组表移除并落盘。
+     */
+    fun restoreSnoozedByRule(ruleId: String): Int {
+        val keys = synchronized(snoozedByRule) {
+            snoozedByRule.remove(ruleId)?.toList().orEmpty()
+        }
+        if (keys.isEmpty()) return 0
+        restoreKeys(keys)
+        persistSnoozedKeys()
+        Log.i(TAG, "Rule $ruleId deleted: restored ${keys.size} snoozed ongoing key(s)")
+        return keys.size
+    }
+
+    /**
+     * v8.14：恢复全部被冻结常驻通知（设置页「恢复常驻通知」按钮 / [ACTION_RESTORE_SNOOZED] 调用）。
+     * @return 实际尝试恢复的 key 数。
+     */
+    fun restoreAllSnoozedNotifications(): Int {
+        val allKeys = synchronized(snoozedByRule) {
+            val list = snoozedByRule.values.flatten().toList()
+            snoozedByRule.clear()
+            list
+        }
+        if (allKeys.isEmpty()) return 0
+        restoreKeys(allKeys)
+        persistSnoozedKeys()
+        Log.i(TAG, "Restored ${allKeys.size} snoozed ongoing key(s)")
+        return allKeys.size
+    }
+
+    /** 对一批 key 执行短时长 re-snooze（恢复），单个失败不阻断后续 */
+    private fun restoreKeys(keys: List<String>) {
+        if (android.os.Build.VERSION.SDK_INT < 26) {
+            Log.w(TAG, "restoreKeys requires API 26+; skip ${keys.size} key(s)")
+            return
+        }
+        for (key in keys) {
+            try {
+                snoozeNotification(key, RESTORE_RESNOOZE_MS)
+            } catch (e: Exception) {
+                Log.w(TAG, "restore re-snooze failed for key=$key", e)
+            }
+        }
+    }
+
+    /** v8.13+：当前被冻结常驻通知 key 列表（供 UI 展示「可恢复」项）。 */
+    fun getSnoozedKeys(): List<String> = synchronized(snoozedByRule) { snoozedByRule.values.flatten().toList() }
+
+    /** v8.13+：从 PREFS_SNOOZED 载入已冻结 key 分组表（onCreate 调用；失败不影响启动） */
+    private fun loadSnoozedKeys() {
+        try {
+            val prefs = getSharedPreferences(PREFS_SNOOZED, Context.MODE_PRIVATE)
+            snoozedByRule.clear()
+            val raw = prefs.getString(KEY_SNOOZED_KEYS, null)
+            if (raw != null) {
+                // 新格式：JSON 对象 {ruleId: [key,...]}
+                parseSnoozedJson(raw)?.let { snoozedByRule.putAll(it) }
+            } else {
+                // 一次性迁移：旧 v8.13 用 StringSet 落盘，归入 LEGACY_RULE_ID 以便恢复
+                val legacy = prefs.getStringSet(KEY_SNOOZED_KEYS, null)
+                if (!legacy.isNullOrEmpty()) {
+                    snoozedByRule[LEGACY_RULE_ID] = legacy.toMutableSet()
+                    persistSnoozedKeys()
+                    Log.i(TAG, "Migrated ${legacy.size} legacy snoozed key(s)")
+                }
+            }
+            Log.i(TAG, "Loaded ${getSnoozedKeys().size} snoozed ongoing key(s)")
+        } catch (e: Exception) {
+            Log.w(TAG, "loadSnoozedKeys failed", e)
+        }
+    }
+
+    /** v8.14：解析新格式 JSON 分组表；失败返回 null。 */
+    private fun parseSnoozedJson(raw: String): Map<String, MutableSet<String>>? = try {
+        val root = JsonParser.parseString(raw).asJsonObject
+        val map = mutableMapOf<String, MutableSet<String>>()
+        for ((ruleId, elem) in root.entrySet()) {
+            val set = mutableSetOf<String>()
+            elem.asJsonArray.forEach { set.add(it.asString) }
+            map[ruleId] = set
+        }
+        map
+    } catch (e: Exception) {
+        Log.w(TAG, "parseSnoozedJson failed", e)
+        null
+    }
+
+    /** v8.13+：将分组表落盘为 JSON 字符串到 PREFS_SNOOZED（失败仅记日志，不抛） */
+    private fun persistSnoozedKeys() {
+        try {
+            val prefs = getSharedPreferences(PREFS_SNOOZED, Context.MODE_PRIVATE)
+            val root = JsonObject()
+            synchronized(snoozedByRule) {
+                for ((ruleId, keys) in snoozedByRule) {
+                    if (keys.isEmpty()) continue
+                    val arr = JsonArray()
+                    keys.forEach { arr.add(it) }
+                    root.add(ruleId, arr)
+                }
+            }
+            prefs.edit().putString(KEY_SNOOZED_KEYS, root.toString()).apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "persistSnoozedKeys failed", e)
         }
     }
 
@@ -884,6 +1045,11 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         } else if (intent?.action == ACTION_RESCAN_ALL) {
             // v7.26：全量重扫当前活跃通知（规则删除/开关切换/手动重新扫描按钮）
             rescanActiveNotifications()
+        } else if (intent?.action == ACTION_RESTORE_SNOOZED) {
+            // v8.14：恢复全部冻结常驻通知（设置页「恢复常驻通知」按钮 / adb 调试触发）。
+            // 对每个 key 用短时长 re-snooze（100ms）覆盖原到期时间，短值到期后通知自动回栏。
+            val n = restoreAllSnoozedNotifications()
+            Log.i(TAG, "ACTION_RESTORE_SNOOZED: restored $n snoozed notification(s)")
         }
         return super.onStartCommand(intent, flags, startId)
     }

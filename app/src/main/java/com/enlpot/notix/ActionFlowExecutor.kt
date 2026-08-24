@@ -48,6 +48,8 @@ class ActionContext(
     val postTime: Long,
     /** v8.13：DISMISS 动作的「包括常驻通知」参数；true 时对 isClearable=false 的通知走 snooze */
     val includeOngoing: Boolean = false,
+    /** v8.14：常驻通知冻结时长（毫秒，用户可选）；仅 includeOngoing=true 时生效 */
+    val snoozeDurationMs: Long = SnoozeDurations.DAY_7,
     /** 实时通知对象（CLICK_BUTTON/OPEN_NOTIFICATION/SILENT 使用；可为 null 便于 JVM 测试） */
     val sbn: StatusBarNotification? = null,
     /** 实时按钮列表（= sbn.notification.actions） */
@@ -66,8 +68,10 @@ interface ActionFlowHost {
     /** DISMISS：取消可清除通知（API 18+） */
     fun cancelNotificationCompat(key: String)
 
-    /** DISMISS（含常驻）：用 snoozeNotification 冻结常驻通知（API 26+）；<26 降级到 cancel */
-    fun snoozeNotificationCompat(key: String)
+    /** DISMISS（含常驻）：用 snoozeNotification 冻结常驻通知（API 26+）；<26 降级到 cancel。
+     *  [ruleId] 触发本次冻结的规则 id，用于分组记录以便删除规则时恢复。
+     *  [durationMs] 冻结时长（毫秒，来自 [ActionContext.snoozeDurationMs]）。 */
+    fun snoozeNotificationCompat(key: String, ruleId: String? = null, durationMs: Long = SnoozeDurations.DAY_7)
 
     /** COPY：写入系统剪贴板 */
     fun copyToClipboard(text: String)
@@ -393,7 +397,7 @@ class RealSyncActionRunner(private val host: ActionFlowHost) : SyncActionRunner 
             android.os.Build.VERSION.SDK_INT >= 26 &&
             !sbn.isClearable
         if (shouldSnooze) {
-            host.snoozeNotificationCompat(ctx.notificationKey)
+            host.snoozeNotificationCompat(ctx.notificationKey, ctx.ruleId, ctx.snoozeDurationMs)
         } else {
             host.cancelNotificationCompat(ctx.notificationKey)
         }

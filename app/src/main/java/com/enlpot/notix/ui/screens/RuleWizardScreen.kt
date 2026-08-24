@@ -153,6 +153,7 @@ import com.enlpot.notix.RuleCondition
 import com.enlpot.notix.RuleWizardSupport
 import com.enlpot.notix.ScreenState
 import com.enlpot.notix.SimpleNotification
+import com.enlpot.notix.SnoozeDurations
 import com.enlpot.notix.toParamsJson
 import com.enlpot.notix.SourceApp
 import com.enlpot.notix.TimeCondition
@@ -2478,9 +2479,12 @@ private fun ActionParamEditor(
                     }
                 }
                 RuleAction.DISMISS -> {
-                    // v8.13：DISMISS 弹窗：含「包括常驻通知」勾选
+                    // v8.13：DISMISS 弹窗：含「包括常驻通知」勾选；v8.14 起加可自定义冻结时长
                     val includeOngoingInit = spec.params?.get("includeOngoing")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
                     var includeOngoing by remember(spec) { mutableStateOf(includeOngoingInit) }
+                    val durationInit = spec.params?.get("snoozeDurationMs")?.takeIf { it.isJsonPrimitive }?.asLong
+                        ?.takeIf { it in SnoozeDurations.OPTIONS } ?: SnoozeDurations.DAY_7
+                    var snoozeDurationMs by remember(spec) { mutableStateOf(durationInit) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2503,13 +2507,39 @@ private fun ActionParamEditor(
                             onCheckedChange = { includeOngoing = it },
                         )
                     }
+                    if (includeOngoing) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.rule_wizard_dismiss_snooze_duration),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource(R.string.rule_wizard_dismiss_snooze_duration_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            SnoozeDurations.OPTIONS.forEach { ms ->
+                                FilterChip(
+                                    selected = snoozeDurationMs == ms,
+                                    onClick = { snoozeDurationMs = ms },
+                                    label = { Text(RuleWizardSupport.formatSnoozeDuration(ms)) },
+                                )
+                            }
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
                         TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
                         Button(
-                            onClick = { onCommit(RuleWizardSupport.dismissSpec(includeOngoing)) },
+                            onClick = { onCommit(RuleWizardSupport.dismissSpec(includeOngoing, snoozeDurationMs)) },
                         ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
                     }
                 }

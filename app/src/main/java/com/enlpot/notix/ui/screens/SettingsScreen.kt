@@ -161,6 +161,9 @@ fun SettingsScreen(
     var showClearByAppDialog by remember { mutableStateOf(false) }
     var showClearAllConfirmDialog by remember { mutableStateOf(false) }
 
+    // v8.14：恢复常驻通知——确认弹窗状态
+    var showRestoreSnoozedDialog by remember { mutableStateOf(false) }
+
     // v7.18：关于分组展开折叠状态
     var aboutFeaturesExpanded by remember { mutableStateOf(false) }
     var aboutPrivacyExpanded by remember { mutableStateOf(false) }
@@ -725,6 +728,25 @@ fun SettingsScreen(
         )
     }
 
+    // v8.14：恢复常驻通知——确认弹窗（确认后恢复所有被规则冻结的常驻通知）
+    if (showRestoreSnoozedDialog) {
+        NotixConfirmDialog(
+            onDismiss = { showRestoreSnoozedDialog = false },
+            onConfirm = {
+                val n = NotificationBlockerService.instance?.restoreAllSnoozedNotifications() ?: 0
+                showRestoreSnoozedDialog = false
+                showMessage(
+                    if (n > 0) context.getString(R.string.settings_restore_snoozed_done, n)
+                    else context.getString(R.string.settings_restore_snoozed_none)
+                )
+            },
+            title = stringResource(R.string.settings_restore_snoozed_confirm_title),
+            body = stringResource(R.string.settings_restore_snoozed_confirm_body),
+            confirmText = stringResource(R.string.confirm),
+            danger = false,
+        )
+    }
+
     // v7.25：移除顶部 TopAppBar（底部 tab 已有"设置"入口），内容从状态栏下直接开始
     Scaffold(
         // v7.24：应用内 Snackbar 提示（替代系统 Toast）
@@ -787,6 +809,15 @@ fun SettingsScreen(
                     title = stringResource(R.string.export_import_rules),
                     subtitle = stringResource(R.string.export_import_rules_desc),
                     onClick = { showExportImportDialog = true },
+                    trailing = { NavChevron() }
+                )
+                // v8.14：恢复常驻通知——恢复所有被规则冻结（snooze）的常驻通知
+                RowDivider()
+                SettingsRow(
+                    icon = Icons.Filled.Notifications,
+                    title = stringResource(R.string.settings_restore_snoozed),
+                    subtitle = stringResource(R.string.settings_restore_snoozed_desc),
+                    onClick = { showRestoreSnoozedDialog = true },
                     trailing = { NavChevron() }
                 )
             }

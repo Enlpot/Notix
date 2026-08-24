@@ -190,8 +190,14 @@ class RuleStorage(private val context: Context) {
     fun updateRuleById(id: String, newRule: BlockerRule): List<BlockerRule>? =
         mutate { RuleMutations.applyUpdate(it, id, newRule) }
 
-    fun deleteRuleById(id: String): List<BlockerRule> =
-        mutate { RuleMutations.applyDelete(it, id) }!!
+    fun deleteRuleById(id: String): List<BlockerRule> {
+        val result = mutate { RuleMutations.applyDelete(it, id) }!!
+        // v8.14：删除规则时恢复其冻结的常驻通知——对每个 key 用短时长 re-snooze（100ms）
+        // 覆盖原到期时间，短值到期后通知自动回栏（Android 公开 API 无 unSnooze，此法为实测有效的恢复手段）。
+        // 服务未运行时 instance==null，安全跳过（此时系统里该规则的 snooze 仍挂到原到期时间，属边界情况）。
+        NotificationBlockerService.instance?.restoreSnoozedByRule(id)
+        return result
+    }
 
     fun addRules(rules: List<BlockerRule>): List<BlockerRule> =
         mutate { RuleMutations.applyAdd(it, rules) }!!

@@ -118,14 +118,38 @@ data class CopyParams(val mode: CopyMode = CopyMode.TITLE_AND_TEXT)
 data class DelayParams(val durationMs: Long = 1000L)
 
 /**
- * DISMISS 移除参数（v8.13 新增）。
+ * DISMISS 常驻通知冻结时长档位（毫秒）。
+ *
+ * 「移除常驻通知」底层是 `snoozeNotification(key, durationMs)`，durationMs 就是冻结时长：
+ * 到期后通知会自动回到通知栏。这里提供几档可选时长，默认 7 天。
+ * 说明（2026-08-24 实测坐实）：Android 11+ 的 snooze 是持久化的、重启不失效，
+ * 因此选得越长、通知消失越久；用户若要「尽早恢复」，应选短档位，或到设置页「恢复常驻通知」即时恢复。
+ */
+object SnoozeDurations {
+    const val HOUR_1 = 3_600_000L          // 1 小时
+    const val DAY_1 = 86_400_000L          // 1 天
+    const val DAY_7 = 604_800_000L         // 7 天
+    const val DAY_30 = 2_592_000_000L      // 30 天
+    const val YEAR_1 = 31_536_000_000L     // 1 年
+
+    /** 默认冻结时长（7 天） */
+    val DEFAULT: Long = DAY_7
+
+    /** 供 UI 展示的可选档位（升序） */
+    val OPTIONS: List<Long> = listOf(HOUR_1, DAY_1, DAY_7, DAY_30, YEAR_1)
+}
+
+/**
+ * DISMISS 移除参数（v8.13 新增；v8.14 加可自定义冻结时长）。
  *
  * - includeOngoing=false（默认）：仅对可清除通知生效，对常驻通知（[Notification.isClearable]==false）无效。
- * - includeOngoing=true：对常驻通知改走 `snoozeNotification(key, Long.MAX_VALUE/2)`，模拟"永久冻结"
- *   —— 与通知滤盒的「包括常驻通知」行为一致。
- * 副作用：snooze 在手机重启后失效（系统限制），届时常驻通知会重新出现。
+ * - includeOngoing=true：对常驻通知改走 `snoozeNotification(key, snoozeDurationMs)` 冻结，
+ *   冻结时长为 [snoozeDurationMs]（用户可选，默认 7 天）。到期后通知自动恢复。
  */
-data class DismissParams(val includeOngoing: Boolean = false)
+data class DismissParams(
+    val includeOngoing: Boolean = false,
+    val snoozeDurationMs: Long = SnoozeDurations.DAY_7,
+)
 
 /** STRONG_REMIND 强提醒参数（v8.10 新增，参数体留待 v8.11+ 细化） */
 data class StrongRemindParams(val sound: Boolean = true, val vibrate: Boolean = true)

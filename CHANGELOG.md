@@ -414,4 +414,68 @@
 
 **已知限制**：
 - 模拟器（Android 16 / API 36 / x86_64）上系统 uid=1000 通知（AlertWindowNotification）第三方监听器仍无法消除（ColorOS 厂商 ROM 限制）；真机验证是关键。
-- `snoozeNotification` 在手机重启后失效（系统限制），届时常驻通知会重新出现。
+- v8.13 用 `Long.MAX_VALUE/2`（≈146 年）做冻结，属过度冻结：snooze 在 Android 11+ 持久化、**重启不失效**，且公开 API 无 unSnooze，导致被冻通知几乎无法恢复。此问题在 v8.14 修正（可自定义时长 + 短时长 re-snooze 恢复）。
+
+## v8.14（进行中）· 常驻通知可自定义冻结时长 + 真实恢复（2026-08-24）
+
+**背景纠正（实测坐实，推翻此前两轮草稿的错误结论）**：
+- Android 公开 API `NotificationListenerService` **只有 `snoozeNotification(key, durationMs)`（API 26+），没有 `unSnoozeNotification`**。
+- **snooze 是持久化的，Android 11+ 重启不失效**（写入 `/data/system/notification_policy.xml`）。之前「重启即失效」是错的——v8.13 用 `Long.MAX_VALUE/2`（≈146 年）冻的通知，重启后仍压在通知栏。
+- **恢复手段（实测有效）**：对同一 key 再调 `snoozeNotification(key, 极小值)`（如 100ms），短值到期后通知自动回栏。这就是第三方 App（通知滤盒/BuzzKill）「恢复」的原理，无需 unSnooze、无需 root。
+
+**本轮改动（可自定义时长 + 真恢复，未构建 APK）**：
+
+`app/src/main/java/com/enlpot/notix/BlockerRule.kt` |
+- 新增 `object SnoozeDurations`：冻结时长档位（1 小时 / 1 天 / 7 天 / 30 天 / 1 年），默认 7 天。
+- `DismissParams` 新增 `snoozeDurationMs: Long = SnoozeDurations.DAY_7` 字段。
+
+`app/src/main/java/com/enlpot/notix/ActionFlowExecutor.kt` |
+- `ActionContext` 新增 `snoozeDurationMs` 字段。
+- `ActionFlowHost.snoozeNotificationCompat(key, ruleId, durationMs)` 新增 `durationMs` 形参。
+- `RealSyncActionRunner.dismiss` 冻结时传 `ctx.snoozeDurationMs`。
+
+`app/src/main/java/com/enlpot/notix/NotificationBlockerService.kt` |
+- 删除固定 `SNOOZE_DURATION_MS` 常量，冻结时长由规则参数传入。
+- 新增 `RESTORE_RESNOOZE_MS = 100L`。
+- `snoozeNotificationCompat(key, ruleId, durationMs)` 用传入时长冻结。
+- 恢复改为**真实现**：`restoreSnoozedByRule(ruleId)` / `restoreAllSnoozedNotifications()` 对每个 key 用 100ms 短时长 re-snooze 覆盖原到期时间，通知到期自动回栏（替换掉上一轮只清本地登记的假恢复）。
+- `ACTION_RESTORE_SNOOZED` 分支改用 `restoreAllSnoozedNotifications()`。
+- 分组登记表 `snoozedByRule` 保留（JSON 落盘 + 旧格式迁移）。
+
+`app/src/main/java/com/enlpot/notix/RuleStorage.kt` |
+- `deleteRuleById(id)` 删除提交后调用 `restoreSnoozedByRule(id)`——**删规则即真正恢复**该规则冻结的常驻通知（100ms 后自动回栏）。
+
+`app/src/main/java/com/enlpot/notix/RuleWizardSupport.kt` |
+- `dismissSpec(includeOngoing, snoozeDurationMs)` 新增时长参数（默认 7 天）。
+- `actionFlowSummary(DISMISS)` 显示「冻结 X」时长。
+- 新增 `formatSnoozeDuration(ms)` 人类可读文案。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` |
+- DISMISS 弹窗新增「冻结时长」FilterChip 档位选择（勾选「包括常驻通知」后展示）。
+
+`app/src/main/res/values/strings.xml` |
+- 修正 `rule_wizard_dismiss_include_ongoing_desc`（删除错误的「手机重启后失效」说明）。
+- 新增 `rule_wizard_dismiss_snooze_duration` / `rule_wizard_dismiss_snooze_duration_desc`。
+
+`app/src/test/java/com/enlpot/notix/DismissSpecTest.kt` |
+- 新增 2 例：默认时长 7 天、自定义时长写入。
+- `ActionFlowCopyBehaviorTest.FakeHost` 适配 `snoozeNotificationCompat(key, ruleId, durationMs)` 新签名。
+
+**设计要点**：
+- 冻结时长用户可选：到期后通知自动恢复；越短越「可逆」，越长越「像永久移除」。
+- 恢复 = 短时长 re-snooze（实测有效、无需 root、无需 unSnooze），删规则自动触发 + 设置页按钮兜底。
+- 向后兼容：`dismissSpec(includeOngoing=false)` 仍返回 params=null；旧规则无 `snoozeDurationMs` 时默认 7 天。
+
+### 设置页「恢复常驻通知」按钮（本轮追加，2026-08-24）
+
+`app/src/main/java/com/enlpot/notix/ui/screens/SettingsScreen.kt` |
+- 「规则与数据」分区新增「恢复常驻通知」入口（`Icons.Filled.Notifications` + 副标题 + NavChevron）。
+- 点击弹 `NotixConfirmDialog`（`danger=false`，确认按钮用主题色）；确认后调 `NotificationBlockerService.instance?.restoreAllSnoozedNotifications()`，用 Snackbar 提示「已恢复 N 条」或「无待恢复」。
+
+`app/src/main/res/values/strings.xml` + `values-zh-rCN/strings.xml` |
+- 新增 `settings_restore_snoozed` / `settings_restore_snoozed_desc` / `settings_restore_snoozed_confirm_title` / `settings_restore_snoozed_confirm_body` / `settings_restore_snoozed_done` / `settings_restore_snoozed_none`（英文默认 + 中文翻译同步）。
+
+**验证**：
+- `testDebugUnitTest` + `assembleDebug` 均 BUILD SUCCESSFUL；APK 已装 emulator-5554。
+- UIAutomator 实测：设置页「规则与数据」下显示「恢复常驻通知 / 把被规则冻结（移除）的常驻通知恢复到通知栏」；点击弹出确认弹窗（标题/正文/取消/确定）齐全；取消可正常关闭。
+- 恢复的实际效果（通知回栏）依赖 `restoreAllSnoozedNotifications()` 的 100ms 短时长 re-snooze，等用户在模拟器上手动触发冻结→点按钮验证闭环。

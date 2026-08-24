@@ -227,10 +227,13 @@ object RuleWizardSupport {
         ActionSpec(RuleAction.POSTPONE, PostponeParams(delayMs).toParamsJson())
 
     // v8.13 新增：DISMISS 工厂——includeOngoing=false 时保持 params=null（向后兼容），
-    // 仅 includeOngoing=true 时才写入 DismissParams。
-    fun dismissSpec(includeOngoing: Boolean): ActionSpec =
+    // 仅 includeOngoing=true 时才写入 DismissParams（含可自定义冻结时长，v8.14 起）。
+    fun dismissSpec(includeOngoing: Boolean, snoozeDurationMs: Long = SnoozeDurations.DAY_7): ActionSpec =
         if (includeOngoing) {
-            ActionSpec(RuleAction.DISMISS, DismissParams(includeOngoing = true).toParamsJson())
+            ActionSpec(
+                RuleAction.DISMISS,
+                DismissParams(includeOngoing = true, snoozeDurationMs = snoozeDurationMs).toParamsJson()
+            )
         } else {
             ActionSpec(RuleAction.DISMISS, null)
         }
@@ -239,10 +242,16 @@ object RuleWizardSupport {
     fun actionFlowSummary(spec: ActionSpec): String {
         val params = spec.params
         return when (spec.type) {
-            // v8.13：DISMISS 区分是否含常驻通知
+            // v8.13：DISMISS 区分是否含常驻通知；v8.14 起显示冻结时长
             RuleAction.DISMISS -> {
                 val includeOngoing = params?.get("includeOngoing")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
-                if (includeOngoing) "移除通知（含常驻）" else "移除通知"
+                if (includeOngoing) {
+                    val ms = params?.get("snoozeDurationMs")?.takeIf { it.isJsonPrimitive }?.asLong
+                        ?: SnoozeDurations.DAY_7
+                    "移除通知（含常驻，冻结 ${formatSnoozeDuration(ms)}）"
+                } else {
+                    "移除通知"
+                }
             }
             RuleAction.OPEN_NOTIFICATION -> "打开通知对应页面"
             RuleAction.COPY -> {
@@ -294,5 +303,15 @@ object RuleWizardSupport {
         val shown = actions.take(maxShown)
         val base = shown.joinToString(" → ") { actionFlowSummary(it) }
         return if (actions.size > shown.size) "$base → …" else base
+    }
+
+    /** v8.14：冻结时长的人类可读文案（供 DISMISS 摘要与 UI 档位展示共用） */
+    fun formatSnoozeDuration(ms: Long): String = when (ms) {
+        SnoozeDurations.HOUR_1 -> "1 小时"
+        SnoozeDurations.DAY_1 -> "1 天"
+        SnoozeDurations.DAY_7 -> "7 天"
+        SnoozeDurations.DAY_30 -> "30 天"
+        SnoozeDurations.YEAR_1 -> "1 年"
+        else -> if (ms > 0 && ms % 86_400_000L == 0L) "${ms / 86_400_000L} 天" else "${ms} 毫秒"
     }
 }

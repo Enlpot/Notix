@@ -30,7 +30,7 @@ class ActionFlowCopyBehaviorTest {
             dismissedKeys.add(key)
         }
 
-        override fun snoozeNotificationCompat(key: String) {
+        override fun snoozeNotificationCompat(key: String, ruleId: String?, durationMs: Long) {
             snoozedKeys.add(key)
         }
 

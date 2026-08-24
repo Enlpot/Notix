@@ -6,6 +6,25 @@
 
 ---
 
+## 8.14 (2026-08-24)
+
+**New**
+- **Customizable freeze duration for ongoing notifications** — the `Remove` action's "Include ongoing notifications" switch now offers a duration picker (1 hour / 1 day / 7 days / 30 days / 1 year, default 7 days). A frozen ongoing notification automatically returns once the duration expires.
+- **"Restore ongoing notifications" in Settings** — a new entry under Rules & Data restores every ongoing notification frozen by rules in one tap, with a confirmation dialog.
+
+**Fixed**
+- v8.13 froze ongoing notifications with a near-infinite duration (~146 years). Because snoozed notifications persist across reboots on Android 11+ and the public API has no un-snooze call, deleting a rule left the notification effectively gone forever. v8.14 fixes this by making the duration user-selectable (default 7 days), restoring a rule's frozen notifications automatically on rule deletion, and restoring via a 100 ms re-snooze on the same key (overrides the original expiry).
+
+**Improved**
+- The `Remove` action summary now shows the configured freeze duration (e.g. "freeze 7 days").
+
+**Notes**
+- The "include ongoing" path uses `snoozeNotification` (API 26+); older systems fall back to `cancelNotification`.
+- On Android 11+ snoozed notifications persist across reboots; recovery is via duration expiry, rule deletion, or the new Settings entry.
+- `STRONG_REMIND` and `POSTPONE` remain UI-only shells.
+
+---
+
 ## 8.13 (2026-08-24)
 
 **New**

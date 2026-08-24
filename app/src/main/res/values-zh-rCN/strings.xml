@@ -167,6 +167,12 @@
     <string name="settings_extract_remoteviews_title">提取无文本通知的按钮文字</string>
     <string name="settings_extract_remoteviews_desc">开启后，无标题无正文的通知会尝试提取按钮文字参与规则匹配（默认关）</string>
     <string name="settings_section_rules">规则与数据</string>
+    <string name="settings_restore_snoozed">恢复常驻通知</string>
+    <string name="settings_restore_snoozed_desc">把被规则冻结（移除）的常驻通知恢复到通知栏</string>
+    <string name="settings_restore_snoozed_confirm_title">恢复常驻通知</string>
+    <string name="settings_restore_snoozed_confirm_body">将恢复所有被规则冻结的常驻通知（如音乐、前台服务、画中画）。确定继续？</string>
+    <string name="settings_restore_snoozed_done">已恢复 %1$d 条常驻通知</string>
+    <string name="settings_restore_snoozed_none">当前没有可恢复的常驻通知</string>
     <string name="settings_section_about">支持与关于</string>
     <string name="history_retention">历史保留</string>
     <string name="history_retention_desc">超过此期限的通知将被自动删除</string>
