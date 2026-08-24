@@ -523,8 +523,14 @@
     <string name="rule_wizard_copy_time">包含发送时间</string>
     <string name="rule_wizard_action_no_params">无需其他参数</string>
     <string name="rule_wizard_action_tts_template">播报模板</string>
-    <string name="rule_wizard_action_tts_template_hint">支持 {app}、{title}、{text} 占位符</string>
+    <string name="rule_wizard_action_tts_template_hint">支持 {app}、{title}、{text}、{time}、{date} 占位符</string>
     <string name="rule_wizard_action_tts_template_default">默认模板：收到{title}的{app}消息，{text}；留空则使用默认模板</string>
+    <string name="rule_wizard_action_tts_variables_title">点击插入变量</string>
+    <string name="rule_wizard_action_tts_variable_app">app名称</string>
+    <string name="rule_wizard_action_tts_variable_title">标题</string>
+    <string name="rule_wizard_action_tts_variable_text">内容</string>
+    <string name="rule_wizard_action_tts_variable_time">发送时间</string>
+    <string name="rule_wizard_action_tts_variable_date">发送日期</string>
     <string name="rule_wizard_advanced_unavailable">高级匹配暂不可用，敬请期待</string>
     <string name="rule_action_click_button">点击按钮</string>
     <string name="rule_action_open_notification">打开</string>

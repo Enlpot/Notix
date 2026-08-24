@@ -68,7 +68,7 @@ interface ActionFlowHost {
     fun copyToClipboard(text: String)
 
     /** TTS：按模板构建播报文本（占位符替换 + 清洗），复用 Service 现有 buildTtsText */
-    fun buildTtsText(template: String?, app: String?, title: String?, text: String?): String
+    fun buildTtsText(template: String?, app: String?, title: String?, text: String?, postTime: Long): String
 
     /** TTS：播报 [text]，完成后回调 [onDone](success)；Service 内部保留防抖 */
     fun speakTts(ctx: ActionContext, text: String, onDone: (Boolean) -> Unit)
@@ -431,7 +431,7 @@ class RealAsyncRunner(private val host: ActionFlowHost) : AsyncActionRunner {
 
     override fun runTts(ctx: ActionContext, spec: ActionSpec, onDone: (Boolean) -> Unit) {
         val template = spec.params?.get("template")?.takeIf { it.isJsonPrimitive }?.asString
-        val spoken = host.buildTtsText(template, ctx.appName, ctx.title, ctx.text)
+        val spoken = host.buildTtsText(template, ctx.appName, ctx.title, ctx.text, ctx.postTime)
         host.speakTts(ctx, spoken, onDone)
     }
 }

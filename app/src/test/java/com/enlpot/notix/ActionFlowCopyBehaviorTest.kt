@@ -33,7 +33,7 @@ class ActionFlowCopyBehaviorTest {
             copiedTexts.add(text)
         }
 
-        override fun buildTtsText(template: String?, app: String?, title: String?, text: String?): String =
+        override fun buildTtsText(template: String?, app: String?, title: String?, text: String?, postTime: Long): String =
             template ?: ""
 
         override fun speakTts(ctx: ActionContext, text: String, onDone: (Boolean) -> Unit) {

@@ -68,6 +68,8 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -124,8 +126,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardActions
@@ -2113,12 +2117,14 @@ private fun ActionParamEditor(
                     }
                 }
                 RuleAction.TTS -> {
-                    var template by remember(spec) {
-                        mutableStateOf(spec.params?.get("template")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
+                    val initialTemplate = spec.params?.get("template")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                    var templateField by remember(spec) {
+                        mutableStateOf(TextFieldValue(text = initialTemplate, selection = TextRange(initialTemplate.length)))
                     }
+                    val template = templateField.text
                     OutlinedTextField(
-                        value = template,
-                        onValueChange = { template = it },
+                        value = templateField,
+                        onValueChange = { templateField = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text(stringResource(R.string.rule_wizard_action_tts_template)) },
                         placeholder = { Text(stringResource(R.string.rule_wizard_action_tts_template_hint)) },
@@ -2126,10 +2132,48 @@ private fun ActionParamEditor(
                         minLines = 2,
                     )
                     Text(
+                        text = stringResource(R.string.rule_wizard_action_tts_variables_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        val variables = listOf(
+                            R.string.rule_wizard_action_tts_variable_app to "{app}",
+                            R.string.rule_wizard_action_tts_variable_title to "{title}",
+                            R.string.rule_wizard_action_tts_variable_text to "{text}",
+                            R.string.rule_wizard_action_tts_variable_time to "{time}",
+                            R.string.rule_wizard_action_tts_variable_date to "{date}",
+                        )
+                        variables.forEach { (labelRes, token) ->
+                            AssistChip(
+                                onClick = {
+                                    val current = templateField
+                                    val start = minOf(current.selection.start, current.selection.end)
+                                    val end = maxOf(current.selection.start, current.selection.end)
+                                    val newText = current.text.substring(0, start) + token + current.text.substring(end)
+                                    val newCursor = start + token.length
+                                    templateField = current.copy(
+                                        text = newText,
+                                        selection = TextRange(newCursor),
+                                    )
+                                },
+                                label = { Text(stringResource(labelRes)) },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    labelColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        }
+                    }
+                    Text(
                         text = stringResource(R.string.rule_wizard_tts_wait_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                     Text(
                         text = stringResource(R.string.rule_wizard_tts_fail_hint),

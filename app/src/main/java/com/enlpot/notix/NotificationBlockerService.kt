@@ -19,6 +19,8 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.enlpot.notix.setup.SetupState
+import java.text.SimpleDateFormat
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
@@ -583,6 +585,17 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         return v.take(maxLen)
     }
 
+    /** TTS {time}/{date} 占位符格式化（固定中文口语化格式，便于播报） */
+    private fun formatTtsTime(postTime: Long): String {
+        if (postTime <= 0L) return ""
+        return SimpleDateFormat("HH点mm分", Locale.SIMPLIFIED_CHINESE).format(postTime)
+    }
+
+    private fun formatTtsDate(postTime: Long): String {
+        if (postTime <= 0L) return ""
+        return SimpleDateFormat("M月d日", Locale.SIMPLIFIED_CHINESE).format(postTime)
+    }
+
     /** 重发一条通知（用于静音5秒 / SILENT 动作）。阶段2C：至少保留 smallIcon/largeIcon/title/text/contentIntent/ongoing */
     private fun repostNotification(
         sbn: StatusBarNotification,
@@ -630,15 +643,19 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
     }
 
     /** 构建 TTS 播报文本：模板占位符替换 + 清洗（缺失片段跳过、去 emoji/URL/多余空白、正文截断约 60 字） */
-    override fun buildTtsText(template: String?, app: String?, title: String?, text: String?): String {
+    override fun buildTtsText(template: String?, app: String?, title: String?, text: String?, postTime: Long): String {
         val cleanApp = cleanTtsPart(app, 20)
         val cleanTitle = cleanTtsPart(title, 30)
         val cleanText = cleanTtsPart(text, 60)
+        val cleanTime = formatTtsTime(postTime)
+        val cleanDate = formatTtsDate(postTime)
         val tpl = template?.takeIf { it.contains("{") } ?: DEFAULT_TTS_TEMPLATE
         var out = tpl
             .replace("{app}", cleanApp)
             .replace("{title}", cleanTitle)
             .replace("{text}", cleanText)
+            .replace("{time}", cleanTime)
+            .replace("{date}", cleanDate)
             // 移除模板中残留的未识别占位符
             .replace(UNKNOWN_PLACEHOLDER_REGEX, "")
         // 清洗：URL/emoji/多余空白/孤立"的"与标点残留
