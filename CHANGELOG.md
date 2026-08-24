@@ -264,3 +264,24 @@
   - emulator-5554 实测：1 等待/2 移除 → swipe 250px / 600ms → 1 移除/2 等待 互换成功；拖动中截图 `v8.11_reorder_mid.png` 可见被拖卡片蓝色 primary 描边 + 抬升 6dp 阴影 + 其他卡片让出 gap（中间出现空隙，"移除通知"文字被部分覆盖）；释放后 `v8.11_reorder_done.png` 卡片平整、shadow 回落。
 - **未做的（v8.12+ 待办）**：强提醒（STRONG_REMIND）的真实执行（heads-up + 响铃 + 震动）需接入 NotificationProcessor 的 high-importance NotificationChannel；延迟（POSTPONE）的真实执行需 Handler.postDelayed 重新投递原通知。
 - 已 bump versionName/versionCode → v8.11，commit + push main 触发 GitHub Actions 自动发版。
+
+## 本轮修改（第 11 轮 · 2026-08-24 · TTS 变量选择插入）
+
+> 修改点：TTS 播报动作配置弹窗支持可视化变量选择，点击后自动插入到当前输入框光标位置；同时执行层扩展支持 {time}/{date} 两个新占位符。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | **TTS 编辑器改用 TextFieldValue**：由 `String` 改为 `TextFieldValue` 以同时保存文本与光标/选区位置；`OutlinedTextField` 的 `value`/`onValueChange` 同步切换。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | **新增变量选择 chip 区**：在模板输入框与提示文字之间插入「点击插入变量」标题 + `FlowRow` 包裹 5 个 `AssistChip`，标签分别为 app名称 / 标题 / 内容 / 发送时间 / 发送日期；点击 chip 时根据当前 `selection.start/end` 在光标处插入对应占位符 `{app}`/`{title}`/`{text}`/`{time}`/`{date}`，并将光标移到插入内容之后。支持重复点击、自由组合、在已有文本任意位置插入。
+
+`app/src/main/java/com/enlpot/notix/ActionFlowExecutor.kt` | **扩展 `ActionFlowHost.buildTtsText` 签名**：增加 `postTime: Long` 参数，供模板渲染发送时间/日期。
+
+`app/src/main/java/com/enlpot/notix/NotificationBlockerService.kt` | **TTS 占位符扩展**：`buildTtsText` 新增 `{time}`/`{date}` 替换；新增 `formatTtsTime(postTime)` → "HH点mm分"、`formatTtsDate(postTime)` → "M月d日"（中文口语化，便于播报）；`postTime <= 0` 时返回空字符串，与现有 `{app}`/`{title}`/`{text}` 缺失即跳过逻辑一致。
+
+`app/src/main/res/values/strings.xml` | 更新 TTS hint 为 "支持 {app}、{title}、{text}、{time}、{date} 占位符"；新增 `rule_wizard_action_tts_variables_title` 及 5 个变量标签字符串。
+
+`app/src/test/java/com/enlpot/notix/ActionFlowCopyBehaviorTest.kt` | 同步更新 `FakeHost.buildTtsText` override 签名（增加 `postTime`）。
+
+**验证**：
+- `gradlew testDebugUnitTest` BUILD SUCCESSFUL（全部单测通过）。
+- `gradlew assembleDebug --no-daemon` BUILD SUCCESSFUL。
+- 未升版（用户未要求本轮发版）。
