@@ -184,7 +184,7 @@ object RuleWizardSupport {
 
     /** 该类型是否有参数需要编辑（有则添加后自动进入参数编辑状态）。 */
     fun hasActionParams(type: RuleAction): Boolean = when (type) {
-        RuleAction.CLICK_BUTTON, RuleAction.COPY, RuleAction.TTS, RuleAction.DELAY -> true
+        RuleAction.CLICK_BUTTON, RuleAction.COPY, RuleAction.TTS, RuleAction.DELAY, RuleAction.STRONG_REMIND, RuleAction.POSTPONE -> true
         else -> false
     }
 
@@ -194,6 +194,9 @@ object RuleWizardSupport {
         RuleAction.COPY -> CopyParams(mode = CopyMode.TITLE_AND_TEXT).toParamsJson()
         RuleAction.TTS -> TtsParams(template = null).toParamsJson()
         RuleAction.DELAY -> DelayParams(durationMs = 1000L).toParamsJson()
+        // v8.10 新增
+        RuleAction.STRONG_REMIND -> StrongRemindParams().toParamsJson()
+        RuleAction.POSTPONE -> PostponeParams().toParamsJson()
         else -> null
     }
 
@@ -210,13 +213,19 @@ object RuleWizardSupport {
     fun delaySpec(durationMs: Long): ActionSpec =
         ActionSpec(RuleAction.DELAY, DelayParams(durationMs).toParamsJson())
 
+    // v8.10 新增动作工厂
+    fun strongRemindSpec(sound: Boolean = true, vibrate: Boolean = true): ActionSpec =
+        ActionSpec(RuleAction.STRONG_REMIND, StrongRemindParams(sound, vibrate).toParamsJson())
+
+    fun postponeSpec(delayMs: Long): ActionSpec =
+        ActionSpec(RuleAction.POSTPONE, PostponeParams(delayMs).toParamsJson())
+
     /** 从 ActionSpec 生成卡片参数摘要（只用于帮助用户快速理解）。 */
     fun actionFlowSummary(spec: ActionSpec): String {
         val params = spec.params
         return when (spec.type) {
-            RuleAction.DISMISS -> "消除通知"
-            RuleAction.SILENT -> "静默重显"
-            RuleAction.OPEN_NOTIFICATION -> "打开通知"
+            RuleAction.DISMISS -> "移除通知"
+            RuleAction.OPEN_NOTIFICATION -> "打开通知对应页面"
             RuleAction.COPY -> {
                 val mode = runCatching {
                     CopyMode.valueOf(params?.get("mode")?.asString ?: "")
@@ -230,13 +239,23 @@ object RuleWizardSupport {
             RuleAction.TTS -> {
                 val template = params?.get("template")
                     ?.takeIf { it.isJsonPrimitive }?.asString
-                if (template.isNullOrBlank()) "播报通知标题和正文" else "播报：$template"
+                if (template.isNullOrBlank()) "TTS 播报通知标题和正文" else "TTS 播报：$template"
             }
+            RuleAction.STRONG_REMIND -> "强提醒（heads-up + 响铃 + 震动）"
             RuleAction.DELAY -> {
                 val ms = params?.get("durationMs")?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L
                 if (ms > 0L && ms % 1000L == 0L) "等待 ${ms / 1000L} 秒"
                 else if (ms > 0L) "等待 $ms 毫秒"
                 else "等待 1 秒"
+            }
+            RuleAction.POSTPONE -> {
+                val ms = params?.get("delayMs")?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L
+                when {
+                    ms <= 0L -> "延迟 1 分钟后重发"
+                    ms % 60_000L == 0L -> "延迟 ${ms / 60_000L} 分钟后重发"
+                    ms % 1000L == 0L -> "延迟 ${ms / 1000L} 秒后重发"
+                    else -> "延迟 $ms 毫秒后重发"
+                }
             }
             RuleAction.CLICK_BUTTON -> {
                 val label = params?.get("buttonLabel")

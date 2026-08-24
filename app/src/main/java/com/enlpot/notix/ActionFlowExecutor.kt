@@ -262,11 +262,6 @@ class ActionFlowExecutor(
                         completeAction(exec, index, null, onComplete)
                     }
 
-                    RuleAction.SILENT -> {
-                        syncRunner.silent(exec.context)
-                        completeAction(exec, index, null, onComplete)
-                    }
-
                     RuleAction.CLICK_BUTTON -> {
                         if (spec.params == null) {
                             completeAction(exec, index, ActionFailure(index, spec.type, "params missing"), onComplete)
@@ -305,6 +300,12 @@ class ActionFlowExecutor(
                         }
                     }
 
+                    RuleAction.STRONG_REMIND -> {
+                        // v8.10 新增：执行层留待 v8.11+ 接入 heads-up + 响铃 + 震动
+                        log("Action #${index} ${spec.type} skipped (execution TODO)")
+                        completeAction(exec, index, null, onComplete)
+                    }
+
                     RuleAction.DELAY -> {
                         val ms = parseDelayMs(spec.params)
                         if (ms == null || ms <= 0) {
@@ -315,6 +316,12 @@ class ActionFlowExecutor(
                                 completeAction(exec, index, null, onComplete)
                             }
                         }
+                    }
+
+                    RuleAction.POSTPONE -> {
+                        // v8.10 新增：执行层留待 v8.11+ 接入 Handler.postDelayed 重新投递通知
+                        log("Action #${index} ${spec.type} skipped (execution TODO)")
+                        completeAction(exec, index, null, onComplete)
                     }
                 }
             } catch (e: Exception) {

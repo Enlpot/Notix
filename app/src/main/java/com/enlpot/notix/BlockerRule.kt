@@ -38,22 +38,24 @@ enum class DndState { ANY, ON, OFF }
 /** 蓝牙耳机连接状态额外条件 */
 enum class BluetoothState { ANY, CONNECTED, DISCONNECTED }
 
-/** 动作：Action Flow 7 种，按 actions 列表顺序严格执行 */
+/** 动作：Action Flow 8 种，按 actions 列表顺序严格执行 */
 enum class RuleAction {
-    /** 消除通知 */
+    /** 移除通知（原"消除通知"v8.10 改名） */
     DISMISS,
-    /** 静默显示（取消原通知 + 低打扰频道重发） */
-    SILENT,
     /** 点击按钮（手动输入按钮名） */
     CLICK_BUTTON,
-    /** 打开通知 */
+    /** 打开通知（原"打开通知"v8.10 改名） */
     OPEN_NOTIFICATION,
     /** 复制内容（标题/正文/标题+正文） */
     COPY,
-    /** TTS 朗读 */
+    /** TTS 朗读（v8.10 label 改"TTS 播报"） */
     TTS,
-    /** 延迟等待 */
+    /** 强提醒（v8.10 新增：执行层 TODO） */
+    STRONG_REMIND,
+    /** 等待（动作链内时序控制） */
     DELAY,
+    /** 延迟（v8.10 新增：稍后重发通知，执行层 TODO） */
+    POSTPONE,
 }
 
 /** 时间日期条件（HH:mm-HH:mm + 星期多选） */
@@ -115,6 +117,12 @@ data class CopyParams(val mode: CopyMode = CopyMode.TITLE_AND_TEXT)
 /** DELAY 延迟参数（毫秒，必须 > 0） */
 data class DelayParams(val durationMs: Long = 1000L)
 
+/** STRONG_REMIND 强提醒参数（v8.10 新增，参数体留待 v8.11+ 细化） */
+data class StrongRemindParams(val sound: Boolean = true, val vibrate: Boolean = true)
+
+/** POSTPONE 延迟重发参数（毫秒，必须 > 0，v8.10 新增） */
+data class PostponeParams(val delayMs: Long = 60_000L)
+
 /** CLICK_BUTTON 点击按钮参数：按钮名（PendingIntent 为运行时对象，不落 JSON） */
 data class ClickButtonParams(val buttonLabel: String = "")
 
@@ -157,6 +165,29 @@ data class ActionSpec(
                         else -> null
                     }
                     duration != null && duration > 0
+                }
+            }
+            // v8.10 新增动作：强提醒/延迟重发，参数合法性 v8.11+ 细化
+            RuleAction.STRONG_REMIND -> true
+            RuleAction.POSTPONE -> {
+                val el = params?.get("delayMs")
+                if (el == null || !el.isJsonPrimitive) {
+                    false
+                } else {
+                    val prim = el.asJsonPrimitive
+                    val ms = when {
+                        prim.isNumber -> runCatching {
+                            val bd = prim.asBigDecimal
+                            if (bd > BigDecimal.valueOf(Long.MAX_VALUE) || bd < BigDecimal.valueOf(Long.MIN_VALUE)) {
+                                null
+                            } else {
+                                bd.longValueExact()
+                            }
+                        }.getOrNull()
+                        prim.isString -> prim.asString.trim().toLongOrNull()
+                        else -> null
+                    }
+                    ms != null && ms > 0
                 }
             }
             else -> true

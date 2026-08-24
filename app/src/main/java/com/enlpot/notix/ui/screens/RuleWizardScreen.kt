@@ -56,6 +56,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Warning
@@ -149,6 +151,8 @@ import com.enlpot.notix.TimeCondition
 import com.enlpot.notix.paramsGson
 import com.enlpot.notix.ui.components.EmptyState
 import com.enlpot.notix.ui.components.NotixConfirmDialog
+import com.enlpot.notix.ui.components.NotixDialog
+import com.enlpot.notix.ui.components.NotixDialogButton
 import com.enlpot.notix.ui.components.RealAppIcon
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -778,6 +782,8 @@ private fun AppPickerPanel(
     onDone: () -> Unit,
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    // v8.10：默认展开；收起时隐藏应用列表 + 底部「完成」按钮，仅保留搜索框 + 折叠控件。
+    var isAppListExpanded by rememberSaveable { mutableStateOf(true) }
 
     if (knownApps == null) {
         Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
@@ -799,9 +805,22 @@ private fun AppPickerPanel(
                 placeholder = { Text(stringResource(R.string.search_apps)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) },
                 trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_search))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_search))
+                            }
+                        }
+                        // v8.10：折叠/展开应用列表；展开显示 ↑（收起），收起显示 ↓（展开）
+                        IconButton(onClick = { isAppListExpanded = !isAppListExpanded }) {
+                            Icon(
+                                imageVector = if (isAppListExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                contentDescription = if (isAppListExpanded) {
+                                    stringResource(R.string.collapse)
+                                } else {
+                                    stringResource(R.string.expand)
+                                }
+                            )
                         }
                     }
                 },
@@ -816,105 +835,108 @@ private fun AppPickerPanel(
 
             Spacer(Modifier.height(8.dp))
 
-            val filtered = remember(knownApps, searchQuery) {
-                if (searchQuery.isBlank()) knownApps.take(50)
-                else {
-                    val q = searchQuery.lowercase()
-                    knownApps.filter {
-                        it.appName?.lowercase()?.contains(q) == true ||
-                                it.packageName.lowercase().contains(q)
+            // v8.10：收起时整段隐藏（应用列表 + 完成按钮），仅保留搜索框
+            if (isAppListExpanded) {
+                val filtered = remember(knownApps, searchQuery) {
+                    if (searchQuery.isBlank()) knownApps.take(50)
+                    else {
+                        val q = searchQuery.lowercase()
+                        knownApps.filter {
+                            it.appName?.lowercase()?.contains(q) == true ||
+                                    it.packageName.lowercase().contains(q)
+                        }
                     }
                 }
-            }
 
-            if (filtered.isEmpty()) {
-                EmptyState(
-                    icon = Icons.Outlined.Apps,
-                    title = stringResource(R.string.rule_wizard_no_known_apps_title),
-                )
-            }
+                if (filtered.isEmpty()) {
+                    EmptyState(
+                        icon = Icons.Outlined.Apps,
+                        title = stringResource(R.string.rule_wizard_no_known_apps_title),
+                    )
+                }
 
-            // v7.14：应用列表限高（约 5~6 项），多余项列表内部滚动，避免撑长整个界面
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 300.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                items(filtered) { app ->
-                    val selected = app.packageName in selectedPackages
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .then(
-                                if (selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-                                else Modifier
-                            )
-                            .clickable { onAppToggle(app.packageName) }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
+                // v7.14：应用列表限高（约 5~6 项），多余项列表内部滚动，避免撑长整个界面
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(filtered) { app ->
+                        val selected = app.packageName in selectedPackages
+                        Row(
                             modifier = Modifier
-                                .size(22.dp)
-                                .clip(RoundedCornerShape(4.dp))
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
                                 .then(
-                                    if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
-                                    else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (selected) {
-                                Icon(
-                                    Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp),
+                                    if (selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                    else Modifier
                                 )
+                                .clickable { onAppToggle(app.packageName) }
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .then(
+                                        if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
+                                        else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (selected) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
                             }
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        RealAppIcon(
-                            packageName = app.packageName,
-                            appName = app.appName,
-                            size = 32.dp,
-                            shape = CircleShape,
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = app.appName ?: app.packageName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                            Spacer(Modifier.width(10.dp))
+                            RealAppIcon(
+                                packageName = app.packageName,
+                                appName = app.appName,
+                                size = 32.dp,
+                                shape = CircleShape,
                             )
-                            if (app.appName != null) {
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = app.packageName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    text = app.appName ?: app.packageName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
+                                if (app.appName != null) {
+                                    Text(
+                                        text = app.packageName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onDone) {
-                    Text(
-                        text = if (selectedPackages.isEmpty()) {
-                            stringResource(R.string.rule_wizard_app_picker_done)
-                        } else {
-                            "${stringResource(R.string.rule_wizard_app_picker_done)}（${selectedPackages.size}）"
-                        }
-                    )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDone) {
+                        Text(
+                            text = if (selectedPackages.isEmpty()) {
+                                stringResource(R.string.rule_wizard_app_picker_done)
+                            } else {
+                                "${stringResource(R.string.rule_wizard_app_picker_done)}（${selectedPackages.size}）"
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -1802,15 +1824,8 @@ private fun ActionFlowSection(
                     )
                 }
                 if (editingIndex == index) {
-                    Spacer(Modifier.height(8.dp))
-                    ActionParamEditor(
-                        spec = spec,
-                        onCommit = { updated ->
-                            onUpdate(index, updated)
-                            onCloseEdit()
-                        },
-                        onCancel = onCloseEdit,
-                    )
+                    // v8.10：点击动作卡片 → 弹 NotixDialog（统一风格）显示配置面板
+                    // （editingIndex 仅作为"打开弹窗"开关，onCloseEdit 后父级负责清）
                 }
             }
         }
@@ -1834,6 +1849,18 @@ private fun ActionFlowSection(
             },
         )
     }
+    // v8.10：编辑中的动作以 NotixDialog 形式打开（不内联展开）
+    if (editingIndex >= 0 && editingIndex < actions.size) {
+        val editingSpec = actions[editingIndex]
+        ActionConfigDialog(
+            spec = editingSpec,
+            onDismiss = onCloseEdit,
+            onCommit = { updated ->
+                onUpdate(editingIndex, updated)
+                onCloseEdit()
+            },
+        )
+    }
 }
 
 @Composable
@@ -1854,11 +1881,6 @@ private fun ActionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = { showDeleteConfirm = true },
-            )
             .then(
                 if (isEditing) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
                 else Modifier
@@ -1869,73 +1891,91 @@ private fun ActionCard(
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
         ),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // 序号
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(accent.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // v8.10 改造：左侧主体（序号/图标/标题/摘要）单独 clickable + longClickable
+            // ——打开弹窗/长按删除；与右侧拖手柄互不冲突。
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = { showDeleteConfirm = true },
+                    )
+                    .padding(start = 12.dp, top = 10.dp, end = 4.dp, bottom = 10.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 序号
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(accent.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "${index + 1}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = accent,
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        imageVector = actionIcon(spec.type),
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "${index + 1}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = accent,
+                        text = actionLabel(spec.type),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    imageVector = actionIcon(spec.type),
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = actionLabel(spec.type),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
+                    text = RuleWizardSupport.actionFlowSummary(spec),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.weight(1f))
-                // v7.50：拖动示意按钮——按住上下拖动改变动作顺序（替换原上移/下移）
+            }
+
+            // v8.10 改造：拖动指示按钮做大（48dp 触控目标，28dp 图标），
+            // 仅这一列响应拖动手势，**不再与点击打开弹窗冲突**。
+            Box(
+                modifier = Modifier
+                    .size(width = 48.dp, height = 64.dp)
+                    .pointerInput(index, total) {
+                        var currentIndex = index
+                        var accum = 0f
+                        detectDragGestures(
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                accum += dragAmount.y
+                                val stepPx = with(density) { 48.dp.toPx() }
+                                while (accum >= stepPx && currentIndex < total - 1) {
+                                    currentOnMove(currentIndex, currentIndex + 1)
+                                    currentIndex++
+                                    accum -= stepPx
+                                }
+                                while (accum <= -stepPx && currentIndex > 0) {
+                                    currentOnMove(currentIndex, currentIndex - 1)
+                                    currentIndex--
+                                    accum += stepPx
+                                }
+                            },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
                     imageVector = Icons.Default.DragHandle,
                     contentDescription = stringResource(R.string.rule_wizard_action_drag_hint),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .padding(2.dp)
-                        .pointerInput(index, total) {
-                            var currentIndex = index
-                            var accum = 0f
-                            detectDragGestures(
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    accum += dragAmount.y
-                                    val stepPx = with(density) { 48.dp.toPx() }
-                                    while (accum >= stepPx && currentIndex < total - 1) {
-                                        currentOnMove(currentIndex, currentIndex + 1)
-                                        currentIndex++
-                                        accum -= stepPx
-                                    }
-                                    while (accum <= -stepPx && currentIndex > 0) {
-                                        currentOnMove(currentIndex, currentIndex - 1)
-                                        currentIndex--
-                                        accum += stepPx
-                                    }
-                                },
-                            )
-                        },
+                    modifier = Modifier.size(28.dp),
                 )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = RuleWizardSupport.actionFlowSummary(spec),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 
@@ -1960,13 +2000,10 @@ private fun ActionParamEditor(
     onCommit: (ActionSpec) -> Unit,
     onCancel: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            when (spec.type) {
+    // v8.10 改造：取消 Card + surfaceVariant 包装。
+    // 此函数现在作为「动作配置」弹窗的 content 块被 NotixDialog 调用，
+    // 自身不再带外壳。8 个 when 分支保持不变。
+    when (spec.type) {
                 RuleAction.CLICK_BUTTON -> {
                     var label by remember(spec) {
                         mutableStateOf(spec.params?.get("buttonLabel")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
@@ -2109,8 +2146,88 @@ private fun ActionParamEditor(
                         ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
                     }
                 }
+                RuleAction.STRONG_REMIND -> {
+                    // v8.10 新增：执行层 TODO，参数面板先就位（响铃/震动开关）
+                    var sound by remember(spec) {
+                        mutableStateOf(
+                            spec.params?.get("sound")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true
+                        )
+                    }
+                    var vibrate by remember(spec) {
+                        mutableStateOf(
+                            spec.params?.get("vibrate")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.rule_wizard_strong_remind_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { sound = !sound }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Switch(checked = sound, onCheckedChange = { sound = it })
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.rule_wizard_strong_remind_sound))
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { vibrate = !vibrate }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Switch(checked = vibrate, onCheckedChange = { vibrate = it })
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.rule_wizard_strong_remind_vibrate))
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
+                        Button(
+                            onClick = { onCommit(RuleWizardSupport.strongRemindSpec(sound, vibrate)) },
+                        ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
+                    }
+                }
+                RuleAction.POSTPONE -> {
+                    // v8.10 新增：执行层 TODO，参数面板先就位（延迟毫秒数）
+                    var msText by remember(spec) {
+                        mutableStateOf(
+                            (spec.params?.get("delayMs")?.takeIf { it.isJsonPrimitive }?.asLong ?: 60_000L).toString()
+                        )
+                    }
+                    val ms = msText.toLongOrNull()
+                    val valid = ms != null && ms > 0L
+                    OutlinedTextField(
+                        value = msText,
+                        onValueChange = { msText = it.filter(Char::isDigit) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.rule_wizard_postpone_duration)) },
+                        suffix = { Text("ms") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        isError = !valid,
+                        supportingText = {
+                            if (!valid) {
+                                Text(stringResource(R.string.rule_wizard_postpone_invalid))
+                            } else {
+                                Text(stringResource(R.string.rule_wizard_postpone_desc))
+                            }
+                        },
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
+                        Button(
+                            onClick = { if (ms != null) onCommit(RuleWizardSupport.postponeSpec(ms)) },
+                            enabled = valid,
+                        ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
+                    }
+                }
                 else -> {
-                    // DISMISS / SILENT / OPEN_NOTIFICATION：无参数，只显示说明
+                    // DISMISS / OPEN_NOTIFICATION：无参数，只显示说明
                     Text(
                         text = actionDescription(spec.type),
                         style = MaterialTheme.typography.bodyMedium,
@@ -2126,8 +2243,31 @@ private fun ActionParamEditor(
                     }
                 }
             }
-        }
-    }
+}
+
+@Composable
+private fun ActionConfigDialog(
+    spec: ActionSpec,
+    onDismiss: () -> Unit,
+    onCommit: (ActionSpec) -> Unit,
+) {
+    NotixDialog(
+        onDismiss = onDismiss,
+        title = actionLabel(spec.type),
+        content = {
+            Text(
+                text = actionDescription(spec.type),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            ActionParamEditor(
+                spec = spec,
+                onCommit = onCommit,
+                onCancel = onDismiss,
+            )
+        },
+    )
 }
 
 @Composable
@@ -2135,55 +2275,53 @@ private fun ActionPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (RuleAction) -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.rule_wizard_action_flow_pick_title)) },
-        text = {
-            Column {
-                RuleAction.entries.forEach { action ->
-                    val accent = actionAccent(action)
-                    Row(
+    NotixDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.rule_wizard_action_flow_pick_title),
+        content = {
+            Text(
+                text = stringResource(R.string.rule_wizard_action_flow_pick_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            RuleAction.entries.forEach { action ->
+                val accent = actionAccent(action)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onSelect(action) }
+                        .padding(horizontal = 4.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onSelect(action) }
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .size(32.dp)
+                            .background(accent.copy(alpha = 0.12f), CircleShape),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(accent.copy(alpha = 0.12f), CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = actionIcon(action),
-                                contentDescription = null,
-                                tint = accent,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = actionLabel(action),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                            )
-                            Text(
-                                text = actionDescription(action),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        Icon(
+                            imageVector = actionIcon(action),
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = actionLabel(action),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = actionDescription(action),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.rule_wizard_action_flow_cancel))
             }
         },
     )
@@ -2199,43 +2337,47 @@ private fun copyModeLabel(mode: CopyMode): String = when (mode) {
 @Composable
 private fun actionAccent(action: RuleAction): Color = when (action) {
     RuleAction.DISMISS -> MaterialTheme.colorScheme.error
-    RuleAction.SILENT -> MaterialTheme.colorScheme.tertiary
     RuleAction.CLICK_BUTTON -> MaterialTheme.colorScheme.secondary
     RuleAction.OPEN_NOTIFICATION -> MaterialTheme.colorScheme.primary
     RuleAction.COPY -> MaterialTheme.colorScheme.secondary
     RuleAction.TTS -> MaterialTheme.colorScheme.tertiary
+    RuleAction.STRONG_REMIND -> MaterialTheme.colorScheme.error
     RuleAction.DELAY -> MaterialTheme.colorScheme.primary
+    RuleAction.POSTPONE -> MaterialTheme.colorScheme.tertiary
 }
 
 @Composable
 private fun actionIcon(action: RuleAction): ImageVector = when (action) {
     RuleAction.DISMISS -> Icons.Default.NotificationsOff
-    RuleAction.SILENT -> Icons.Default.Notifications
     RuleAction.CLICK_BUTTON -> Icons.Default.TouchApp
     RuleAction.OPEN_NOTIFICATION -> Icons.Default.OpenInNew
     RuleAction.COPY -> Icons.Default.ContentCopy
     RuleAction.TTS -> Icons.Default.VolumeUp
+    RuleAction.STRONG_REMIND -> Icons.Default.PriorityHigh
     RuleAction.DELAY -> Icons.Default.DateRange
+    RuleAction.POSTPONE -> Icons.Default.Schedule
 }
 
 @Composable
 private fun actionLabel(action: RuleAction): String = when (action) {
     RuleAction.DISMISS -> stringResource(R.string.rule_action_dismiss)
-    RuleAction.SILENT -> stringResource(R.string.rule_action_silent)
     RuleAction.CLICK_BUTTON -> stringResource(R.string.rule_action_click_button)
     RuleAction.OPEN_NOTIFICATION -> stringResource(R.string.rule_action_open_notification)
     RuleAction.COPY -> stringResource(R.string.rule_action_copy)
     RuleAction.TTS -> stringResource(R.string.rule_action_tts)
+    RuleAction.STRONG_REMIND -> stringResource(R.string.rule_action_strong_remind)
     RuleAction.DELAY -> stringResource(R.string.rule_action_wait)
+    RuleAction.POSTPONE -> stringResource(R.string.rule_action_postpone)
 }
 
 @Composable
 private fun actionDescription(action: RuleAction): String = when (action) {
     RuleAction.DISMISS -> stringResource(R.string.rule_action_desc_dismiss)
-    RuleAction.SILENT -> stringResource(R.string.rule_action_desc_silent)
     RuleAction.CLICK_BUTTON -> stringResource(R.string.rule_action_desc_click_button)
     RuleAction.OPEN_NOTIFICATION -> stringResource(R.string.rule_action_desc_open_notification)
     RuleAction.COPY -> stringResource(R.string.rule_action_desc_copy)
     RuleAction.TTS -> stringResource(R.string.rule_action_desc_tts)
+    RuleAction.STRONG_REMIND -> stringResource(R.string.rule_action_desc_strong_remind)
     RuleAction.DELAY -> stringResource(R.string.rule_action_desc_wait)
+    RuleAction.POSTPONE -> stringResource(R.string.rule_action_desc_postpone)
 }

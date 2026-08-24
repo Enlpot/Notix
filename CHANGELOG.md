@@ -193,3 +193,51 @@
 - 点击「通知访问权限」卡 → `com.android.settings.Settings$NotificationAccessSettingsActivity`；点击「前台服务保活」卡 → 应用详情页；跳转正确。
 - 回归测试：通知历史长按删除 → 删除确认弹窗正常渲染，宽度一致，按钮不溢出。
 - 未升版（用户未要求本轮发版）。
+
+## 本轮修改（第 9 轮 · 2026-08-24 · v8.10）
+
+> 修改点：
+> 1. 规则向导的"动作"系统重新设计：原 7 项动作精简为 8 项与 Notix v1 目标对齐，弹窗 UI 全面统一为 `NotixDialog` 风格，配置面板改为弹窗打开而非内联展开。
+> 2. 解决"点击拖手柄意外打开弹窗"的可访问性问题：把打开弹窗的 clickable 区域与拖动排序的 pointerInput 区域在视觉和命中上彻底分离。
+>
+> 基线：v8.9（versionCode=122 / versionName="8.9"）。
+> 升级：v8.10（versionCode=123 / versionName="8.10"）。
+
+`app/src/main/java/com/enlpot/notix/BlockerRule.kt` | **`RuleAction` 枚举重整**：删除 `SILENT`（静默重显），新增 `STRONG_REMIND`（强提醒）/ `POSTPONE`（延迟重发）。`ActionSpec.isValid` 扩到 8 个分支：POSTPONE 复用 DELAY 的 BigDecimal 范围安全解析，STRONG_REMIND 默认 true。同步新增 `StrongRemindParams(sound, vibrate)` 与 `PostponeParams(delayMs)` 两个 data class。
+
+`app/src/main/java/com/enlpot/notix/RuleWizardSupport.kt` | `hasActionParams` 把 STRONG_REMIND/POSTPONE 加入带参类型；`defaultParamsFor` 给新加的填默认（STRONG_REMIND 默认响铃+震动均开、POSTPONE 默认 60s）；新增 `strongRemindSpec` / `postponeSpec` 工厂；`actionFlowSummary` 加新分支（"移除通知" / "打开通知对应页面" / "TTS 播报通知标题和正文" / "强提醒（heads-up + 响铃 + 震动）" / "延迟 1 分钟后重发" 等），移除 SILENT。
+
+`app/src/main/java/com/enlpot/notix/ActionFlowExecutor.kt` | `when` 分支同步：删 SILENT、加 STRONG_REMIND/POSTPONE 两个 TODO 占位（`log("skipped (execution TODO)") + completeAction(null)`，保证规则触发时这两个动作不崩、流程继续推进到下一项）。**真正的执行层（高优 heads-up + 响铃 + 震动、Handler.postDelayed 重发）计划在 v8.11 接入 NotificationProcessor + 前台服务**，本轮 UI 完整、行为安全但不强提醒/不延迟重发。`syncRunner.silent()` 接口/实现保留为死代码避免编译报错，待 v8.11 一并清理。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | 4 个 when 表达式（`actionAccent` / `actionIcon` / `actionLabel` / `actionDescription`）扩 8 分支并删 SILENT；图标更新（OPEN_NOTIFICATION 仍用 `OpenInNew`、TTS 用 `VolumeUp`、新增 `PriorityHigh` 与 `Schedule`）。`ActionParamEditor` 去掉 Card + Column 外壳，保留 8 分支 when 内容，作为 `NotixDialog` content 子块使用。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | **新加 `ActionConfigDialog(spec, onDismiss, onCommit)`**：套 `NotixDialog`，装 description + `ActionParamEditor`，无参数项（DISMISS / OPEN_NOTIFICATION）底部自动渲染"完成"按钮。`ActionPickerDialog` 从 `AlertDialog` 升级为 `NotixDialog`（8 项统一视觉：圆形 accent 图标 + 标题 + 描述），后**第二轮反馈后又删掉底部"取消"按钮**，靠标题 X + 弹窗外点击关闭（与崩溃日志弹窗等 NotixDialog 一致）。`ActionFlowSection` 删内联 `ActionParamEditor` 调用，改为底部 `if (editingIndex in range) ActionConfigDialog(...)` 接管"打开弹窗"语义。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | **`AppPickerCard` 增加折叠按钮**：搜索框右侧 trailingIcon 改为 `Row(verticalAlignment=CenterVertically)` 装"清除 X + ↑/↓ 折叠箭头"；新增 `var isAppListExpanded by rememberSaveable { mutableStateOf(true) }`（默认展开、旋转/切后台不丢）；应用列表 + 底部"完成"按钮整段用 `if (isAppListExpanded) { ... }` 包起来。收起时仅留搜索框，搜索/复选仍可用。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | **`ActionCard` 重构布局（v8.10 第二轮反馈）**：去掉整张 Card 的 `combinedClickable` 顶层点击，外层改 `Row(verticalAlignment=CenterVertically)` 内部分两列——左列（`weight(1f)` + `clip` + `combinedClickable(onClick=打开弹窗, onLongClick=弹 NotixConfirmDialog 删除确认)`）承载序号/图标/标题/摘要，右列（`Box(48dp×64dp)` + `pointerInput + Icon.size(28.dp)` DragHandle）独占拖动手势响应。**点击主体打开弹窗、长按主体弹删除确认、拖手柄单独响应上下拖动排序**——三个交互区域互不重合、不会误触。拖手柄图标由 18dp 提到 28dp、触控区扩到 48dp 标准 Material 目标，高度撑到与卡片同高 64dp，视觉上明显比之前更大。
+
+`app/src/main/res/values/strings.xml` + `values-zh-rCN/strings.xml` |
+- 4 个动作 label 改名（消除通知→移除、打开通知→打开、播报→TTS 播报、等待保持）；
+- 删 `rule_action_silent` / `rule_action_desc_silent` 2 条；
+- 新增 `rule_action_strong_remind` / `rule_action_desc_strong_remind` / `rule_action_postpone` / `rule_action_desc_postpone` 4 条（中英同步）；
+- 新增 5 条 wizard 字符串：`rule_wizard_strong_remind_desc/sound/vibrate` / `rule_wizard_postpone_duration/invalid/desc`（中英同步）；
+- 新增 `rule_wizard_action_flow_pick_hint` "选择要执行的动作，触发时按顺序执行"（中英同步）。
+
+`app/build.gradle.kts` | `versionCode 122 → 123`，`versionName "8.9" → "8.10"`。
+`RELEASE_NOTES.md` | 整文件覆盖为 v8.10（仅本版 + 英文，发版给 GitHub Release 用）。
+`VERSION_HISTORY.md` | 顶部新增 `## 8.10 (2026-08-24)` 段（英文，结构与本段同步但精简为 GitHub Release 友好的 bullet）。
+`VERSION_HISTORY.zh-CN.md` | 顶部新增 `## 8.10 (2026-08-24)` 段（中文，与英文版结构同步，弥补此前 v8.6/8.7 中文断档）。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（约 36~50s，依缓存而定）。
+- APK 装到 `emulator-5554` 并启动；UIAutomator dump + 截图全部通过：
+  - 弹窗 8 项顺序、label、描述与设计要求一致（移除 / 点击按钮 / 打开 / 复制内容 / TTS 播报 / 强提醒 / 等待 / 延迟）；
+  - 「强提醒」/「延迟」参数面板可用，参数可保存到动作流；
+  - 添加动作弹窗、点击已添加动作卡片均弹 NotixDialog 配置面板，**不再内联向下展开**；
+  - 添加动作弹窗底部已删"取消"按钮，靠 X + 弹窗外点击关闭；
+  - 拖手柄 48×64dp 大触控区，点拖手柄不打开弹窗，向上/向下拖可正常排序（实测 1 等待/2 移除 互换成功）；
+  - 来源应用搜索框右侧出现 `content-desc="收起"/"展开"` 的 IconButton，bounds [912,649][975,712]，点击收起后应用列表 + 完成按钮同步消失，再点展开回归。
+- 截图存证：`D:\AndroidDevelop\Notix\.workbuddy\screenshots\v8.10_*.png`（action_picker_8items / action_picker_postpone_panel / action_picker_notixdialog / action_config_dialog_postpone / action_card_big_draghandle / action_picker_no_cancel / rule_wizard_source_expanded）。
+- 行为兼容：现有 v8.9 已发版规则因含 `SILENT` 字段会反序列化为 null，但 8.9→8.10 期间无用户线上规则带 SILENT（v8.9 中 SILENT 即可正常加载执行），故无迁移风险；v8.11 接入强提醒/延迟执行层后，STRONG_REMIND/POSTPONE 字段已能被新代码正常加载。
+- 已 bump versionName/versionCode，commit 后 push main 触发 GitHub Actions 自动发版 v8.10（workflow `check-version` 命中 v8.10 → `build-and-release` 走 NOTIX_KEYSTORE_* 签名并通过 `RELEASE_NOTES.md` 贴正文）。
