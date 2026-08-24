@@ -305,3 +305,27 @@
 - `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）。
 - APK 已 `adb -s emulator-5554 install -r` 安装并冷重启；UIAutomator dump + 坐标 tap 验证：规则→添加新规则→点「配置条件」卡片 → NotixDialog 风格弹窗（固定高 520dp，三 tab）；点匹配模式按钮 → 独立弹窗打开，选项可点选；时间 tab 的日期/时间 `Switch` 可正常点击切换；弹窗外点击可关闭。
 - 未升版（用户未要求本轮发版）。
+
+## 本轮修改（第 13 轮 · 2026-08-24 · 关键字输入弹窗化 + MIXED 双按钮）
+
+> 修改点：
+> 1. 关键字输入由「弹窗内常驻输入框 + chip」改为「点击按钮弹出独立输入窗口」：与匹配模式选择保持一致的 `NotixDialog` 风格。
+> 2. 触发按钮 `KeywordInputTrigger`（全宽 `OutlinedButton`，显示标签 + 已选关键字预览 + 下拉箭头），点击打开 `KeywordInputDialog`（标题 + 已选 chip 列表 + `OutlinedTextField` + 底部「确定」关闭）。
+> 3. 模式联动按钮数量：仅 `MatchMode.MIXED`（包含A且不包含B）时显示两个输入按钮——「包含 A」（include）与「且不包含 B」（exclude）；其他模式只显示「包含关键字」一个按钮（复用 include 列表）。
+> 4. 输入弹窗内 chip 行为保留：点击 chip 主体回填输入框并移除原词，尾部关闭图标直接删除；回车（Done）或「添加」按钮追加，空输入不添加。
+> 5. 父级与 `ConditionConfigDialog` 移除不再需要的 `keywordInput` / `excludeKeywordInput` 提升态（输入态移入弹窗内部 `remember`），`KeywordChipInput` 旧组合被 `KeywordInputTrigger` + `KeywordInputDialog` 取代。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` |
+- 父级 `RuleWizardScreen`：删除 `keywordInput` / `excludeKeywordInput` 两个 `rememberSaveable` 状态，以及传给 `ConditionConfigDialog` 的对应 4 个入参；保留 `includeKeywords` / `excludeKeywords` 与 add/remove 回调（add 仍做去重）。
+- `ConditionConfigDialog`：删除 `keywordInput` / `excludeKeywordInput` / `onKeywordInputChange` / `onExcludeKeywordInputChange` 四个参数；关键字 tab 内原两个 `KeywordChipInput` 改为 `KeywordInputTrigger` + 条件渲染的 `KeywordInputDialog`（MIXED 显示两个触发器，否则一个）。
+- 删除旧 `KeywordChipInput` 组合，新增：
+  - `KeywordInputTrigger(label, keywords, onClick)`：`OutlinedButton` 全宽，左 `Column(weight(1f))` 装标签（`bodyMedium`/`Medium`）+ 非空时关键字预览（`bodySmall`/`onSurfaceVariant`，单行省略），右 `ArrowDropDown` 图标；样式与 `MatchModePicker` 按钮一致。
+  - `KeywordInputDialog(title, keywords, onAdd, onRemove, onDismiss)`：套 `NotixDialog`（命名 `content` + `buttons` 两参数，避免 trailing-lambda 被绑到 `buttons`），`content` 内 `Column.verticalScroll` 渲染 chip `FlowRow` + `OutlinedTextField`（label 用 `title`、placeholder 用 `rule_wizard_keyword_placeholder`、trailing 为「添加」IconButton、Done 回车追加）；`buttons` 内一个全宽 `NotixDialogButton`（`ok` 文案）关闭。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）。
+- APK 已 `adb -s emulator-5554 install -r` 安装并冷重启；UIAutomator dump + 坐标 tap 验证：
+  - 包含任一（非 MIXED）模式：关键字 tab 仅「包含关键字」一个触发按钮；点击 → 弹出标题「包含关键字」输入窗（含输入框 + 添加 + 确定），`input text "test"` + 点「添加」后 chip 「test」出现。
+  - 切换为「包含A且不包含B」（MIXED）：关键字 tab 出现「包含 A」+「且不包含 B」两个触发按钮；点「且不包含 B」→ 独立弹出标题「且不包含 B」输入窗。
+  - 所有弹窗风格与匹配模式弹窗一致，点外部可关闭。
+- 未升版（用户未要求本轮发版）。
