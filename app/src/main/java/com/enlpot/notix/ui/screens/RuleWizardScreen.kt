@@ -5,6 +5,8 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +31,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.platform.LocalView
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -123,6 +129,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.core.view.HapticFeedbackConstantsCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.enlpot.notix.ActionSpec
@@ -1791,41 +1798,74 @@ private fun ActionFlowSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
-            actions.forEachIndexed { index, spec ->
-                ActionCard(
-                    index = index,
-                    total = actions.size,
-                    spec = spec,
-                    isEditing = editingIndex == index,
-                    onClick = { onEditIndex(index) },
-                    onMove = onMove,
-                    onDelete = { onRemove(index) },
-                )
-                // CLICK_BUTTON 后存在 DISMISS 时的组合风险提示（动态对应当前 Flow）
-                if (spec.type == RuleAction.CLICK_BUTTON &&
-                    actions.drop(index + 1).any { it.type == RuleAction.DISMISS }
-                ) {
-                    Text(
-                        text = stringResource(R.string.rule_wizard_click_dismiss_warning),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-                // OPEN_NOTIFICATION 后存在 DISMISS 时的组合风险提示（阶段 4C-C-B P2-6，样式复用 CLICK→DISMISS 警告）
-                if (spec.type == RuleAction.OPEN_NOTIFICATION &&
-                    actions.drop(index + 1).any { it.type == RuleAction.DISMISS }
-                ) {
-                    Text(
-                        text = stringResource(R.string.rule_wizard_open_dismiss_warning),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-                if (editingIndex == index) {
-                    // v8.10：点击动作卡片 → 弹 NotixDialog（统一风格）显示配置面板
-                    // （editingIndex 仅作为"打开弹窗"开关，onCloseEdit 后父级负责清）
+
+            // v8.11：动作流列表迁移到 LazyColumn + sh.calvin.reorderable 接管拖动排序，
+            // 实现「被拖卡片实时偏移 + 其他卡片让出 gap + spring 过渡」的完整动画指示
+            val lazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
+            val reorderableLazyListState = sh.calvin.reorderable.rememberReorderableLazyListState(lazyListState) { from, to ->
+                // 用 List 的 add/remove 实现 in-place 移动（库通过 key 匹配）
+                onMove(from.index, to.index)
+            }
+
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 父级 RuleWizardScreen 是 verticalScroll，LazyColumn 必须有界高度
+                    .heightIn(max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(
+                    items = actions,
+                    key = { spec -> spec.toStableKey() },
+                ) { spec ->
+                    val index = actions.indexOf(spec)
+                    ReorderableItem(
+                        state = reorderableLazyListState,
+                        key = spec.toStableKey(),
+                    ) { isDragging ->
+                        val view = LocalView.current
+                        val dragHandleModifier = Modifier.draggableHandle(
+                            onDragStarted = {
+                                ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.DRAG_START)
+                            },
+                            onDragStopped = {
+                                ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.GESTURE_END)
+                            },
+                        )
+                        ActionCard(
+                            index = index,
+                            spec = spec,
+                            isEditing = editingIndex == index,
+                            isDragging = isDragging,
+                            onClick = { onEditIndex(index) },
+                            onDelete = { onRemove(index) },
+                            dragHandleModifier = dragHandleModifier,
+                        )
+
+                        // CLICK_BUTTON 后存在 DISMISS 时的组合风险提示（动态对应当前 Flow）
+                        if (spec.type == RuleAction.CLICK_BUTTON &&
+                            actions.drop(index + 1).any { it.type == RuleAction.DISMISS }
+                        ) {
+                            Text(
+                                text = stringResource(R.string.rule_wizard_click_dismiss_warning),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        // OPEN_NOTIFICATION 后存在 DISMISS 时的组合风险提示（阶段 4C-C-B P2-6）
+                        if (spec.type == RuleAction.OPEN_NOTIFICATION &&
+                            actions.drop(index + 1).any { it.type == RuleAction.DISMISS }
+                        ) {
+                            Text(
+                                text = stringResource(R.string.rule_wizard_open_dismiss_warning),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1863,33 +1903,52 @@ private fun ActionFlowSection(
     }
 }
 
+/**
+ * 动作规格的稳定唯一 key（用于 LazyColumn + Reorderable 的 items key），
+ * 由 type + params JSON 序列化派生，避免 index 作为 key 导致拖动后错位。
+ */
+private fun ActionSpec.toStableKey(): String {
+    val paramsJson = params?.toString() ?: "null"
+    return "$type::$paramsJson"
+}
+
 @Composable
 private fun ActionCard(
     index: Int,
-    total: Int,
     spec: ActionSpec,
     isEditing: Boolean,
+    isDragging: Boolean,
     onClick: () -> Unit,
-    onMove: (Int, Int) -> Unit,
     onDelete: () -> Unit,
+    dragHandleModifier: Modifier,
 ) {
     val accent = actionAccent(spec.type)
-    val density = LocalDensity.current
-    val currentOnMove by rememberUpdatedState(onMove)
     // v8.6：长按删除动作前二次确认（与崩溃日志弹窗统一风格）
     var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    // v8.11 拖动反馈：拖动期间抬升 6dp + primaryContainer30% + primary 描边；
+    // 释放后 animateDpAsState 150ms tween 平滑回落
+    val cardElevation by animateDpAsState(
+        targetValue = if (isDragging) 6.dp else if (isEditing) 1.5.dp else 0.dp,
+        animationSpec = tween(durationMillis = 150),
+        label = "actionCardElevation",
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (isEditing) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                if (isDragging) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                else if (isEditing) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
                 else Modifier
             ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isEditing) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+            containerColor = if (isDragging) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else if (isEditing) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
             else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = cardElevation),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // v8.10 改造：左侧主体（序号/图标/标题/摘要）单独 clickable + longClickable
@@ -1941,39 +2000,20 @@ private fun ActionCard(
                 )
             }
 
-            // v8.10 改造：拖动指示按钮做大（48dp 触控目标，28dp 图标），
-            // 仅这一列响应拖动手势，**不再与点击打开弹窗冲突**。
+            // v8.11 改造：拖动指示按钮接入 sh.calvin.reorderable 库的 draggableHandle；
+            // 仅这一列响应拖动手势，由库接管实时偏移 + 其他卡片让位 gap + spring 过渡。
             Box(
                 modifier = Modifier
                     .size(width = 48.dp, height = 64.dp)
-                    .pointerInput(index, total) {
-                        var currentIndex = index
-                        var accum = 0f
-                        detectDragGestures(
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                accum += dragAmount.y
-                                val stepPx = with(density) { 48.dp.toPx() }
-                                while (accum >= stepPx && currentIndex < total - 1) {
-                                    currentOnMove(currentIndex, currentIndex + 1)
-                                    currentIndex++
-                                    accum -= stepPx
-                                }
-                                while (accum <= -stepPx && currentIndex > 0) {
-                                    currentOnMove(currentIndex, currentIndex - 1)
-                                    currentIndex--
-                                    accum += stepPx
-                                }
-                            },
-                        )
-                    },
+                    .then(dragHandleModifier),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.DragHandle,
                     contentDescription = stringResource(R.string.rule_wizard_action_drag_hint),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(28.dp),
+                    tint = if (isDragging) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(if (isDragging) 32.dp else 28.dp),
                 )
             }
         }

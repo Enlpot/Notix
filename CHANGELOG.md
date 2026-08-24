@@ -241,3 +241,26 @@
 - 截图存证：`D:\AndroidDevelop\Notix\.workbuddy\screenshots\v8.10_*.png`（action_picker_8items / action_picker_postpone_panel / action_picker_notixdialog / action_config_dialog_postpone / action_card_big_draghandle / action_picker_no_cancel / rule_wizard_source_expanded）。
 - 行为兼容：现有 v8.9 已发版规则因含 `SILENT` 字段会反序列化为 null，但 8.9→8.10 期间无用户线上规则带 SILENT（v8.9 中 SILENT 即可正常加载执行），故无迁移风险；v8.11 接入强提醒/延迟执行层后，STRONG_REMIND/POSTPONE 字段已能被新代码正常加载。
 - 已 bump versionName/versionCode，commit 后 push main 触发 GitHub Actions 自动发版 v8.10（workflow `check-version` 命中 v8.10 → `build-and-release` 走 NOTIX_KEYSTORE_* 签名并通过 `RELEASE_NOTES.md` 贴正文）。
+
+## 本轮修改（第 10 轮 · v8.11）— 动作拖动动画指示 + 死代码清理
+
+- **死代码清理（v8.10 待办收尾）**：
+  - `ActionFlowExecutor.kt` 删除 `SyncActionRunner.silent(ctx)` 接口方法（line 83）及其 `RealSyncActionRunner` 实现；
+  - `ActionFlowExecutor.kt` 删除 `ActionFlowHost.repostSilent(ctx)` 接口方法（line 67-68）；
+  - `NotificationBlockerService.kt` 删除 `repostSilent(ctx)` 实现（line 627-637，含 SILENT 注释块）；
+  - 测试桩同步清理：`ActionFlowExecutorTest.kt` / `ActionFlowCopyBehaviorTest.kt` 中 `FakeSyncRunner`/`FakeHost` 移除 `silent`/`repostSilent` override；`RuleWizardSupportTest.kt` 删除 `silent summary is 静默重显` 用例；`ActionFlowModelTest.kt` 中 `RuleAction.SILENT` 引用移除；
+  - `ActionFlowExecutorTest.kt:85` 修正：构造调用 `ActionFlowExecutor(sync, async, log = {}, hostAlive = { true })`（v8.0 注入的 `hostAlive` lambda 没显式给，导致它被推断到第一个 lambda 槽位而类型不匹配；之前 assembleDebug 不编测试所以漏检）；
+  - `RuleWizardSupportTest.kt` 三处断言随 v8.10 label 改动同步更新（DISMISS 摘要 "消除通知" → "移除通知"；TTS 摘要前缀加 "TTS "）。
+- **动作拖动动画指示**：用户实测 v8.10 步进式拖动"没动画效果"，调研后引入社区主流方案 `sh.calvin.reorderable:reorderable:2.4.3`：
+  - `ActionFlowSection` 从 `Column.forEachIndexed` 改 `LazyColumn + ReorderableLazyListState + ReorderableItem`，由库接管拖动手势；
+  - `ActionCard` 接收 `isDragging: Boolean` + `dragHandleModifier: Modifier`（来自 `ReorderableItem.draggableHandle`），删除手写 pointerInput/detectDragGestures/accum 步进逻辑；
+  - 给拖手柄加 `ViewCompat.performHapticFeedback` 长按/释放触觉反馈（DRAG_START / GESTURE_END）；
+  - `ActionSpec.toStableKey()` 提供 LazyColumn item 稳定 key；
+  - LazyColumn 必须设 `heightIn(max = 480.dp)`，否则嵌入外层 verticalScroll Column 时报 `IllegalStateException: ... infinity maximum height constraints`；
+  - `gradle/libs.versions.toml` 新增 `reorderable = "2.4.3"`；`app/build.gradle.kts` 加 `implementation(libs.reorderable)`。
+- **验证**：
+  - `gradlew testDebugUnitTest` **87 tests passed**（含 v8.10 待办触发的几处测试桩清理）；
+  - `gradlew assembleDebug` BUILD SUCCESSFUL；
+  - emulator-5554 实测：1 等待/2 移除 → swipe 250px / 600ms → 1 移除/2 等待 互换成功；拖动中截图 `v8.11_reorder_mid.png` 可见被拖卡片蓝色 primary 描边 + 抬升 6dp 阴影 + 其他卡片让出 gap（中间出现空隙，"移除通知"文字被部分覆盖）；释放后 `v8.11_reorder_done.png` 卡片平整、shadow 回落。
+- **未做的（v8.12+ 待办）**：强提醒（STRONG_REMIND）的真实执行（heads-up + 响铃 + 震动）需接入 NotificationProcessor 的 high-importance NotificationChannel；延迟（POSTPONE）的真实执行需 Handler.postDelayed 重新投递原通知。
+- 已 bump versionName/versionCode → v8.11，commit + push main 触发 GitHub Actions 自动发版。

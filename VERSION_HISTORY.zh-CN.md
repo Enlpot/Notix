@@ -6,6 +6,19 @@
 
 ---
 
+## 8.11 (2026-08-24)
+
+**改进**
+- 动作流拖动排序现在具备完整的动画指示：被拖卡片随手势抬升并产生让位间隙，释放后 spring 弹回原位。实现采用社区主流 `sh.calvin.reorderable` 库。
+
+**修复**
+- 清理与已删除 `SILENT` 动作相关的死代码：`SyncActionRunner.silent`、`ActionFlowHost.repostSilent`、`NotificationBlockerService.repostSilent`。同步更新单元测试桩（`FakeSyncRunner` / `FakeHost`）与相关断言。
+
+**说明**
+- `STRONG_REMIND`（强提醒）与 `POSTPONE`（延迟）动作在 v8.11 仍为 UI 壳层，真正的执行层将在后续版本接入。
+
+---
+
 ## 8.10 (2026-08-24)
 
 相对上一已发布版本 8.9 的变更。

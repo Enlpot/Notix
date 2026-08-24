@@ -29,10 +29,6 @@ class ActionFlowCopyBehaviorTest {
             dismissedKeys.add(key)
         }
 
-        override fun repostSilent(ctx: ActionContext) {
-            throw UnsupportedOperationException("not used in this test")
-        }
-
         override fun copyToClipboard(text: String) {
             copiedTexts.add(text)
         }
@@ -86,7 +82,7 @@ class ActionFlowCopyBehaviorTest {
     ): FlowExecution {
         val sync = RealSyncActionRunner(host)
         val async = FakeAsyncRunner()
-        val ex = ActionFlowExecutor(sync, async) { }
+        val ex = ActionFlowExecutor(sync, async, log = {}, hostAlive = { true })
         return ex.execute(actions, ctx(title, text, key))
     }
 
@@ -158,7 +154,7 @@ class ActionFlowCopyBehaviorTest {
         val host = FakeHost()
         val sync = RealSyncActionRunner(host)
         val async = FakeAsyncRunner()
-        val ex = ActionFlowExecutor(sync, async) { }
+        val ex = ActionFlowExecutor(sync, async, log = {}, hostAlive = { true })
         val flow = ex.execute(
             listOf(copySpec(CopyMode.TITLE_AND_TEXT), ActionSpec(RuleAction.DELAY, DelayParams(1000).toParamsJson())),
             ctx(null, null),

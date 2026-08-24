@@ -111,7 +111,6 @@ class ActionFlowModelTest {
     @Test
     fun `parameterless actions are always valid`() {
         assertTrue(ActionSpec(RuleAction.DISMISS, null).isValid)
-        assertTrue(ActionSpec(RuleAction.SILENT, null).isValid)
         assertTrue(ActionSpec(RuleAction.OPEN_NOTIFICATION, null).isValid)
         assertTrue(ActionSpec(RuleAction.TTS, null).isValid)
         assertTrue(ActionSpec(RuleAction.COPY, null).isValid)

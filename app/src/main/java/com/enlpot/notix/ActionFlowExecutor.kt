@@ -64,9 +64,6 @@ interface ActionFlowHost {
     /** DISMISS：取消指定 key 的通知 */
     fun cancelNotificationCompat(key: String)
 
-    /** SILENT：取消原通知 + 低打扰频道重发（保留点击/ongoing/图标） */
-    fun repostSilent(ctx: ActionContext)
-
     /** COPY：写入系统剪贴板 */
     fun copyToClipboard(text: String)
 
@@ -80,7 +77,6 @@ interface ActionFlowHost {
 /** 同步 Action 执行体：封装 Android API 调用；业务失败通过抛异常表达（引擎 catch → FAILED 继续） */
 interface SyncActionRunner {
     fun dismiss(ctx: ActionContext)
-    fun silent(ctx: ActionContext)
     fun clickButton(ctx: ActionContext, spec: ActionSpec)
     fun openNotification(ctx: ActionContext)
     fun copy(ctx: ActionContext, spec: ActionSpec)
@@ -383,10 +379,6 @@ class ActionFlowExecutor(
 class RealSyncActionRunner(private val host: ActionFlowHost) : SyncActionRunner {
     override fun dismiss(ctx: ActionContext) {
         host.cancelNotificationCompat(ctx.notificationKey)
-    }
-
-    override fun silent(ctx: ActionContext) {
-        host.repostSilent(ctx)
     }
 
     override fun clickButton(ctx: ActionContext, spec: ActionSpec) {

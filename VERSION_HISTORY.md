@@ -6,6 +6,19 @@
 
 ---
 
+## 8.11 (2026-08-24)
+
+**Improved**
+- Action flow drag-to-reorder is now animated end-to-end: the dragged card lifts while others shift aside to make room, snapping back with a spring on release. Built on `sh.calvin.reorderable`.
+
+**Fixed**
+- Removed dead code paths for the removed `SILENT` action: `SyncActionRunner.silent`, `ActionFlowHost.repostSilent`, and `NotificationBlockerService.repostSilent`. Updated unit-test stubs (`FakeSyncRunner` / `FakeHost`) and assertions to match.
+
+**Notes**
+- `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells in v8.11; their real execution lands in a future release.
+
+---
+
 ## 8.10 (2026-08-24)
 
 Changes since the previous released version 8.9.

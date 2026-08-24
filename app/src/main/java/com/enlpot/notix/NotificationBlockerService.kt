@@ -624,18 +624,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         cancelNotification(key)
     }
 
-    override fun repostSilent(ctx: ActionContext) {
-        // SILENT：先消除原通知（若已被 DISMISS 等先行取消，找不到属正常），再低打扰频道重发
-        try {
-            cancelNotification(ctx.notificationKey)
-        } catch (e: Exception) {
-            Log.w(TAG, "SILENT cancel original failed", e)
-        }
-        val sbn = ctx.sbn
-        if (sbn == null) throw IllegalStateException("SILENT requires live sbn")
-        repostNotification(sbn, ctx.title, ctx.text, RULE_REPOST_CHANNEL_ID, silent = true)
-    }
-
     override fun copyToClipboard(text: String) {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
         cm.setPrimaryClip(android.content.ClipData.newPlainText("notix-copy", text))

@@ -26,10 +26,6 @@ class ActionFlowExecutorTest {
             calls.add(RuleAction.DISMISS)
         }
 
-        override fun silent(ctx: ActionContext) {
-            calls.add(RuleAction.SILENT)
-        }
-
         override fun clickButton(ctx: ActionContext, spec: ActionSpec) {
             calls.add(RuleAction.CLICK_BUTTON)
             if (clickThrows) throw IllegalStateException("button not found")
@@ -86,7 +82,7 @@ class ActionFlowExecutorTest {
     private fun newExecutor(
         sync: FakeSyncRunner = FakeSyncRunner(),
         async: FakeAsyncRunner = FakeAsyncRunner(),
-    ) = ActionFlowExecutor(sync, async) { }
+    ) = ActionFlowExecutor(sync, async, log = {}, hostAlive = { true })
 
     // ============ 用例 1-15 ============
 
@@ -309,7 +305,6 @@ class ActionFlowExecutorTest {
         val flow = ex.execute(
             listOf(
                 spec(RuleAction.DISMISS, null),
-                spec(RuleAction.SILENT, null),
                 spec(RuleAction.OPEN_NOTIFICATION, null),
                 spec(RuleAction.COPY, null),
                 spec(RuleAction.TTS, null),
@@ -323,7 +318,7 @@ class ActionFlowExecutorTest {
         assertEquals(FlowStatus.PARTIAL_FAILURE, flow.result?.status)
         // 不需要参数的动作正常执行
         assertEquals(
-            listOf(RuleAction.DISMISS, RuleAction.SILENT, RuleAction.OPEN_NOTIFICATION),
+            listOf(RuleAction.DISMISS, RuleAction.OPEN_NOTIFICATION),
             sync.calls
         )
         // 需要参数的动作全部 FAILED

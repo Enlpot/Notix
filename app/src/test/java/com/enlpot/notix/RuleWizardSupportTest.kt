@@ -232,13 +232,8 @@ class RuleWizardSupportTest {
     }
 
     @Test
-    fun `silent summary is 静默重显 not 静默通知`() {
-        assertEquals("静默重显", RuleWizardSupport.actionFlowSummary(ActionSpec(RuleAction.SILENT)))
-    }
-
-    @Test
-    fun `dismiss summary is 消除通知`() {
-        assertEquals("消除通知", RuleWizardSupport.actionFlowSummary(ActionSpec(RuleAction.DISMISS)))
+    fun `dismiss summary is 移除通知`() {
+        assertEquals("移除通知", RuleWizardSupport.actionFlowSummary(ActionSpec(RuleAction.DISMISS)))
     }
 
     @Test
@@ -251,7 +246,7 @@ class RuleWizardSupportTest {
             ActionSpec(RuleAction.DISMISS),
         )
         assertEquals(
-            "播报：播报模板 → 标题 + 正文 → 等待 2 秒 → 点击：标记为已读 → 消除通知",
+            "TTS 播报：播报模板 → 标题 + 正文 → 等待 2 秒 → 点击：标记为已读 → 移除通知",
             RuleWizardSupport.actionFlowSummaryFlow(flow, maxShown = 10)
         )
     }
