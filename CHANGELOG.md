@@ -329,3 +329,28 @@
   - 切换为「包含A且不包含B」（MIXED）：关键字 tab 出现「包含 A」+「且不包含 B」两个触发按钮；点「且不包含 B」→ 独立弹出标题「且不包含 B」输入窗。
   - 所有弹窗风格与匹配模式弹窗一致，点外部可关闭。
 - 未升版（用户未要求本轮发版）。
+
+## 本轮修改（第 14 轮 · 2026-08-24 · 关键字直接显示在条件界面 + 输入弹窗去加号/换行/确定添加）
+
+> 修改点：
+> 1. 关键字 chip 直接展示在「配置条件」关键字 tab 界面（而非藏在触发按钮的预览文字里），点击 chip 主体即可打开输入弹窗编辑；chip 尾部关闭图标仍可直接删除。
+> 2. 关键字输入弹窗内删除输入框右侧的「+」添加按钮；底部「确定」按钮改为提交当前输入并关闭弹窗（空输入则仅关闭）。
+> 3. 输入框支持长文本换行：`singleLine = false`、`minLines = 2`、`maxLines = 5`。
+> 4. 编辑行为：在条件界面点击 chip 主体，先把原词从列表移除并回填到弹窗输入框；用户修改后点「确定」即添加为新词。弹窗内部 chip 列表的点击编辑行为保留。
+> 5. `KeywordInputTrigger`（触发按钮）被 `KeywordChipRow` 取代：标题行左侧显示标签、右侧显示「+」添加按钮；下方 FlowRow 直接渲染关键字 chip，无关键字时显示占位提示。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` |
+- 新增 `KeywordChipRow(label, keywords, onEditKeyword, onRemoveKeyword, onAddClick)`：`Column` 内标题行 `Row(SpaceBetween)` 左侧标签（`bodyMedium`/`Medium`）+ 右侧 32dp `IconButton`（`Add` 图标，`rule_wizard_add_keyword` 描述）；下方 4dp spacer 后，若 `keywords` 非空则 `FlowRow` 渲染 `InputChip`（主体 `onClick = { onEditKeyword(keyword) }`，尾部 `Close` 图标 `onRemoveKeyword`），否则显示 `rule_wizard_keyword_placeholder` 占位文案。
+- 删除旧 `KeywordInputTrigger` 组合。
+- `ConditionConfigDialog` 关键字 tab：删除两个 `KeywordInputTrigger` 调用，改为两个 `KeywordChipRow`（MIXED 模式显示包含 A / 且不包含 B 两组，其他模式只显示包含关键字一组）；新增 `includeInitial` / `excludeInitial` 两个 `rememberSaveable` 状态，用于把待编辑关键字回填进弹窗；`onEditKeyword` 内先调用 `onRemoveXxxKeyword(kw)` 移除原词、再设初始输入并打开弹窗。
+- `KeywordInputDialog`：新增 `initialInput: String = ""` 参数，`var input by remember { mutableStateOf(initialInput) }`；`OutlinedTextField` 删除 `trailingIcon`（移除右侧「+」按钮），并改为 `singleLine = false, minLines = 2, maxLines = 5` 以支持换行；底部 `NotixDialogButton` 的 `onClick` 由 `onDismiss` 改为 `{ commit(); onDismiss() }`，即确定按钮负责提交输入并关闭。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）。
+- APK 已 `adb -s emulator-5554 install -r` 安装并冷重启；UIAutomator dump + 坐标 tap 验证：
+  - 规则→添加新规则→配置条件→关键字 tab：匹配模式下方直接显示「包含关键字」标题行（右侧 + 按钮）+ 占位提示「输入关键词…」。
+  - 点 + 按钮 → 弹出「包含关键字」输入窗，输入框无右侧 + 号、底部有「确定」；输入 `editme` 点确定 → 条件界面出现 chip 「editme」。
+  - 点击 chip 「editme」主体 → 弹窗打开且输入框回填「editme」、弹窗内 chip 列表为空（原词已移除）；追加输入 `d` 点确定 → 条件界面 chip 变为「editmed」。
+  - 切换匹配模式为「包含A且不包含B」（MIXED）：界面同时显示「包含 A」与「且不含 B」两组 chip 区；分别添加 `editmed` 与 `exclude1`，两组关键字独立展示。
+  - 输入框在弹窗内高度明显高于单行，长文本可换行显示。
+- 未升版（用户未要求本轮发版）。

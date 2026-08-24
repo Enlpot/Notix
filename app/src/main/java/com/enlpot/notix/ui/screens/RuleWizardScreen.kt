@@ -1140,24 +1140,46 @@ private fun ConditionConfigDialog(
                     0 -> Column {
                         var showIncludeDialog by rememberSaveable { mutableStateOf(false) }
                         var showExcludeDialog by rememberSaveable { mutableStateOf(false) }
+                        var includeInitial by rememberSaveable { mutableStateOf("") }
+                        var excludeInitial by rememberSaveable { mutableStateOf("") }
                         MatchModePicker(mode = matchMode, onModeSelected = onMatchModeChange)
                         Spacer(Modifier.height(12.dp))
-                        // v8.12：关键字输入改为点击按钮弹窗输入；MIXED「包含A且不包含B」显示两个按钮，其他模式仅一个
-                        KeywordInputTrigger(
+                        // v8.12：关键字直接显示在条件配置界面，点击 chip 可编辑，+ 号打开输入弹窗。
+                        KeywordChipRow(
                             label = if (matchMode == MatchMode.MIXED) {
                                 stringResource(R.string.rule_wizard_keyword_contains_a)
                             } else {
                                 stringResource(R.string.rule_wizard_keyword_include)
                             },
                             keywords = includeKeywords,
-                            onClick = { showIncludeDialog = true },
+                            // 点击 chip 主体进入编辑：先把原词从列表移除并回填到弹窗输入框
+                            onEditKeyword = { kw ->
+                                onRemoveIncludeKeyword(kw)
+                                includeInitial = kw
+                                showIncludeDialog = true
+                            },
+                            onRemoveKeyword = onRemoveIncludeKeyword,
+                            onAddClick = {
+                                includeInitial = ""
+                                showIncludeDialog = true
+                            },
                         )
                         if (matchMode == MatchMode.MIXED) {
-                            Spacer(Modifier.height(8.dp))
-                            KeywordInputTrigger(
+                            Spacer(Modifier.height(12.dp))
+                            KeywordChipRow(
                                 label = stringResource(R.string.rule_wizard_keyword_not_contains_b),
                                 keywords = excludeKeywords,
-                                onClick = { showExcludeDialog = true },
+                                // 点击 chip 主体进入编辑：先把原词从列表移除并回填到弹窗输入框
+                                onEditKeyword = { kw ->
+                                    onRemoveExcludeKeyword(kw)
+                                    excludeInitial = kw
+                                    showExcludeDialog = true
+                                },
+                                onRemoveKeyword = onRemoveExcludeKeyword,
+                                onAddClick = {
+                                    excludeInitial = ""
+                                    showExcludeDialog = true
+                                },
                             )
                         }
                         if (showIncludeDialog) {
@@ -1168,18 +1190,26 @@ private fun ConditionConfigDialog(
                                     stringResource(R.string.rule_wizard_keyword_include)
                                 },
                                 keywords = includeKeywords,
+                                initialInput = includeInitial,
                                 onAdd = onAddIncludeKeyword,
                                 onRemove = onRemoveIncludeKeyword,
-                                onDismiss = { showIncludeDialog = false },
+                                onDismiss = {
+                                    showIncludeDialog = false
+                                    includeInitial = ""
+                                },
                             )
                         }
                         if (matchMode == MatchMode.MIXED && showExcludeDialog) {
                             KeywordInputDialog(
                                 title = stringResource(R.string.rule_wizard_keyword_not_contains_b),
                                 keywords = excludeKeywords,
+                                initialInput = excludeInitial,
                                 onAdd = onAddExcludeKeyword,
                                 onRemove = onRemoveExcludeKeyword,
-                                onDismiss = { showExcludeDialog = false },
+                                onDismiss = {
+                                    showExcludeDialog = false
+                                    excludeInitial = ""
+                                },
                             )
                         }
                     }
@@ -1330,58 +1360,94 @@ private fun matchModeLabel(mode: MatchMode): String = when (mode) {
 // ---------------------------------------------------------------------------
 
 /**
- * 关键字输入触发按钮：展示标签与已选关键字预览，点击打开 [KeywordInputDialog]。
- * MIXED「包含A且不包含B」会渲染两个触发器（包含A / 且不包含B），其他模式仅一个。
+ * 关键字 chip 行：直接展示已选关键字，点击 chip 主体进入编辑，尾部关闭图标删除。
+ * 标题行右侧提供「+」按钮打开输入弹窗添加新关键字。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun KeywordInputTrigger(
+private fun KeywordChipRow(
     label: String,
     keywords: List<String>,
-    onClick: () -> Unit,
+    onEditKeyword: (String) -> Unit,
+    onRemoveKeyword: (String) -> Unit,
+    onAddClick: () -> Unit,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(vertical = 4.dp),
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
             )
-            if (keywords.isNotEmpty()) {
-                Text(
-                    text = keywords.joinToString("、"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            IconButton(
+                onClick = onAddClick,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = stringResource(R.string.rule_wizard_add_keyword),
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
-        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+        Spacer(Modifier.height(4.dp))
+        if (keywords.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                keywords.forEach { keyword ->
+                    InputChip(
+                        selected = false,
+                        onClick = { onEditKeyword(keyword) },
+                        label = { Text(keyword) },
+                        trailingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onRemoveKeyword(keyword) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.remove),
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = stringResource(R.string.rule_wizard_keyword_placeholder),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
 /**
- * 关键字输入弹窗（NotixDialog 风格）：标题 + 已选 chip 列表 + 输入框（回车/「添加」追加）。
- * 点击 chip 主体回填输入框并移除原词，尾部关闭图标直接删除；底部「确定」关闭。
+ * 关键字输入弹窗（NotixDialog 风格）：标题 + 已选 chip 列表 + 多行输入框。
+ * 点击 chip 主体回填输入框并移除原词，尾部关闭图标直接删除；底部「确定」提交输入并关闭。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun KeywordInputDialog(
     title: String,
     keywords: List<String>,
+    initialInput: String = "",
     onAdd: (String) -> Unit,
     onRemove: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var input by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf(initialInput) }
     val commit: () -> Unit = {
         val kw = input.trim()
         if (kw.isNotEmpty()) onAdd(kw)
@@ -1435,17 +1501,11 @@ private fun KeywordInputDialog(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(title) },
                     placeholder = { Text(stringResource(R.string.rule_wizard_keyword_placeholder)) },
-                    singleLine = true,
+                    // v8.12：长文本可换行显示
+                    singleLine = false,
+                    minLines = 2,
+                    maxLines = 5,
                     shape = RoundedCornerShape(8.dp),
-                    trailingIcon = {
-                        IconButton(onClick = commit) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = stringResource(R.string.rule_wizard_add_keyword),
-                            )
-                        }
-                    },
-                    // v8.12：回车（Done）添加关键字
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { commit() }),
                 )
@@ -1453,7 +1513,7 @@ private fun KeywordInputDialog(
         },
         buttons = {
             NotixDialogButton(
-                onClick = onDismiss,
+                onClick = { commit(); onDismiss() },
                 modifier = Modifier.fillMaxWidth(),
                 text = stringResource(R.string.ok),
             )
