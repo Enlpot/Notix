@@ -285,3 +285,23 @@
 - `gradlew testDebugUnitTest` BUILD SUCCESSFUL（全部单测通过）。
 - `gradlew assembleDebug --no-daemon` BUILD SUCCESSFUL。
 - 未升版（用户未要求本轮发版）。
+
+## 本轮修改（第 12 轮 · 2026-08-24 · 规则条件弹窗 NotixDialog 化 + 匹配模式弹窗选择）
+
+> 修改点：
+> 1. 规则向导「配置条件」弹窗（原 `AlertDialog`）改为与全站一致的 `NotixDialog` 风格；窗口尺寸固定 520dp 高，内部 `TabRow`（关键字/手机状态/时间）+ `weight(1f).verticalScroll` 可滚动内容区，超出可滚动。
+> 2. 匹配模式选择（原 `DropdownMenu` 锚定 `OutlinedButton`）改为独立 `NotixDialog` 弹窗：滚动列表每行 `Row.clickable` 选中即回调，`CheckCircle` 图标指示当前项，`HorizontalDivider` 分隔，`ADVANCED` 项禁用并显示 `rule_wizard_mode_advanced_hint`。
+> 3. `NotixDialog` 关闭行为修正：原 `dismissOnClickOutside` 由系统处理会与弹窗内 `Switch`/Chip 事件冲突（时间 tab 开关点不动）；改为 `dismissOnClickOutside = false` + 遮罩层 `clickable { onDismiss }` 自行关闭、`dismissOnBackPress = true`、Surface 仍 `clickable { onClick = {} }` 吞内部点击。最终外部点击关闭 + 内部开关可点均正常。
+
+`app/src/main/java/com/enlpot/notix/ui/components/NotixDialog.kt` | `DialogProperties` 由 `usePlatformDefaultWidth = false` 改为 `usePlatformDefaultWidth = false, dismissOnClickOutside = false, dismissOnBackPress = true`；遮罩层保留 `clickable { onDismiss }`、Surface 保留 `clickable { onClick = {} }` 吞点击；注释同步说明改动原因。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` |
+- 删除 `AlertDialog` / `DropdownMenu` / `DropdownMenuItem` 三个 import。
+- `ConditionConfigDialog`：`AlertDialog(title + text 滚动 + OK/Cancel 两 TextButton)` → `NotixDialog(onDismiss, title)`，外层 `Column.height(520.dp)`，内部 `TabRow(selectedTabIndex=tab)` 三 tab + `Spacer(12.dp)` + `Column(weight(1f).verticalScroll)` 承载原 `when(tab)` 内容（关键字 tab 内 `MatchModePicker` + 两个 `KeywordChipInput`；手机状态 / 时间 tab 保持原 `PhoneStateSection` / `TimeSection`）。
+- `MatchModePicker`：移除 `menuOpen` 与 `DropdownMenu`，改为 `showDialog` 状态；点击 `OutlinedButton` 打开新 `MatchModePickerDialog`。
+- 新增 `MatchModePickerDialog(currentMode, onModeSelected, onDismiss)`：套 `NotixDialog`，内部 `Column.verticalScroll`，`MatchMode.entries.forEachIndexed` 渲染 `Row(clickable(enabled = !disabled), padding 12dp/4dp)`，左 `Column(weight(1f))` 装 label + ADVANCED 提示、右 `CheckCircle` 仅在 `selected` 显示；行间 `HorizontalDivider` 分隔（末项不加）。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL（仅既有 deprecation warning）。
+- APK 已 `adb -s emulator-5554 install -r` 安装并冷重启；UIAutomator dump + 坐标 tap 验证：规则→添加新规则→点「配置条件」卡片 → NotixDialog 风格弹窗（固定高 520dp，三 tab）；点匹配模式按钮 → 独立弹窗打开，选项可点选；时间 tab 的日期/时间 `Switch` 可正常点击切换；弹窗外点击可关闭。
+- 未升版（用户未要求本轮发版）。

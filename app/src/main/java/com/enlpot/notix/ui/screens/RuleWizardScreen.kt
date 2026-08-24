@@ -67,7 +67,6 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -77,8 +76,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -1114,33 +1111,42 @@ private fun ConditionConfigDialog(
     onDismiss: () -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(initialTab) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.rule_wizard_condition_title)) },
-        text = {
+    NotixDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.rule_wizard_condition_title),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(520.dp),
+        ) {
+            TabRow(
+                selectedTabIndex = tab,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Tab(
+                    selected = tab == 0,
+                    onClick = { tab = 0 },
+                    text = { Text(stringResource(R.string.rule_wizard_condition_keywords)) },
+                )
+                Tab(
+                    selected = tab == 1,
+                    onClick = { tab = 1 },
+                    text = { Text(stringResource(R.string.rule_wizard_condition_phone_state)) },
+                )
+                Tab(
+                    selected = tab == 2,
+                    onClick = { tab = 2 },
+                    text = { Text(stringResource(R.string.rule_wizard_condition_time)) },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                TabRow(selectedTabIndex = tab) {
-                    Tab(
-                        selected = tab == 0,
-                        onClick = { tab = 0 },
-                        text = { Text(stringResource(R.string.rule_wizard_condition_keywords)) },
-                    )
-                    Tab(
-                        selected = tab == 1,
-                        onClick = { tab = 1 },
-                        text = { Text(stringResource(R.string.rule_wizard_condition_phone_state)) },
-                    )
-                    Tab(
-                        selected = tab == 2,
-                        onClick = { tab = 2 },
-                        text = { Text(stringResource(R.string.rule_wizard_condition_time)) },
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
                 when (tab) {
                     0 -> Column {
                         MatchModePicker(mode = matchMode, onModeSelected = onMatchModeChange)
@@ -1197,22 +1203,12 @@ private fun ConditionConfigDialog(
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
-// Match mode picker (dropdown menu)
+// Match mode picker（弹窗选择，与 NotixDialog 风格一致）
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -1220,12 +1216,11 @@ private fun MatchModePicker(
     mode: MatchMode,
     onModeSelected: (MatchMode) -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(false) }
 
-    // v7.12：Box 显式包裹，DropdownMenu 锚定按钮，避免菜单偏移
     Box {
         OutlinedButton(
-            onClick = { menuOpen = true },
+            onClick = { showDialog = true },
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -1238,38 +1233,77 @@ private fun MatchModePicker(
             Icon(Icons.Default.ArrowDropDown, contentDescription = null)
         }
 
-        DropdownMenu(
-            expanded = menuOpen,
-            onDismissRequest = { menuOpen = false },
+        if (showDialog) {
+            MatchModePickerDialog(
+                currentMode = mode,
+                onModeSelected = {
+                    onModeSelected(it)
+                    showDialog = false
+                },
+                onDismiss = { showDialog = false },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MatchModePickerDialog(
+    currentMode: MatchMode,
+    onModeSelected: (MatchMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    NotixDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.rule_wizard_mode_label),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
         ) {
-            MatchMode.entries.forEach { m ->
+            MatchMode.entries.forEachIndexed { index, m ->
                 val disabled = m == MatchMode.ADVANCED
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(matchModeLabel(m))
-                            if (m == MatchMode.ADVANCED) {
-                                Text(
-                                    text = stringResource(R.string.rule_wizard_mode_advanced_hint),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                val selected = m == currentMode
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !disabled) {
+                            if (!disabled) {
+                                onModeSelected(m)
                             }
                         }
-                    },
-                    onClick = {
-                        if (!disabled) {
-                            onModeSelected(m)
-                            menuOpen = false
+                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = matchModeLabel(m),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (disabled) {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+                        if (m == MatchMode.ADVANCED) {
+                            Text(
+                                text = stringResource(R.string.rule_wizard_mode_advanced_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                    },
-                    enabled = !disabled,
-                    trailingIcon = {
-                        if (m == mode) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        }
-                    },
-                )
+                    }
+                    if (selected) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                if (index < MatchMode.entries.lastIndex) {
+                    HorizontalDivider()
+                }
             }
         }
     }

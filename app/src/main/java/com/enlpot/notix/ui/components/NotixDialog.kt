@@ -62,15 +62,20 @@ fun NotixDialog(
 ) {
     Dialog(
         onDismissRequest = onDismiss,
-        // 关闭平台默认窄窗口，让宽度按屏幕 92% 真实生效
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        // 关闭平台默认窄窗口，让宽度按屏幕 92% 真实生效；
+        // 同时禁用系统自带的点击外部关闭，改由遮罩层自行判断，避免与弹窗内部
+        // Switch/Chip 等控件的事件冲突。
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnClickOutside = false,
+            dismissOnBackPress = true,
+        )
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 关闭平台默认窗口后原生 scrim 失效，手动补半透明遮罩
+                // 手动补半透明遮罩（视觉效果 + 点击外部关闭）
                 .background(Color.Black.copy(alpha = 0.32f))
-                // 点击遮罩（弹窗外部）即关闭
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -84,7 +89,7 @@ fun NotixDialog(
                     modifier = Modifier
                         .fillMaxWidth(0.92f)
                         .heightIn(max = maxDialogHeight)
-                        // 点弹窗内部不关闭（吞掉点击，避免穿透到外部遮罩）
+                        // 吞掉弹窗内部点击，避免冒泡到外部遮罩导致误关闭
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
