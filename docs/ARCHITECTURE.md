@@ -31,7 +31,7 @@ Notix is a single-module Android application that intercepts, evaluates, and opt
 | Min SDK | 24 (Android 7.0 Nougat) |
 | Target/Compile SDK | 36 |
 | Java Target | 11 |
-| Current Version | 7.38 (versionCode 103) |
+| Current Version | 8.9 (versionCode 122) |
 | License | MIT |
 | Gradle Version | 8.13 |
 | AGP Version | 8.13.2 |
@@ -1113,13 +1113,11 @@ This is the only permission. No internet, storage, camera, or location permissio
 **Service:**
 - `NotificationBlockerService` - Exported with `BIND_NOTIFICATION_LISTENER_SERVICE` permission. Intent filter for `android.service.notification.NotificationListenerService`.
 
-### Package Queries
+### Package Visibility
 
-The manifest declares `<queries>` for 30 app packages. This is required by Android 11+'s package visibility restrictions so the app can:
-1. Detect which supported apps are installed
-2. Auto-install corresponding prebuilt rules
+Notix does **not** declare a `<queries>` block and does **not** hold `QUERY_ALL_PACKAGES`. App icons and display names are resolved lazily when a notification actually arrives (via `PackageManager` on the specific posting package), so no full package enumeration is needed. This keeps the manifest minimal and avoids the restricted `QUERY_ALL_PACKAGES` permission.
 
-Queried packages span e-commerce (Amazon, Flipkart, eBay), social media (Instagram, Facebook, TikTok), food delivery (Swiggy, Zomato, DoorDash), entertainment (Netflix, Disney+, Spotify), and utilities (Truecaller, Mygate).
+On Android 11+ this means the app only "sees" packages it interacts with directly (e.g. the app that posted a notification), which is sufficient for its notification-driven workflow. Prebuilt rules are matched by the posting package name at runtime, not by pre-declared package queries.
 
 ### Backup Configuration
 

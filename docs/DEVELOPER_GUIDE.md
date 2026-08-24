@@ -118,14 +118,9 @@ For most features, the modification order is:
    }
    ```
 
-2. **Add package query to `AndroidManifest.xml`** - Required for Android 11+ package visibility:
-   ```xml
-   <queries>
-       <package android:name="com.example.app" />
-   </queries>
-   ```
+2. **Test** - Install the target app on a test device, then launch Notix. The auto-install logic in `MainActivity.checkForNewRules()` should detect and install the rule. Check via the "Browse Pre-built Rules" screen.
 
-3. **Test** - Install the target app on a test device, then launch Notix. The auto-install logic in `MainActivity.checkForNewRules()` should detect and install the rule. Check via the "Browse Pre-built Rules" screen.
+> Note: Notix does **not** declare a `<queries>` block and does **not** hold `QUERY_ALL_PACKAGES`. App metadata is resolved lazily from the posting package at notification time, so no package-visibility declaration is needed when adding a prebuilt rule.
 
 ### Tips for writing regex patterns
 

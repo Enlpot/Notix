@@ -56,7 +56,7 @@ Recommended size: 1080×2340 (portrait) or 2400×1600 (landscape), PNG.
 
 ## Requirements
 
-- **Android 15 (API 35) or higher** — Notix targets a modern, 64-bit-only platform surface
+- **Android 7.0 (API 24) or higher**
 - Notification listener access (granted through the in-app setup wizard)
 - On Android 13+, the notification posting permission used by the block/silence flow
 
@@ -79,7 +79,7 @@ Recommended size: 1080×2340 (portrait) or 2400×1600 (landscape), PNG.
 
 Signing credentials are read from `local.properties` (`KEYSTORE_NOTIX_*`) or environment variables and are never committed.
 
-**Toolchain:** Gradle 8.10 · Android Gradle Plugin 8.x · Kotlin 2.x · `compileSdk 36` / `minSdk 35` / `targetSdk 36` · Java 17.
+**Toolchain:** Gradle 8.13 · Android Gradle Plugin 8.13.2 · Kotlin 2.0.21 · `compileSdk 36` / `minSdk 24` / `targetSdk 36` · Java 11.
 
 ## Documentation
 

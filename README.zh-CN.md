@@ -56,7 +56,7 @@ Notix 是一款**完全离线**的 Android 通知管理工具，面向重度手�
 
 ## 运行要求
 
-- **Android 15（API 35）及以上**——Notix 面向现代、仅 64 位的平台
+- **Android 7.0（API 24）及以上**
 - 通知监听器权限（通过应用内设置向导授予）
 - Android 13+ 还需通知发送权限以支撑拦截/静默流程
 
@@ -79,7 +79,7 @@ Notix 是一款**完全离线**的 Android 通知管理工具，面向重度手�
 
 签名凭据从 `local.properties`（`KEYSTORE_NOTIX_*`）或环境变量读取，**绝不**提交到仓库。
 
-**工具链：** Gradle 8.10 · Android Gradle Plugin 8.x · Kotlin 2.x · `compileSdk 36` / `minSdk 35` / `targetSdk 36` · Java 17。
+**工具链：** Gradle 8.13 · Android Gradle Plugin 8.13.2 · Kotlin 2.0.21 · `compileSdk 36` / `minSdk 24` / `targetSdk 36` · Java 11。
 
 ## 文档
 
