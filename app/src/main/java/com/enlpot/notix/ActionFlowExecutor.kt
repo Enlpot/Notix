@@ -46,6 +46,8 @@ class ActionContext(
     val text: String?,
     val notificationKey: String,
     val postTime: Long,
+    /** v8.13：DISMISS 动作的「包括常驻通知」参数；true 时对 isClearable=false 的通知走 snooze */
+    val includeOngoing: Boolean = false,
     /** 实时通知对象（CLICK_BUTTON/OPEN_NOTIFICATION/SILENT 使用；可为 null 便于 JVM 测试） */
     val sbn: StatusBarNotification? = null,
     /** 实时按钮列表（= sbn.notification.actions） */
@@ -61,8 +63,11 @@ class ActionContext(
  * （取消通知 / 低打扰重发 / 剪贴板 / TTS 模板与播报）。引擎与 Service 解耦，JVM 测试注入 Fake。
  */
 interface ActionFlowHost {
-    /** DISMISS：取消指定 key 的通知 */
+    /** DISMISS：取消可清除通知（API 18+） */
     fun cancelNotificationCompat(key: String)
+
+    /** DISMISS（含常驻）：用 snoozeNotification 冻结常驻通知（API 26+）；<26 降级到 cancel */
+    fun snoozeNotificationCompat(key: String)
 
     /** COPY：写入系统剪贴板 */
     fun copyToClipboard(text: String)
@@ -378,7 +383,20 @@ class ActionFlowExecutor(
  */
 class RealSyncActionRunner(private val host: ActionFlowHost) : SyncActionRunner {
     override fun dismiss(ctx: ActionContext) {
-        host.cancelNotificationCompat(ctx.notificationKey)
+        // v8.13：DISMISS 路径分派——
+        // - 可清除通知：cancelNotification(key)
+        // - 常驻通知（!isClearable）+ includeOngoing=true：snoozeNotification(key, 极大值)
+        // - 常驻通知 + includeOngoing=false：保持原行为（cancelNotification，可能无效）
+        val sbn = ctx.sbn
+        val shouldSnooze = ctx.includeOngoing &&
+            sbn != null &&
+            android.os.Build.VERSION.SDK_INT >= 26 &&
+            !sbn.isClearable
+        if (shouldSnooze) {
+            host.snoozeNotificationCompat(ctx.notificationKey)
+        } else {
+            host.cancelNotificationCompat(ctx.notificationKey)
+        }
     }
 
     override fun clickButton(ctx: ActionContext, spec: ActionSpec) {

@@ -2477,8 +2477,44 @@ private fun ActionParamEditor(
                         ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
                     }
                 }
+                RuleAction.DISMISS -> {
+                    // v8.13：DISMISS 弹窗：含「包括常驻通知」勾选
+                    val includeOngoingInit = spec.params?.get("includeOngoing")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
+                    var includeOngoing by remember(spec) { mutableStateOf(includeOngoingInit) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.rule_wizard_dismiss_include_ongoing),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.rule_wizard_dismiss_include_ongoing_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = includeOngoing,
+                            onCheckedChange = { includeOngoing = it },
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
+                        Button(
+                            onClick = { onCommit(RuleWizardSupport.dismissSpec(includeOngoing)) },
+                        ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
+                    }
+                }
                 else -> {
-                    // DISMISS / OPEN_NOTIFICATION：无参数，只显示说明
+                    // OPEN_NOTIFICATION：无参数，只显示说明
                     Text(
                         text = actionDescription(spec.type),
                         style = MaterialTheme.typography.bodyMedium,

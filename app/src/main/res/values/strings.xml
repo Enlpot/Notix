@@ -405,6 +405,8 @@
     <string name="rule_wizard_advanced_filters">Advanced Filters</string>
     <string name="rule_action_dismiss">移除</string>
     <string name="rule_action_desc_dismiss">立即移除当前通知。</string>
+    <string name="rule_wizard_dismiss_include_ongoing">包括常驻通知</string>
+    <string name="rule_wizard_dismiss_include_ongoing_desc">对通知栏无法滑动消除的通知（如音乐、前台服务、画中画）也生效。手机重启后失效。</string>
     <string name="rule_action_desc_mute">Silence the notification but keep it visible.</string>
     <string name="rule_action_desc_delay_remind">Dismiss now and show again later.</string>
     <string name="rule_action_desc_copy_content">Copy the notification text to clipboard.</string>

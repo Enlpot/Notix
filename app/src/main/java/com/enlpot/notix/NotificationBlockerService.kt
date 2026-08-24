@@ -552,6 +552,13 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         }
         actionFlowDebounce[flowKey] = debounceNow
         actionFlowDebounce.entries.removeIf { (_, ts) -> debounceNow - ts >= ACTION_FLOW_DEBOUNCE_MS }
+        // v8.13：从规则首个 DISMISS 动作读 includeOngoing，传入 ActionContext
+        val includeOngoing = rule.actions
+            .firstOrNull { it.type == RuleAction.DISMISS }
+            ?.params
+            ?.takeIf { it.has("includeOngoing") }
+            ?.get("includeOngoing")
+            ?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
         val ctx = ActionContext(
             ruleId = rule.id,
             packageName = sbn.packageName,
@@ -560,6 +567,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             text = text,
             notificationKey = sbn.key,
             postTime = sbn.postTime,
+            includeOngoing = includeOngoing,
             sbn = sbn,
             notificationActions = sbn.notification.actions,
             contentIntent = sbn.notification.contentIntent,
@@ -635,6 +643,25 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
     override fun cancelNotificationCompat(key: String) {
         cancelNotification(key)
+    }
+
+    /**
+     * v8.13：DISMISS 对常驻通知的冻结实现。
+     * API 26+ 走 [snoozeNotification]（key + durationMs），设极大值（≈274 年）模拟永久冻结；
+     * API <26 无 snoozeNotification，降级到 [cancelNotification]（常驻通知上可能无效）。
+     * 副作用：snooze 在手机重启后失效（系统限制），届时常驻通知会重新出现。
+     */
+    override fun snoozeNotificationCompat(key: String) {
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            try {
+                snoozeNotification(key, Long.MAX_VALUE / 2)
+            } catch (e: Exception) {
+                Log.w(TAG, "snoozeNotification failed for key=$key, fallback to cancel", e)
+                cancelNotification(key)
+            }
+        } else {
+            cancelNotification(key)
+        }
     }
 
     override fun copyToClipboard(text: String) {

@@ -354,3 +354,64 @@
   - 切换匹配模式为「包含A且不包含B」（MIXED）：界面同时显示「包含 A」与「且不含 B」两组 chip 区；分别添加 `editmed` 与 `exclude1`，两组关键字独立展示。
   - 输入框在弹窗内高度明显高于单行，长文本可换行显示。
 - 未升版（用户未要求本轮发版）。
+
+---
+
+## v8.13 · 移除固定/常驻通知（2026-08-24）
+
+**核心改动**：对标通知滤盒/BuzzKill 的「包括常驻通知」开关，给 Notix 的 `DISMISS` 动作加上 `snoozeNotification` 路径，让对系统无法用 `cancelNotification` 直接消除的常驻通知（音乐、前台服务、画中画、系统上层显示）也能消除。
+
+**核心 API 调研结论**：Android `NotificationListenerService` 对常驻通知（`StatusBarNotification.isClearable() == false`）调用 `cancelNotification(key)` 是**无效的**（系统忽略 + 第三方监听器无回调）；必须改用 `snoozeNotification(key, durationMs)`（API 26+，Android 8.0+）才能真正消除。`snooze` 副作用是「手机重启后失效」（系统限制），与通知滤盒的「时间往回调 1 年」恢复技巧是同一机制。
+
+**改动文件清单**
+
+`app/src/main/java/com/enlpot/notix/BlockerRule.kt` |
+- 新增 `data class DismissParams(val includeOngoing: Boolean = false)` v8.13：DISMISS 动作参数；`includeOngoing=true` 触发 `snoozeNotification` 路径。
+
+`app/src/main/java/com/enlpot/notix/ActionFlowExecutor.kt` |
+- `ActionContext` 新增 `val includeOngoing: Boolean = false` 字段。
+- `interface ActionFlowHost` 新增 `fun snoozeNotificationCompat(key: String)` 方法。
+- `RealSyncActionRunner.dismiss(ctx)` 改写分派逻辑：`sbn != null && SDK >= 26 && !sbn.isClearable && ctx.includeOngoing` → 走 `host.snoozeNotificationCompat(...)`，否则维持 `host.cancelNotificationCompat(...)`。
+- 用 `sbn.isClearable`（`StatusBarNotification` 上的方法）替代 `sbn.notification.isClearable()`，因后者在 API 34+ 已删除。
+
+`app/src/main/java/com/enlpot/notix/NotificationBlockerService.kt` |
+- `executeActionFlow` 从 `rule.actions[].params.includeOngoing` 读 flag 写入 `ActionContext`。
+- `snoozeNotificationCompat(key)` 实现：API 26+ 调 `snoozeNotification(key, Long.MAX_VALUE/2)` 模拟永久冻结；<26 降级到 `cancelNotification`；异常时回退 cancel。
+
+`app/src/main/java/com/enlpot/notix/RuleWizardSupport.kt` |
+- `defaultParamsFor(DISMISS) = null`（保持向后兼容——既有的 ActionFlowEditorTest 断言 `params == null` 不被破坏；`includeOngoing=false` 的行为与 `params=null` 等价）。
+- `hasActionParams(DISMISS) = true`（保证用户从动作选择器点 DISMISS 后能进入「包括常驻通知」参数弹窗）。
+- 新增 `fun dismissSpec(includeOngoing: Boolean): ActionSpec`：includeOngoing=true 时写入 `DismissParams` JSON；false 时返回 `params=null` 的 spec（与默认一致，JSON 体积最小）。
+- `actionFlowSummary(DISMISS)` 差异化：includeOngoing=true → "移除通知（含常驻）"，false → "移除通知"，null → "移除通知"（向后兼容）。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` |
+- `ActionParamEditor` 新增 `RuleAction.DISMISS` 分支（移出原 `else ->` 共享块）：标题行 + 「包括常驻通知」Switch + 副标题 + 取消/保存按钮；Switch 状态从 `spec.params.includeOngoing` 初始化；保存调 `RuleWizardSupport.dismissSpec(includeOngoing)`。
+- `OPEN_NOTIFICATION` 留在 `else ->`（仍无参数）。
+
+`app/src/main/res/values/strings.xml` |
+- 新增 `rule_wizard_dismiss_include_ongoing` = "包括常驻通知"。
+- 新增 `rule_wizard_dismiss_include_ongoing_desc` = "对通知栏无法滑动消除的通知（如音乐、前台服务、画中画）也生效。手机重启后失效。"。
+
+`app/src/test/java/com/enlpot/notix/ActionFlowCopyBehaviorTest.kt` |
+- `FakeHost` 新增 `val snoozedKeys` 列表与 `override fun snoozeNotificationCompat(key)` 实现（满足新接口契约）。
+
+`app/src/test/java/com/enlpot/notix/DismissSpecTest.kt`（新文件） |
+- v8.13 新增单测 4 例：① `defaultParamsFor(DISMISS) == null`；② `dismissSpec(false).params == null`；③ `dismissSpec(true).params.includeOngoing == true`；④ `hasActionParams(DISMISS) == true`。
+
+`app/build.gradle.kts` |
+- `versionCode 125 → 126`，`versionName "8.12" → "8.13"`。
+
+`RELEASE_NOTES.md` / `VERSION_HISTORY.md` / `VERSION_HISTORY.zh-CN.md` |
+- 整文件覆盖为 v8.13 英文发布说明 / 顶部插入 8.13 历史条目 / 中文版同步新增 8.13。
+
+**验证**：
+- `gradlew.bat assembleDebug --no-daemon` BUILD SUCCESSFUL。
+- `gradlew.bat :app:testDebugUnitTest --no-daemon` BUILD SUCCESSFUL（87 + 4 = 91 例全过，包括 2 个原本因新参数会失败的 ActionFlowEditorTest 与 4 个新增 DismissSpecTest）。
+- APK 已 `adb -s emulator-5554 install -r` 安装并冷启动；UIAutomator dump + 坐标 tap 验证：
+  - 规则 → 添加新规则 → + 添加动作 → 选「移除」→ 弹出「移除」弹窗，**显示「包括常驻通知」开关 + 副标题**，默认关闭；保存后动作卡显示「**移除通知（含常驻）**」（证明 `actionFlowSummary` 正确读取 `includeOngoing=true`）。
+  - 开关保持关闭时保存，spec.params 应为 null（向后兼容路径），不写 JSON。
+- 待 v8.13 发版后真机验证：真机（一加 Ace 5 Pro / ColorOS 15）的「上层显示」「哔哩哔哩前台媒体」类通知，开启 includeOngoing 后应被一次性冻结消除（与通知滤盒行为一致）。
+
+**已知限制**：
+- 模拟器（Android 16 / API 36 / x86_64）上系统 uid=1000 通知（AlertWindowNotification）第三方监听器仍无法消除（ColorOS 厂商 ROM 限制）；真机验证是关键。
+- `snoozeNotification` 在手机重启后失效（系统限制），届时常驻通知会重新出现。

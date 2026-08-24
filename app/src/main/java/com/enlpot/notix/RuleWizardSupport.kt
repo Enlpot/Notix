@@ -185,10 +185,14 @@ object RuleWizardSupport {
     /** 该类型是否有参数需要编辑（有则添加后自动进入参数编辑状态）。 */
     fun hasActionParams(type: RuleAction): Boolean = when (type) {
         RuleAction.CLICK_BUTTON, RuleAction.COPY, RuleAction.TTS, RuleAction.DELAY, RuleAction.STRONG_REMIND, RuleAction.POSTPONE -> true
+        // v8.13：DISMISS 有「包括常驻通知」可选参数
+        RuleAction.DISMISS -> true
         else -> false
     }
 
-    /** 各 Action 类型的默认参数；无参数类型返回 null。 */
+    /** 各 Action 类型的默认参数；无参数类型返回 null。
+     *  v8.13：DISMISS 默认 params=null（保持向后兼容、行为 = 不含常驻）；
+     *  仅当用户在弹窗勾选「包括常驻通知」时，dismissSpec(true) 才会写入 DismissParams。 */
     fun defaultParamsFor(type: RuleAction): JsonObject? = when (type) {
         RuleAction.CLICK_BUTTON -> ClickButtonParams(buttonLabel = "").toParamsJson()
         RuleAction.COPY -> CopyParams(mode = CopyMode.TITLE_AND_TEXT).toParamsJson()
@@ -197,6 +201,8 @@ object RuleWizardSupport {
         // v8.10 新增
         RuleAction.STRONG_REMIND -> StrongRemindParams().toParamsJson()
         RuleAction.POSTPONE -> PostponeParams().toParamsJson()
+        // v8.13 新增：DISMISS 默认 null（includeOngoing=false），勾选后由 dismissSpec(true) 写入
+        RuleAction.DISMISS -> null
         else -> null
     }
 
@@ -220,11 +226,24 @@ object RuleWizardSupport {
     fun postponeSpec(delayMs: Long): ActionSpec =
         ActionSpec(RuleAction.POSTPONE, PostponeParams(delayMs).toParamsJson())
 
+    // v8.13 新增：DISMISS 工厂——includeOngoing=false 时保持 params=null（向后兼容），
+    // 仅 includeOngoing=true 时才写入 DismissParams。
+    fun dismissSpec(includeOngoing: Boolean): ActionSpec =
+        if (includeOngoing) {
+            ActionSpec(RuleAction.DISMISS, DismissParams(includeOngoing = true).toParamsJson())
+        } else {
+            ActionSpec(RuleAction.DISMISS, null)
+        }
+
     /** 从 ActionSpec 生成卡片参数摘要（只用于帮助用户快速理解）。 */
     fun actionFlowSummary(spec: ActionSpec): String {
         val params = spec.params
         return when (spec.type) {
-            RuleAction.DISMISS -> "移除通知"
+            // v8.13：DISMISS 区分是否含常驻通知
+            RuleAction.DISMISS -> {
+                val includeOngoing = params?.get("includeOngoing")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
+                if (includeOngoing) "移除通知（含常驻）" else "移除通知"
+            }
             RuleAction.OPEN_NOTIFICATION -> "打开通知对应页面"
             RuleAction.COPY -> {
                 val mode = runCatching {

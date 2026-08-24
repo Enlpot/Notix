@@ -24,9 +24,14 @@ class ActionFlowCopyBehaviorTest {
     private class FakeHost : ActionFlowHost {
         val copiedTexts = mutableListOf<String>()
         val dismissedKeys = mutableListOf<String>()
+        val snoozedKeys = mutableListOf<String>()
 
         override fun cancelNotificationCompat(key: String) {
             dismissedKeys.add(key)
+        }
+
+        override fun snoozeNotificationCompat(key: String) {
+            snoozedKeys.add(key)
         }
 
         override fun copyToClipboard(text: String) {

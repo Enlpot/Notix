@@ -1,15 +1,14 @@
-# Notix 8.12 Release Notes
+# Notix 8.13 Release Notes
 
-Changes since the previous released version 8.11.
+Changes since the previous released version 8.12.
+
+## New
+- **Remove ongoing notifications (fixed / foreground-service / "drawing on top" notifications)** — the `Remove` action now has an `Include ongoing notifications` switch. When enabled, ongoing notifications that the system refuses to clear via `cancelNotification` (e.g. music players, foreground services, the "Drawing on top of other apps" alert) are suppressed via `snoozeNotification` with a very large duration, matching the behavior of apps like Notification Filter Box. Default is **off** to preserve the previous behavior.
 
 ## Improved
-- Rule condition "Configure condition" dialog now uses the app-wide `NotixDialog` style (replacing the old `AlertDialog`): fixed 520dp height, a three-tab layout (Keyword / Phone State / Time) with a scrollable content area so long content scrolls inside the dialog.
-- Match-mode picker moved out of the inline `DropdownMenu` into a dedicated `NotixDialog`: a scrollable list with a check-circle on the selected item, divider-separated rows, and the `ADVANCED` mode shown disabled with a hint.
-- Keyword input is now a popup dialog opened by tapping a trigger; the "include A and not include B" (MIXED) mode exposes two separate inputs (include A / exclude B), while other modes show a single "include keyword" input — matching the rest of the dialog family.
-
-## Changed
-- Keywords are shown directly as chips on the condition screen; tapping a chip opens the input dialog prefilled for editing, and the trailing × removes it.
-- Keyword input dialog: removed the inline "+" button; the bottom "OK" button now commits the current text and closes; the input field wraps long text (min 2 / max 5 lines).
+- DISMISS action card in `RuleWizardScreen` now distinguishes `Remove notification` vs `Remove notification (including ongoing)` in the action-flow summary, so the rule list shows whether the rule targets ongoing notifications at a glance.
 
 ## Notes
-- `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells in v8.12; their real execution (high-priority heads-up + ring/vibrate, delayed re-post) lands in a future release.
+- The "include ongoing" path uses `snoozeNotification` and is only available on Android 8.0 (API 26) and above; on older systems it silently falls back to `cancelNotification`.
+- Snoozed notifications are reactivated after a device reboot (system limitation); the "Phone time back 1 year" trick in Notification Filter Box works the same way to recover them earlier.
+- `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells in v8.13; their real execution lands in a future release.

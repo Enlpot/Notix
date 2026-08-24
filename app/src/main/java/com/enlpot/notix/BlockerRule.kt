@@ -117,6 +117,16 @@ data class CopyParams(val mode: CopyMode = CopyMode.TITLE_AND_TEXT)
 /** DELAY 延迟参数（毫秒，必须 > 0） */
 data class DelayParams(val durationMs: Long = 1000L)
 
+/**
+ * DISMISS 移除参数（v8.13 新增）。
+ *
+ * - includeOngoing=false（默认）：仅对可清除通知生效，对常驻通知（[Notification.isClearable]==false）无效。
+ * - includeOngoing=true：对常驻通知改走 `snoozeNotification(key, Long.MAX_VALUE/2)`，模拟"永久冻结"
+ *   —— 与通知滤盒的「包括常驻通知」行为一致。
+ * 副作用：snooze 在手机重启后失效（系统限制），届时常驻通知会重新出现。
+ */
+data class DismissParams(val includeOngoing: Boolean = false)
+
 /** STRONG_REMIND 强提醒参数（v8.10 新增，参数体留待 v8.11+ 细化） */
 data class StrongRemindParams(val sound: Boolean = true, val vibrate: Boolean = true)
 
