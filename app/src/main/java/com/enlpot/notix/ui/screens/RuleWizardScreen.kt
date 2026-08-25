@@ -163,6 +163,10 @@ import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.NotixDialog
 import com.enlpot.notix.ui.components.NotixDialogButton
 import com.enlpot.notix.ui.components.RealAppIcon
+import com.enlpot.notix.ui.theme.NotixCorner
+import com.enlpot.notix.ui.theme.notix
+import com.enlpot.notix.ui.theme.notixSpacing
+import com.enlpot.notix.ui.theme.notixType
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -366,7 +370,7 @@ fun RuleWizardScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
+        color = MaterialTheme.notix.background,
     ) {
         Scaffold(
             // v7.24：应用内 Snackbar 提示（替代系统 Toast）
@@ -383,10 +387,10 @@ fun RuleWizardScreen(
                         // v7.50：对号按钮增加底色——canSave=false 灰色无底色 disabled，canSave=true 主题色高亮
                         Box(
                             modifier = Modifier
-                                .padding(end = 8.dp)
+                                .padding(end = MaterialTheme.notixSpacing.sm)
                                 .clip(RoundedCornerShape(14.dp))
                                 .then(
-                                    if (canSave) Modifier.background(MaterialTheme.colorScheme.primary)
+                                    if (canSave) Modifier.background(MaterialTheme.notix.primary)
                                     else Modifier
                                 ),
                         ) {
@@ -397,13 +401,13 @@ fun RuleWizardScreen(
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = stringResource(if (isEditMode) R.string.save else R.string.rule_wizard_create),
-                                    tint = if (canSave) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                    tint = if (canSave) MaterialTheme.notix.onPrimary else MaterialTheme.notix.contentPrimary.copy(alpha = 0.38f),
                                 )
                             }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
+                        containerColor = MaterialTheme.notix.background,
                     ),
                 )
             },
@@ -415,7 +419,7 @@ fun RuleWizardScreen(
                     .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
                     .imePadding()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = MaterialTheme.notixSpacing.lg),
             ) {
                 // ===== 0. 规则名称（可选，复用 BlockerRule.description） =====
                 OutlinedTextField(
@@ -424,15 +428,15 @@ fun RuleWizardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(R.string.rule_wizard_name_hint)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = NotixCorner.Control,
                     leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                 )
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.xl))
 
                 // ===== 1. 来源 =====
                 SectionHeader(title = stringResource(R.string.rule_wizard_section_source))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
 
                 if (!showAppPicker) {
                     SourceSummaryCard(
@@ -457,11 +461,11 @@ fun RuleWizardScreen(
                     )
                 }
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.xl))
 
                 // ===== 2. 条件（摘要展示 + 添加条件弹窗） =====
                 SectionHeader(title = stringResource(R.string.rule_wizard_section_conditions))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
 
                 ConditionSummaryCard(
                     hasKeywords = hasKeywords,
@@ -487,11 +491,11 @@ fun RuleWizardScreen(
                     },
                 )
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.xl))
 
                 // ===== 4. Action Flow（工作流） =====
                 SectionHeader(title = stringResource(R.string.rule_wizard_section_workflow))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
 
                 ActionFlowSection(
                     actions = actionFlow,
@@ -522,15 +526,15 @@ fun RuleWizardScreen(
                 )
 
                 if (actionFlow.isEmpty()) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
                     Text(
                         text = stringResource(R.string.rule_wizard_at_least_one_action),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.error,
                     )
                 }
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.xl))
 
                 // -- Duplicate warning --
                 val duplicate = RuleWizardSupport.isDuplicate(
@@ -551,32 +555,32 @@ fun RuleWizardScreen(
                         e.actions == actionFlow
                 } == true)
                 if (duplicate) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                color = MaterialTheme.colorScheme.errorContainer,
+                                color = MaterialTheme.notix.errorContainer,
                                 shape = MaterialTheme.shapes.small,
                             )
-                            .padding(12.dp),
+                            .padding(MaterialTheme.notixSpacing.md),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Warning,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            tint = MaterialTheme.notix.onErrorContainer,
                         )
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(MaterialTheme.notixSpacing.md))
                         Text(
                             text = stringResource(R.string.rule_wizard_duplicate_warning),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.notixType.bodySecondary,
+                            color = MaterialTheme.notix.onErrorContainer,
                         )
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.xxl))
             }
         }
     }
@@ -691,7 +695,7 @@ private fun SectionHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = MaterialTheme.notix.contentSecondary,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(bottom = 2.dp),
     )
@@ -713,24 +717,24 @@ private fun SourceSummaryCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(NotixCorner.Control)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = NotixCorner.Control,
         colors = CardDefaults.cardColors(
-            containerColor = if (hasSelection) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            containerColor = if (hasSelection) MaterialTheme.notix.primaryContainer
+            else MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f),
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = MaterialTheme.notixSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(R.string.rule_wizard_source_app),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.notixType.bodySecondary,
                 fontWeight = FontWeight.SemiBold,
-                color = if (hasSelection) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (hasSelection) MaterialTheme.notix.onPrimaryContainer
+                else MaterialTheme.notix.contentSecondary,
             )
             Spacer(Modifier.weight(1f))
             if (hasSelection) {
@@ -743,21 +747,21 @@ private fun SourceSummaryCard(
                         shape = CircleShape,
                     )
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                 Text(
                     text = if (selectedCount == 1) appNames.first()
                     else stringResource(R.string.rule_wizard_source_app_count, selectedCount),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (hasSelection) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.notixType.bodySecondary,
+                    color = if (hasSelection) MaterialTheme.notix.onPrimaryContainer
+                    else MaterialTheme.notix.contentSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             } else {
                 Text(
                     text = placeholder,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.notixType.bodySecondary,
+                    color = MaterialTheme.notix.contentSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -765,7 +769,7 @@ private fun SourceSummaryCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MaterialTheme.notix.contentSecondary,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -796,10 +800,10 @@ private fun AppPickerPanel(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        shape = NotixCorner.Control,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f)),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(MaterialTheme.notixSpacing.md)) {
             TextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -827,7 +831,7 @@ private fun AppPickerPanel(
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(8.dp),
+                shape = NotixCorner.Sm,
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
@@ -835,7 +839,7 @@ private fun AppPickerPanel(
                 ),
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
 
             // v8.10：收起时整段隐藏（应用列表 + 完成按钮），仅保留搜索框
             if (isAppListExpanded) {
@@ -869,13 +873,13 @@ private fun AppPickerPanel(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(NotixCorner.Sm)
                                 .then(
-                                    if (selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                    if (selected) Modifier.border(1.5.dp, MaterialTheme.notix.primary, NotixCorner.Sm)
                                     else Modifier
                                 )
                                 .clickable { onAppToggle(app.packageName) }
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                                .padding(horizontal = MaterialTheme.notixSpacing.sm, vertical = MaterialTheme.notixSpacing.sm),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Box(
@@ -883,8 +887,8 @@ private fun AppPickerPanel(
                                     .size(22.dp)
                                     .clip(RoundedCornerShape(4.dp))
                                     .then(
-                                        if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
-                                        else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+                                        if (selected) Modifier.background(MaterialTheme.notix.primary)
+                                        else Modifier.border(1.5.dp, MaterialTheme.notix.outline, RoundedCornerShape(4.dp))
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -908,7 +912,7 @@ private fun AppPickerPanel(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = app.appName ?: app.packageName,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.notixType.bodySecondary,
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -916,8 +920,8 @@ private fun AppPickerPanel(
                                 if (app.appName != null) {
                                     Text(
                                         text = app.packageName,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.notixType.caption,
+                                        color = MaterialTheme.notix.contentSecondary,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
@@ -927,7 +931,7 @@ private fun AppPickerPanel(
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDone) {
@@ -1026,41 +1030,41 @@ private fun ConditionSummaryCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(NotixCorner.Control)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        shape = NotixCorner.Control,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f)),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = MaterialTheme.notixSpacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.rule_wizard_condition_title),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.notixType.bodySecondary,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.weight(1f))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MaterialTheme.notix.contentSecondary,
                     modifier = Modifier.size(20.dp),
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(MaterialTheme.notixSpacing.xs))
             if (summaryLines.isNotEmpty()) {
                 summaryLines.forEachIndexed { index, line ->
                     if (index > 0) Spacer(Modifier.height(2.dp))
                     Text(
                         text = line,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.contentSecondary,
                     )
                 }
             } else {
                 Text(
                     text = stringResource(R.string.rule_wizard_condition_none),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.notixType.caption,
+                    color = MaterialTheme.notix.contentSecondary,
                 )
             }
         }
@@ -1130,7 +1134,7 @@ private fun ConditionConfigDialog(
                     text = { Text(stringResource(R.string.rule_wizard_condition_time)) },
                 )
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1144,7 +1148,7 @@ private fun ConditionConfigDialog(
                         var includeInitial by rememberSaveable { mutableStateOf("") }
                         var excludeInitial by rememberSaveable { mutableStateOf("") }
                         MatchModePicker(mode = matchMode, onModeSelected = onMatchModeChange)
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
                         // v8.12：关键字直接显示在条件配置界面，点击 chip 可编辑，+ 号打开输入弹窗。
                         KeywordChipRow(
                             label = if (matchMode == MatchMode.MIXED) {
@@ -1166,7 +1170,7 @@ private fun ConditionConfigDialog(
                             },
                         )
                         if (matchMode == MatchMode.MIXED) {
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
                             KeywordChipRow(
                                 label = stringResource(R.string.rule_wizard_keyword_not_contains_b),
                                 keywords = excludeKeywords,
@@ -1258,12 +1262,12 @@ private fun MatchModePicker(
     Box {
         OutlinedButton(
             onClick = { showDialog = true },
-            shape = RoundedCornerShape(8.dp),
+            shape = NotixCorner.Sm,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
                 text = stringResource(R.string.rule_wizard_mode_label) + "：" + matchModeLabel(mode),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.notixType.bodySecondary,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
             )
@@ -1309,24 +1313,24 @@ private fun MatchModePickerDialog(
                                 onModeSelected(m)
                             }
                         }
-                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                        .padding(vertical = MaterialTheme.notixSpacing.md, horizontal = MaterialTheme.notixSpacing.xs),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = matchModeLabel(m),
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = MaterialTheme.notixType.body,
                             color = if (disabled) {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                MaterialTheme.notix.contentPrimary.copy(alpha = 0.38f)
                             } else {
-                                MaterialTheme.colorScheme.onSurface
+                                MaterialTheme.notix.contentPrimary
                             },
                         )
                         if (m == MatchMode.ADVANCED) {
                             Text(
                                 text = stringResource(R.string.rule_wizard_mode_advanced_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.notixType.caption,
+                                color = MaterialTheme.notix.contentSecondary,
                             )
                         }
                     }
@@ -1334,7 +1338,7 @@ private fun MatchModePickerDialog(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = MaterialTheme.notix.primary,
                         )
                     }
                 }
@@ -1381,7 +1385,7 @@ private fun KeywordChipRow(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.notixType.bodySecondary,
                 fontWeight = FontWeight.Medium,
             )
             IconButton(
@@ -1395,11 +1399,11 @@ private fun KeywordChipRow(
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(MaterialTheme.notixSpacing.xs))
         if (keywords.isNotEmpty()) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.xs),
             ) {
                 keywords.forEach { keyword ->
                     InputChip(
@@ -1427,8 +1431,8 @@ private fun KeywordChipRow(
         } else {
             Text(
                 text = stringResource(R.string.rule_wizard_keyword_placeholder),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.notixType.caption,
+                color = MaterialTheme.notix.contentSecondary,
             )
         }
     }
@@ -1466,7 +1470,7 @@ private fun KeywordInputDialog(
                 if (keywords.isNotEmpty()) {
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.xs),
                     ) {
                         keywords.forEach { keyword ->
                             InputChip(
@@ -1506,7 +1510,7 @@ private fun KeywordInputDialog(
                     singleLine = false,
                     minLines = 2,
                     maxLines = 5,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = NotixCorner.Sm,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { commit() }),
                 )
@@ -1543,8 +1547,8 @@ private fun PhoneStateSection(
         // 屏幕状态
         Text(
             text = stringResource(R.string.rule_wizard_extra_screen),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.notixType.label,
+            color = MaterialTheme.notix.contentSecondary,
         )
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1558,18 +1562,18 @@ private fun PhoneStateSection(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
 
         // 充电状态
         Text(
             text = stringResource(R.string.rule_wizard_extra_charging),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.notixType.label,
+            color = MaterialTheme.notix.contentSecondary,
         )
         Spacer(Modifier.height(6.dp))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.xs),
         ) {
             ChargingState.entries.forEach { c ->
                 FilterChip(
@@ -1580,13 +1584,13 @@ private fun PhoneStateSection(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
 
         // 勿扰模式状态
         Text(
             text = stringResource(R.string.rule_wizard_extra_dnd),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.notixType.label,
+            color = MaterialTheme.notix.contentSecondary,
         )
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1600,13 +1604,13 @@ private fun PhoneStateSection(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
 
         // 蓝牙耳机连接状态
         Text(
             text = stringResource(R.string.rule_wizard_extra_bluetooth),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.notixType.label,
+            color = MaterialTheme.notix.contentSecondary,
         )
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1646,8 +1650,8 @@ private fun TimeSection(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = stringResource(R.string.rule_wizard_extra_time),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.notixType.label,
+                color = MaterialTheme.notix.contentSecondary,
                 modifier = Modifier.weight(1f),
             )
             Switch(checked = timeEnabled, onCheckedChange = onTimeEnabledChange)
@@ -1663,8 +1667,8 @@ private fun TimeSection(
                     )
                     Text(
                         text = "至",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 8.dp),
+                        style = MaterialTheme.notixType.bodySecondary,
+                        modifier = Modifier.padding(horizontal = MaterialTheme.notixSpacing.sm),
                     )
                     TimeField(
                         value = String.format("%02d:%02d", endHour, endMinute),
@@ -1672,10 +1676,10 @@ private fun TimeSection(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.xs),
                 ) {
                     (1..7).forEach { day ->
                         FilterChip(
@@ -1701,7 +1705,7 @@ private fun TimeField(
         modifier = modifier,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        shape = RoundedCornerShape(8.dp),
+        shape = NotixCorner.Sm,
     )
 }
 
@@ -1780,8 +1784,8 @@ private fun BluetoothDevicePicker(
         ) {
             Text(
                 text = stringResource(R.string.rule_wizard_extra_bt_devices),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.notixType.label,
+                color = MaterialTheme.notix.contentSecondary,
                 modifier = Modifier.weight(1f),
             )
             if (selectedNames.isNotEmpty()) {
@@ -1794,11 +1798,11 @@ private fun BluetoothDevicePicker(
             Text(
                 text = stringResource(R.string.rule_wizard_bt_devices_selected, selectedNames.size) +
                     "：" + selectedNames.joinToString("、"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.notixType.caption,
+                color = MaterialTheme.notix.contentSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(bottom = 4.dp),
+                modifier = Modifier.padding(bottom = MaterialTheme.notixSpacing.xs),
             )
         }
         TextButton(
@@ -1826,8 +1830,8 @@ private fun BluetoothDevicePicker(
                 devices.isEmpty() -> {
                     Text(
                         text = stringResource(R.string.rule_wizard_bt_devices_none),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.contentSecondary,
                         modifier = Modifier.padding(vertical = 6.dp),
                     )
                 }
@@ -1846,7 +1850,7 @@ private fun BluetoothDevicePicker(
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = NotixCorner.Sm,
                         colors = TextFieldDefaults.colors(
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
@@ -1869,9 +1873,9 @@ private fun BluetoothDevicePicker(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(NotixCorner.Sm)
                                     .then(
-                                        if (selected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                        if (selected) Modifier.border(1.5.dp, MaterialTheme.notix.primary, NotixCorner.Sm)
                                         else Modifier
                                     )
                                     .clickable {
@@ -1879,7 +1883,7 @@ private fun BluetoothDevicePicker(
                                             if (selected) selectedNames - name else selectedNames + name
                                         )
                                     }
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    .padding(horizontal = MaterialTheme.notixSpacing.sm, vertical = MaterialTheme.notixSpacing.sm),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
@@ -1887,8 +1891,8 @@ private fun BluetoothDevicePicker(
                                         .size(22.dp)
                                         .clip(RoundedCornerShape(4.dp))
                                         .then(
-                                            if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
-                                            else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+                                            if (selected) Modifier.background(MaterialTheme.notix.primary)
+                                            else Modifier.border(1.5.dp, MaterialTheme.notix.outline, RoundedCornerShape(4.dp))
                                         ),
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -1896,7 +1900,7 @@ private fun BluetoothDevicePicker(
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            tint = MaterialTheme.notix.onPrimary,
                                             modifier = Modifier.size(16.dp),
                                         )
                                     }
@@ -1904,7 +1908,7 @@ private fun BluetoothDevicePicker(
                                 Spacer(Modifier.width(10.dp))
                                 Text(
                                     text = name,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.notixType.bodySecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -1953,21 +1957,21 @@ private fun ActionFlowSection(
         if (actions.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                shape = NotixCorner.Control,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f)),
             ) {
                 Text(
                     text = stringResource(R.string.rule_wizard_action_flow_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.notixType.bodySecondary,
+                    color = MaterialTheme.notix.contentSecondary,
+                    modifier = Modifier.padding(MaterialTheme.notixSpacing.lg),
                 )
             }
         } else {
             Text(
                 text = stringResource(R.string.rule_wizard_action_flow_order_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.notixType.caption,
+                color = MaterialTheme.notix.contentSecondary,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
 
@@ -1985,7 +1989,7 @@ private fun ActionFlowSection(
                     .fillMaxWidth()
                     // 父级 RuleWizardScreen 是 verticalScroll，LazyColumn 必须有界高度
                     .heightIn(max = 480.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.sm),
             ) {
                 items(
                     items = actions,
@@ -2021,9 +2025,9 @@ private fun ActionFlowSection(
                         ) {
                             Text(
                                 text = stringResource(R.string.rule_wizard_click_dismiss_warning),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(top = 4.dp),
+                                style = MaterialTheme.notixType.caption,
+                                color = MaterialTheme.notix.error,
+                                modifier = Modifier.padding(top = MaterialTheme.notixSpacing.xs),
                             )
                         }
                         // OPEN_NOTIFICATION 后存在 DISMISS 时的组合风险提示（阶段 4C-C-B P2-6）
@@ -2032,16 +2036,16 @@ private fun ActionFlowSection(
                         ) {
                             Text(
                                 text = stringResource(R.string.rule_wizard_open_dismiss_warning),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(top = 4.dp),
+                                style = MaterialTheme.notixType.caption,
+                                color = MaterialTheme.notix.error,
+                                modifier = Modifier.padding(top = MaterialTheme.notixSpacing.xs),
                             )
                         }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
         OutlinedButton(
             onClick = { showPicker = true },
             modifier = Modifier.fillMaxWidth(),
@@ -2110,15 +2114,15 @@ private fun ActionCard(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (isDragging) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
-                else if (isEditing) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                if (isDragging) Modifier.border(1.5.dp, MaterialTheme.notix.primary, NotixCorner.Control)
+                else if (isEditing) Modifier.border(1.5.dp, MaterialTheme.notix.primary, NotixCorner.Control)
                 else Modifier
             ),
-        shape = RoundedCornerShape(12.dp),
+        shape = NotixCorner.Control,
         colors = CardDefaults.cardColors(
-            containerColor = if (isDragging) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else if (isEditing) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            containerColor = if (isDragging) MaterialTheme.notix.primaryContainer.copy(alpha = 0.3f)
+            else if (isEditing) MaterialTheme.notix.primaryContainer.copy(alpha = 0.25f)
+            else MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f),
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = cardElevation),
     ) {
@@ -2128,12 +2132,12 @@ private fun ActionCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(NotixCorner.Control)
                     .combinedClickable(
                         onClick = onClick,
                         onLongClick = { showDeleteConfirm = true },
                     )
-                    .padding(start = 12.dp, top = 10.dp, end = 4.dp, bottom = 10.dp),
+                    .padding(start = MaterialTheme.notixSpacing.md, top = 10.dp, end = MaterialTheme.notixSpacing.xs, bottom = 10.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // 序号
@@ -2145,12 +2149,12 @@ private fun ActionCard(
                     ) {
                         Text(
                             text = "${index + 1}",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.notixType.label,
                             fontWeight = FontWeight.Bold,
                             color = accent,
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                     Icon(
                         imageVector = actionIcon(spec.type),
                         contentDescription = null,
@@ -2160,15 +2164,15 @@ private fun ActionCard(
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = actionLabel(spec.type),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.notixType.bodySecondary,
                         fontWeight = FontWeight.Medium,
                     )
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(MaterialTheme.notixSpacing.xs))
                 Text(
                     text = RuleWizardSupport.actionFlowSummary(spec),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.notixType.caption,
+                    color = MaterialTheme.notix.contentSecondary,
                 )
             }
 
@@ -2183,8 +2187,8 @@ private fun ActionCard(
                 Icon(
                     imageVector = Icons.Default.DragHandle,
                     contentDescription = stringResource(R.string.rule_wizard_action_drag_hint),
-                    tint = if (isDragging) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isDragging) MaterialTheme.notix.primary
+                    else MaterialTheme.notix.contentSecondary,
                     modifier = Modifier.size(if (isDragging) 32.dp else 28.dp),
                 )
             }
@@ -2230,13 +2234,13 @@ private fun ActionParamEditor(
                     )
                     Text(
                         text = stringResource(R.string.rule_wizard_click_button_match_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.contentSecondary,
                     )
                     Text(
                         text = stringResource(R.string.rule_wizard_click_fail_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.contentSecondary,
                         modifier = Modifier.padding(top = 2.dp),
                     )
                     Row(
@@ -2261,16 +2265,16 @@ private fun ActionParamEditor(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(NotixCorner.Sm)
                                 .clickable { mode = m }
                                 .padding(vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Switch(checked = mode == m, onCheckedChange = { mode = m })
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                             Text(
                                 text = copyModeLabel(m),
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.notixType.bodySecondary,
                             )
                         }
                     }
@@ -2302,13 +2306,13 @@ private fun ActionParamEditor(
                     Text(
                         text = stringResource(R.string.rule_wizard_action_tts_variables_title),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                        color = MaterialTheme.notix.contentSecondary,
+                        modifier = Modifier.padding(top = MaterialTheme.notixSpacing.md, bottom = MaterialTheme.notixSpacing.xs),
                     )
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.sm),
                     ) {
                         val variables = listOf(
                             R.string.rule_wizard_action_tts_variable_app to "{app}",
@@ -2332,21 +2336,21 @@ private fun ActionParamEditor(
                                 },
                                 label = { Text(stringResource(labelRes)) },
                                 colors = AssistChipDefaults.assistChipColors(
-                                    labelColor = MaterialTheme.colorScheme.primary,
+                                    labelColor = MaterialTheme.notix.primary,
                                 ),
                             )
                         }
                     }
                     Text(
                         text = stringResource(R.string.rule_wizard_tts_wait_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.contentSecondary,
+                        modifier = Modifier.padding(top = MaterialTheme.notixSpacing.sm),
                     )
                     Text(
                         text = stringResource(R.string.rule_wizard_tts_fail_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.contentSecondary,
                         modifier = Modifier.padding(top = 2.dp),
                     )
                     Row(
@@ -2412,23 +2416,23 @@ private fun ActionParamEditor(
                     }
                     Text(
                         text = stringResource(R.string.rule_wizard_strong_remind_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.notixType.caption,
+                        color = MaterialTheme.notix.contentSecondary,
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { sound = !sound }.padding(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { sound = !sound }.padding(vertical = MaterialTheme.notixSpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Switch(checked = sound, onCheckedChange = { sound = it })
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                         Text(stringResource(R.string.rule_wizard_strong_remind_sound))
                     }
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { vibrate = !vibrate }.padding(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { vibrate = !vibrate }.padding(vertical = MaterialTheme.notixSpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Switch(checked = vibrate, onCheckedChange = { vibrate = it })
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                         Text(stringResource(R.string.rule_wizard_strong_remind_vibrate))
                     }
                     Row(
@@ -2490,18 +2494,18 @@ private fun ActionParamEditor(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp),
+                            .padding(top = MaterialTheme.notixSpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.rule_wizard_dismiss_include_ongoing),
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.notixType.bodySecondary,
                             )
                             Text(
                                 text = stringResource(R.string.rule_wizard_dismiss_include_ongoing_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.notixType.caption,
+                                color = MaterialTheme.notix.contentSecondary,
                             )
                         }
                         Switch(
@@ -2510,21 +2514,21 @@ private fun ActionParamEditor(
                         )
                     }
                     if (includeOngoing) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
                         Text(
                             text = stringResource(R.string.rule_wizard_dismiss_snooze_duration),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.notixType.label,
+                            color = MaterialTheme.notix.contentSecondary,
                         )
                         Text(
                             text = stringResource(R.string.rule_wizard_dismiss_snooze_duration_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.notixType.caption,
+                            color = MaterialTheme.notix.contentSecondary,
                         )
                         Spacer(Modifier.height(6.dp))
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.xs),
                         ) {
                             SnoozeDurations.OPTIONS.forEachIndexed { index, ms ->
                                 FilterChip(
@@ -2549,8 +2553,8 @@ private fun ActionParamEditor(
                     // OPEN_NOTIFICATION：无参数，只显示说明
                     Text(
                         text = actionDescription(spec.type),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.notixType.bodySecondary,
+                        color = MaterialTheme.notix.contentSecondary,
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2576,10 +2580,10 @@ private fun ActionConfigDialog(
         content = {
             Text(
                 text = actionDescription(spec.type),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.notixType.caption,
+                color = MaterialTheme.notix.contentSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
             ActionParamEditor(
                 spec = spec,
                 onCommit = onCommit,
@@ -2600,18 +2604,18 @@ private fun ActionPickerDialog(
         content = {
             Text(
                 text = stringResource(R.string.rule_wizard_action_flow_pick_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.notixType.caption,
+                color = MaterialTheme.notix.contentSecondary,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
             RuleAction.entries.forEach { action ->
                 val accent = actionAccent(action)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(NotixCorner.Control)
                         .clickable { onSelect(action) }
-                        .padding(horizontal = 4.dp, vertical = 10.dp),
+                        .padding(horizontal = MaterialTheme.notixSpacing.xs, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
@@ -2631,13 +2635,13 @@ private fun ActionPickerDialog(
                     Column {
                         Text(
                             text = actionLabel(action),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.notixType.bodySecondary,
                             fontWeight = FontWeight.Medium,
                         )
                         Text(
                             text = actionDescription(action),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.notixType.caption,
+                            color = MaterialTheme.notix.contentSecondary,
                         )
                     }
                 }
@@ -2655,13 +2659,13 @@ private fun copyModeLabel(mode: CopyMode): String = when (mode) {
 
 @Composable
 private fun actionAccent(action: RuleAction): Color = when (action) {
-    RuleAction.DISMISS -> MaterialTheme.colorScheme.error
+    RuleAction.DISMISS -> MaterialTheme.notix.error
     RuleAction.CLICK_BUTTON -> MaterialTheme.colorScheme.secondary
-    RuleAction.OPEN_NOTIFICATION -> MaterialTheme.colorScheme.primary
+    RuleAction.OPEN_NOTIFICATION -> MaterialTheme.notix.primary
     RuleAction.COPY -> MaterialTheme.colorScheme.secondary
     RuleAction.TTS -> MaterialTheme.colorScheme.tertiary
-    RuleAction.STRONG_REMIND -> MaterialTheme.colorScheme.error
-    RuleAction.DELAY -> MaterialTheme.colorScheme.primary
+    RuleAction.STRONG_REMIND -> MaterialTheme.notix.error
+    RuleAction.DELAY -> MaterialTheme.notix.primary
     RuleAction.POSTPONE -> MaterialTheme.colorScheme.tertiary
 }
 
