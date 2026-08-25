@@ -6,6 +6,27 @@
 
 ---
 
+## 8.15.0 (2026-08-25)
+
+**New**
+- **Design system foundation.** A single Notix theme token set (colors, spacing, typography, corner radii, layout) now drives all screens, replacing scattered hardcoded values. A built-in design-system preview was added for development and QA.
+- **Reusable component library.** Shared building blocks (`SectionHeader`, `NotificationCard`, `FilterChip`, dialog components, etc.) are centralized and reused across History, Rules, Settings, and the rule wizard.
+
+**Improved**
+- **History screen** fully tokenized and rebuilt on reusable card components; spacing and dark/light themes verified on device.
+- **Rules screen** migrated to the shared component set.
+- **Settings screen** tokenized and switched to shared components.
+- **Rule wizard** tokenized end-to-end.
+- **Dialog system unified** into one `NotixDialog` style app-wide (condition config, match-mode picker, confirmations, about) with consistent sizing, corner radius, and scrim/outside-tap behavior.
+
+**Changed**
+- Light and dark themes now share the same token-driven palette; the full app passed visual regression across 5 end-to-end flows on a real device.
+
+**Notes**
+- `STRONG_REMIND` and `POSTPONE` remain UI-only shells.
+
+---
+
 ## 8.14.1 (2026-08-25)
 
 **Fixed**
