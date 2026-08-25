@@ -438,62 +438,65 @@ fun HistoryScreen(
             // v7.37：三 tab 滑动切换——HorizontalPager 承载，每页独立 LazyColumn + 独立滚动状态
             // v7.40：beyondViewportPageCount=1 预组合相邻页，消除 FILTERED 切回空白
             val navBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            HorizontalPager(
-                state = tabPagerState,
-                beyondViewportPageCount = 1,
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                val tab = HistoryTab.entries[page]
-                // v7.48：折叠段收起后回滚段头所需的协程作用域与全局 item index 计数器
-                val listScope = rememberCoroutineScope()
-                // v7.40：横屏时图表固定左栏、通知列表右栏；竖屏保持原滚动结构
-                val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-                // v8.4：筛选 tab 改用原生 stickyHeader 吸顶，删除手动浮动层与 derivedStateOf 判定
-                // （双栏/卡顿根因修复；分组头 stickyHeader 自动吸附在 sub_tabs 下方）
-                // 图表头部块：标题行 + 统计 + 柱状图 + 日期筛选行（v7.41：抽为 ChartPanel 通用图表面板）
-                val headerBlock: @Composable () -> Unit = {
-                    ChartPanel(
-                        entries = entries,
-                        selectedDay = selectedDay,
-                        onDayClick = { day ->
-                            onSelectedDayChange(if (selectedDay == day) null else day)
+            // v8.15.1：搜索/筛选 tab 抽出 pager，作为独立 header 常驻顶部（只渲染一份）。
+            // 修复「点搜索触发 tab 切换」根因——SubTabsHeader 原在 pager 每页内各渲染一份，
+            // searchExpanded 翻转时三页同时重算扰动 pager layout，settledPage 跳 page1 后由 LaunchedEffect 固化。
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 固定筛选 tab（常驻顶部，不参与页面滚动）
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.notix.surface)
+                ) {
+                    SubTabsHeader(
+                        searchExpanded = searchExpanded,
+                        onSearchExpandedChange = { searchExpanded = it },
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { searchQuery = it },
+                        searchFocusRequester = searchFocusRequester,
+                        selectedTab = selectedTab,
+                        onTabSelected = { tab ->
+                            coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
                         },
-                        onClearDay = { onSelectedDayChange(null) },
-                        listenerPaused = listenerPaused,
-                        onToggleListenerPaused = { showListenerPauseConfirm = true },
-                        onBackToCurrentWeek = onBackToCurrentWeek,
-                        backToCurrentWeekTrigger = backToCurrentWeekTrigger,
-                        pagerState = chartPagerStates[page],
-                        // v7.50：竖屏标题行/统计已在 tab 上方渲染，图表内不再重复
-                        showTitle = false
+                        onLongClickSearch = { showCrashLogDialog = true }
                     )
                 }
-                if (isLandscape) {
-                    // v8.4：横屏——图表已由外层 TabbedScreen 左栏渲染（ChartPanel），此处仅渲染通知列表
-                    // 筛选 tab 作为外层固定 header 常驻顶部；分组头 stickyHeader 在 LazyColumn 内吸顶在 tab 下方
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        // 固定筛选 tab（不参与列表滚动，永远钉在顶部，不被分组头顶出）
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.notix.surface)
-                        ) {
-                            SubTabsHeader(
-                                searchExpanded = searchExpanded,
-                                onSearchExpandedChange = { searchExpanded = it },
-                                searchQuery = searchQuery,
-                                onSearchQueryChange = { searchQuery = it },
-                                searchFocusRequester = searchFocusRequester,
-                                selectedTab = selectedTab,
-                                onTabSelected = { tab ->
-                                    coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
-                                },
-                                onLongClickSearch = { showCrashLogDialog = true }
-                            )
-                        }
+                HorizontalPager(
+                    state = tabPagerState,
+                    beyondViewportPageCount = 1,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val tab = HistoryTab.entries[page]
+                    // v7.48：折叠段收起后回滚段头所需的协程作用域与全局 item index 计数器
+                    val listScope = rememberCoroutineScope()
+                    // v7.40：横屏时图表固定左栏、通知列表右栏；竖屏保持原滚动结构
+                    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+                    // v8.4：筛选 tab 改用原生 stickyHeader 吸顶，删除手动浮动层与 derivedStateOf 判定
+                    // （双栏/卡顿根因修复；分组头 stickyHeader 自动吸附在 sub_tabs 下方）
+                    // 图表头部块：标题行 + 统计 + 柱状图 + 日期筛选行（v7.41：抽为 ChartPanel 通用图表面板）
+                    val headerBlock: @Composable () -> Unit = {
+                        ChartPanel(
+                            entries = entries,
+                            selectedDay = selectedDay,
+                            onDayClick = { day ->
+                                onSelectedDayChange(if (selectedDay == day) null else day)
+                            },
+                            onClearDay = { onSelectedDayChange(null) },
+                            listenerPaused = listenerPaused,
+                            onToggleListenerPaused = { showListenerPauseConfirm = true },
+                            onBackToCurrentWeek = onBackToCurrentWeek,
+                            backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                            pagerState = chartPagerStates[page],
+                            // v7.50：竖屏标题行/统计已在 tab 上方渲染，图表内不再重复
+                            showTitle = false
+                        )
+                    }
+                    if (isLandscape) {
+                        // v8.4：横屏——图表已由外层 TabbedScreen 左栏渲染（ChartPanel），此处仅渲染通知列表
+                        // 筛选 tab 已移到 pager 上方常驻（见上方 SubTabsHeader）；分组头 stickyHeader 吸顶在其下方
                         LazyColumn(
                             state = tabListStates[page],
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
                         ) {
                             historyListItems(
@@ -530,33 +533,12 @@ fun HistoryScreen(
                                 Spacer(modifier = Modifier.fillParentMaxHeight())
                             }
                         }
-                    }
-                } else {
-                    // v8.4：竖屏——筛选 tab 作为外层固定 header 常驻顶部（不参与滚动，不被分组头顶出）；
-                    // title/图表区作为列表顶部 item 随滚动滑出；分组头 stickyHeader 在 LazyColumn 内吸顶在 tab 下方
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        // 固定筛选 tab（常驻顶部）
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.notix.surface)
-                        ) {
-                            SubTabsHeader(
-                                searchExpanded = searchExpanded,
-                                onSearchExpandedChange = { searchExpanded = it },
-                                searchQuery = searchQuery,
-                                onSearchQueryChange = { searchQuery = it },
-                                searchFocusRequester = searchFocusRequester,
-                                selectedTab = selectedTab,
-                                onTabSelected = { tab ->
-                                    coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
-                                },
-                                onLongClickSearch = { showCrashLogDialog = true }
-                            )
-                        }
+                    } else {
+                        // v8.4：竖屏——筛选 tab 已移到 pager 上方常驻（见上方 SubTabsHeader）；
+                        // title/图表区作为列表顶部 item 随滚动滑出；分组头 stickyHeader 吸顶在 tab 下方
                         LazyColumn(
                             state = tabListStates[page],
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxSize(),
                             // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
                             contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
                         ) {
@@ -609,7 +591,7 @@ fun HistoryScreen(
                         }
                     }
                 }
-        }
+            }
         }
     }
 }
