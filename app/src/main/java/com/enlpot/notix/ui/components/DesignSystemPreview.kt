@@ -290,6 +290,56 @@ fun ComponentShowcaseContent() {
             )
         }
 
+        DsSection("Notification Card — 已过滤 (blocked badge)") {
+            NotificationCard(
+                data = NotificationCardData(
+                    appName = "广告",
+                    title = "限时优惠",
+                    summary = "点击查看详情",
+                    timestamp = "08-25 10:25",
+                    count = 1,
+                ),
+                accent = c.surfaceVariant,
+                onAccent = c.contentPrimary,
+                packageName = null,
+                blocked = true,
+            )
+        }
+
+        DsSection("Notification Card — 折叠展开 (compact + indent)") {
+            NotificationCard(
+                data = NotificationCardData(
+                    appName = "微博",
+                    title = "新动态",
+                    summary = "你关注的博主发布了新内容",
+                    timestamp = "08-25 10:20",
+                    count = 1,
+                ),
+                accent = c.primary,
+                onAccent = c.onPrimary,
+                packageName = null,
+                compact = true,
+                indent = sp.xl,
+            )
+        }
+
+        DsSection("Notification Card — 计数徽标独立点击 (onHistoryClick)") {
+            NotificationCard(
+                data = NotificationCardData(
+                    appName = "邮箱",
+                    title = "新邮件",
+                    summary = "你有 3 封新邮件",
+                    timestamp = "08-25 10:15",
+                    count = 3,
+                ),
+                accent = c.warning,
+                onAccent = c.onWarning,
+                packageName = null,
+                variant = NotificationCardVariant.Multiple,
+                onHistoryClick = { },
+            )
+        }
+
         DsSection("Rule Card — 视觉层级") {
             RuleCard(
                 appName = "Shell",

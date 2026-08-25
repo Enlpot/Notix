@@ -511,3 +511,19 @@
 - `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（约 59s）；仅既有弃用警告，无新增错误。
 - emulator-5554 实机 UIAutomator 行为回归（测试规则：日历 / 包含任一「测试通知」「模拟消息」/ 移除通知）：卡片层级正确、动态底色注入（结构）、长按→删除确认、点击→规则详情、Switch 切换 checked true⇄false（禁用 alpha 代码生效）、重新扫描无崩溃、命中>0 显示「重置命中计数」且可点（重置后回「无命中」）。深浅色 `cmd uimode` 切换正常。
 - 截图：`ui-ref/screenshots/stage4_rules_dark.png` / `stage4_rules_light.png`；基线对比 `screen_rules_filled.png` / `screen_rules_filled_light.png`。
+
+### Stage 5：History 页面 Token 化 + NotificationCard 组件补全（2026-08-25）
+
+**本轮修改**：
+- `app/src/main/java/com/enlpot/notix/ui/screens/HistoryScreen.kt`（骨架 Token 化 +152/−84）：标题/统计/子 Tab/搜索/暂停监听/分组头/折叠/空态 全 Token 化。圆角 `RoundedCornerShape(16/12/8.dp)` → `NotixCorner.Card/ListItem/Sm`；颜色 `MaterialTheme.colorScheme.{surface,surfaceVariant,onSurface,onSurfaceVariant,outlineVariant,primary}` → `MaterialTheme.notix.{surface,surfaceVariant,contentPrimary,contentSecondary,outlineVariant,primary}`；字体 `headlineMedium+Bold` / `bodyMedium+Medium/SemiBold` → `notixType.{display,button,cardTitle}`（完全等价替换）。**私有 NotificationCard (1633–1807) 保持原样不动**（Stage 6 整体替换）；分组头动态色逻辑保留。增 `import com.enlpot.notix.ui.theme.*`。
+- `app/src/main/java/com/enlpot/notix/ui/components/NotificationCard.kt`（组件补全 +47/−）：新增 `blocked: Boolean = false`（右下角 error 底「已过滤」徽标）/ `compact: Boolean = false` + `indent: Dp = 0.dp`（折叠展开态缩宽显示）/ `onHistoryClick: () -> Unit`（计数徽标独立点击，与 `onClick` 分离）。`CountBadge` 改为 `clickable` 接 `onHistoryClick`。纯展示原则保持：数据/颜色/回调全部由参数注入。
+- `app/src/main/java/com/enlpot/notix/ui/components/DesignSystemPreview.kt`（追加展示 +50）：新增「Notification Card — 已过滤 (blocked badge)」、「Notification Card — 折叠展开 (compact + indent)」、「Notification Card — 计数徽标独立点击 (onHistoryClick)」三段展示。
+
+**设计要点**：
+- 批量替换 `RoundedCornerShape(16/12/8.dp)` → `NotixCorner.*` 时私有 NC 4 处被改回原值，逐一验证恢复；`git diff` 确认 `MainActivity.kt` 无残留、净改动 3 文件 +165/−84。
+- dp 间距 → `notixSpacing` 替换延后至 Stage 6：私有 NC 共用相同 dp 值，`replace_all` 会破坏不动的私有 NC；逐处替换对视觉无变化（值与令牌等价）。
+
+**验证**：
+- `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（50s / 46s 两次）；仅既有弃用警告，无新增错误。
+- emulator-5554 实机 UIAutomator 行为回归：标题/统计/柱状图正常；子 Tab 切换（按时间/按应用/已过滤）正常；搜索展开正常；暂停监听弹「暂停通知监听？」确认弹窗正常；点击卡片弹详情弹窗（删除/打开/还原/创建规则）正常；已过滤徽标显示正常；深浅色 `cmd uimode` 切换正常。
+- 截图：`ui-ref/screenshots/stage5_history_dark.png` / `stage5_history_light.png`；基线对比 `screen_history_filled.png` / `screen_history_filled_light.png`。Token 化前后视觉无破坏（值等价）。

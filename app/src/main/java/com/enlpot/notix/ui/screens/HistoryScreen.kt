@@ -128,6 +128,7 @@ import com.enlpot.notix.ui.components.CrashLogDialog
 import com.enlpot.notix.ui.components.NotificationDetailDialog
 import com.enlpot.notix.ui.components.EmptyState
 import com.enlpot.notix.ui.components.RealAppIcon
+import com.enlpot.notix.ui.theme.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -471,7 +472,7 @@ fun HistoryScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.notix.surface)
                         ) {
                             SubTabsHeader(
                                 searchExpanded = searchExpanded,
@@ -534,7 +535,7 @@ fun HistoryScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.notix.surface)
                         ) {
                             SubTabsHeader(
                                 searchExpanded = searchExpanded,
@@ -811,33 +812,33 @@ internal fun ChartPanel(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.weight(1f))
-                // v7.51：总记录/今日合并为单行
-                Text(
-                    text = stringResource(R.string.history_total_today, totalCount, todayCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    Spacer(modifier = Modifier.weight(1f))
+                    // v7.51：总记录/今日合并为单行
+                    Text(
+                        text = stringResource(R.string.history_total_today, totalCount, todayCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.notix.contentSecondary
+                    )
+                }
             }
-        }
-        // v7.49：柱状图独立为圆角深灰卡片；左右小箭头（◀/▶）仅作滑动提示，不可点击
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 6.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            // v7.49：柱状图独立为圆角深灰卡片；左右小箭头（◀/▶）仅作滑动提示，不可点击
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                shape = NotixCorner.Card,
+                color = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.45f)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                    modifier = Modifier.padding(start = 6.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = MaterialTheme.notix.contentSecondary.copy(alpha = 0.35f),
+                        modifier = Modifier.padding(start = 6.dp)
+                    )
                 StatsBarChart(
                     modifier = Modifier.weight(1f),
                     pagerState = chartPager,
@@ -848,12 +849,12 @@ internal fun ChartPanel(
                     selectedDay = selectedDay,
                     onDayClick = onDayClick
                 )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                    modifier = Modifier.padding(end = 6.dp)
-                )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.notix.contentSecondary.copy(alpha = 0.35f),
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
             }
         }
         val filterDay = selectedDay
@@ -923,7 +924,7 @@ private fun StatsBarChart(
                     Text(
                         text = count.toString(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (count > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        color = if (count > 0) MaterialTheme.notix.contentPrimary else MaterialTheme.notix.contentSecondary.copy(alpha = 0.5f)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Box(
@@ -958,7 +959,7 @@ private fun StatsBarChart(
                             "${day.monthValue}.${day.dayOfMonth}"
                         },
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isSelected) MaterialTheme.notix.primary else MaterialTheme.notix.contentSecondary
                     )
                 }
             }
@@ -975,9 +976,8 @@ private fun FilteredDayRow(day: LocalDate, onClear: () -> Unit) {
     ) {
         Text(
             text = stringResource(R.string.history_filtered_day, day.toString()),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.notixType.button,
+            color = MaterialTheme.notix.primary,
             modifier = Modifier.weight(1f)
         )
         IconButton(onClick = onClear) {
@@ -1062,7 +1062,7 @@ private fun SubTabsHeader(
                         .weight(1f)
                         .height(32.dp)
                         .focusRequester(searchFocusRequester)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(NotixCorner.Card)
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .padding(horizontal = 12.dp),
                     textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
@@ -1118,8 +1118,7 @@ private fun HistoryTitleRow(
     ) {
         Text(
             text = stringResource(R.string.history_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.notixType.display,
             modifier = Modifier.alignByBaseline()
         )
         Spacer(modifier = Modifier.width(8.dp).alignByBaseline())
@@ -1127,7 +1126,7 @@ private fun HistoryTitleRow(
         Text(
             text = stringResource(R.string.history_total_today, totalCount, todayCount),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.notix.contentSecondary,
             modifier = Modifier.alignByBaseline()
         )
         Spacer(modifier = Modifier.weight(1f))
@@ -1142,7 +1141,7 @@ private fun HistoryTitleRow(
                 Icon(
                     imageVector = Icons.Default.NotificationsActive,
                     contentDescription = stringResource(R.string.listener_monitor),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.notix.contentSecondary
                 )
             }
         }
@@ -1168,19 +1167,19 @@ private fun HistorySubTabs(
     ) {
         tabs.forEach { (tab, labelRes) ->
             val isSelected = selectedTab == tab
-            Card(
-                onClick = { onTabSelected(tab) },
-                shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    else Color.Transparent
-                )
-            ) {
-                Text(
-                    text = stringResource(labelRes),
-                    modifier = Modifier.padding(horizontal = if (compact) 12.dp else 16.dp, vertical = if (compact) 5.dp else 8.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                Card(
+                    onClick = { onTabSelected(tab) },
+                    shape = NotixCorner.Card,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.notix.outlineVariant),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) MaterialTheme.notix.primary.copy(alpha = 0.15f)
+                        else Color.Transparent
+                    )
+                ) {
+                    Text(
+                        text = stringResource(labelRes),
+                        modifier = Modifier.padding(horizontal = if (compact) 12.dp else 16.dp, vertical = if (compact) 5.dp else 8.dp),
+                        color = if (isSelected) MaterialTheme.notix.contentPrimary else MaterialTheme.notix.contentSecondary,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     fontSize = if (compact) 13.sp else 14.sp
                 )
@@ -1197,15 +1196,15 @@ private fun SearchButton(onClick: () -> Unit, onLongClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .size(48.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(NotixCorner.Card)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = stringResource(R.string.search),
-            tint = MaterialTheme.colorScheme.primary
-        )
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = stringResource(R.string.search),
+                tint = MaterialTheme.notix.primary
+            )
     }
 }
 
@@ -1274,7 +1273,7 @@ private fun LazyListScope.byAppItems(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(MaterialTheme.notix.surface)
             ) {
                 AppGroupHeader(
                     appName = appName,
@@ -1374,7 +1373,7 @@ private fun AppGroupHeader(
             .fillMaxWidth()
             .padding(vertical = 2.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = NotixCorner.ListItem,
         colors = CardDefaults.cardColors(
             containerColor = headerBg
         )
@@ -1396,14 +1395,13 @@ private fun AppGroupHeader(
                 packageName = packageName,
                 appName = appName,
                 size = 28.dp,
-                shape = RoundedCornerShape(8.dp),
+                shape = NotixCorner.Sm,
             )
             Spacer(modifier = Modifier.width(10.dp))
 
             Text(
                 text = appName,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.notixType.cardTitle,
                 color = headerFg,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1413,7 +1411,7 @@ private fun AppGroupHeader(
             // v7.8：变更计数角标——主色深色版底 + 白色文字
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(NotixCorner.Sm)
                     .background(accent)
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
@@ -1486,7 +1484,7 @@ private fun LazyListScope.byRuleItems(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(MaterialTheme.notix.surface)
             ) {
                 RuleGroupHeader(
                     title = title,
@@ -1565,7 +1563,7 @@ private fun RuleGroupHeader(
             .fillMaxWidth()
             .padding(vertical = 2.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = NotixCorner.ListItem,
         colors = CardDefaults.cardColors(
             containerColor = headerBg
         )
@@ -1586,14 +1584,13 @@ private fun RuleGroupHeader(
                 packageName = packageName,
                 appName = title,
                 size = 28.dp,
-                shape = RoundedCornerShape(8.dp),
+                shape = NotixCorner.Sm,
             )
             Spacer(modifier = Modifier.width(10.dp))
 
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.notixType.cardTitle,
                 color = headerFg,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1602,7 +1599,7 @@ private fun RuleGroupHeader(
 
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(NotixCorner.Sm)
                     .background(accent)
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
@@ -1878,7 +1875,7 @@ private fun FoldToggleCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = NotixCorner.ListItem,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
         )
@@ -1892,8 +1889,7 @@ private fun FoldToggleCard(
                     if (isExpanded) R.string.fold_collapse_hint else R.string.fold_expand_hint,
                     appLabel, hiddenCount
                 ),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.notixType.button,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1980,7 +1976,7 @@ private fun LazyListScope.foldSegments(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
+                            .background(MaterialTheme.notix.surface)
                     ) {
                         FoldToggleCard(
                             appLabel = appLabel,
