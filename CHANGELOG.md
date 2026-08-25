@@ -2,6 +2,12 @@
 
 > 基线：v8.2（versionCode=115 / versionName="8.2"）
 
+## 本轮修改（v8.15.2 升版发布 · 2026-08-25）
+
+> 升版四件套：versionCode 130 → **131**，versionName "8.15.1" → **"8.15.2"**。
+> 内容仅含 Bug #2 修复（commit `bd47c0b`）：`NotificationColorEngine` 哈希兜底色 + 引擎日志、`HistoryScreen` 分组头字段收敛。
+> 发版：独立 commit → push main → GitHub Actions（`check-version` 查重 v8.15.2 未发 → `build-and-release`）→ Release v8.15.2。
+
 ## v8.15.0 · UI 重构收尾（Stages 2–12 · 2026-08-25）
 
 > 范围：UI 层全面 Token 化与组件化（Stages 2–11），Stage 12 做最终死代码清理与发布前检查。
