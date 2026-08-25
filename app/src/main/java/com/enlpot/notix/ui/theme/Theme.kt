@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 
 private val LightColorScheme = lightColorScheme(
@@ -91,9 +92,23 @@ fun NotixTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    // 语义令牌：随 darkTheme 同步提供语义颜色 / 字体 / 间距 / 层次，
+    // 页面统一通过 MaterialTheme.notix / notixType / notixSpacing / notixElevation 取用，
+    // 不直接判断 Light / Dark。
+    val notixColors = if (darkTheme) DarkNotixColors else LightNotixColors
+    val notixElevation = if (darkTheme) DarkNotixElevation else LightNotixElevation
+
+    CompositionLocalProvider(
+        LocalNotixColors provides notixColors,
+        LocalNotixTypography provides NotixTypographyTokens,
+        LocalNotixSpacing provides NotixSpacingTokens,
+        LocalNotixLayout provides NotixLayoutTokens,
+        LocalNotixElevation provides notixElevation,
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

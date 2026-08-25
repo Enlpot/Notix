@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import com.enlpot.notix.ui.theme.NotixCorner
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -218,7 +219,7 @@ private fun RuleCard(
         colors = CardDefaults.cardColors(
             containerColor = cardBg
         ),
-        shape = MaterialTheme.shapes.medium
+        shape = NotixCorner.Card
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
