@@ -1355,7 +1355,7 @@ private fun AppGroupHeader(
     val headerFg = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurface
     // v7.9：强调色（左侧色条/角标底）由引擎生成
     val fallbackAccent = MaterialTheme.colorScheme.primary
-    val accent = colors?.accentColor?.let { Color(it) } ?: fallbackAccent
+    val accent = colors?.backgroundColor?.let { Color(it) } ?: fallbackAccent
     // v7.9：角标文字复用引擎对比度逻辑（对 accent 实际对比度选黑/白），禁止硬编码
     val accentFg = remember(accent) { Color(NotificationColorEngine.chooseTextColor(accent.toArgb())) }
     Card(
@@ -1547,7 +1547,7 @@ private fun RuleGroupHeader(
     val headerBg = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
     val headerFg = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurface
     val fallbackAccent = if (isUnknown) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
-    val accent = colors?.accentColor?.let { Color(it) } ?: fallbackAccent
+    val accent = colors?.backgroundColor?.let { Color(it) } ?: fallbackAccent
     val accentFg = remember(accent) { Color(NotificationColorEngine.chooseTextColor(accent.toArgb())) }
     Card(
         modifier = Modifier

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -37,12 +38,10 @@ object NotificationColorEngine {
     private const val PREFERRED_CONTRAST = 7.0f
     private const val MAX_CACHE_SIZE = 256
 
+    private const val TAG = "NotificationColorEngine"
+
     // 主色提取采样尺寸（小图分析，降低计算成本）
     private const val SAMPLE_SIZE = 24
-
-    // 无法提取品牌色时的中性兜底（深灰蓝，白字对比度 > 12:1）
-    private val NEUTRAL_BG = Color.rgb(0x2A, 0x2E, 0x35)
-    private val NEUTRAL_ACCENT = Color.rgb(0x8A, 0x93, 0xA0)
 
     private val cache = ConcurrentHashMap<String, NotificationColors>()
 
@@ -52,11 +51,15 @@ object NotificationColorEngine {
      * 可在后台协程中调用；线程安全（缓存为 ConcurrentHashMap）。
      */
     fun getNotificationColors(context: Context, packageName: String?): NotificationColors {
-        if (packageName == null) return compute(null)
+        if (packageName == null) {
+            Log.w(TAG, "Neutral fallback: packageName is null")
+            return hashFallbackColors(null)
+        }
         val key = buildCacheKey(context, packageName)
         cache[key]?.let { return it }
         val icon = loadAppIcon(context, packageName)
-        val colors = compute(icon)
+        if (icon == null) return hashFallbackColors(packageName)
+        val colors = compute(icon, packageName)
         if (cache.size >= MAX_CACHE_SIZE) cache.clear()
         cache[key] = colors
         return colors
@@ -107,7 +110,8 @@ object NotificationColorEngine {
                 drawable.draw(canvas)
                 bmp
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Neutral fallback: icon not found for $packageName: ${e.message}")
             null
         }
     }
@@ -116,20 +120,26 @@ object NotificationColorEngine {
     // 颜色生成主流程
     // ------------------------------------------------------------------
 
-    private fun compute(icon: Bitmap?): NotificationColors {
+    private fun compute(icon: Bitmap?, packageName: String?): NotificationColors {
         val extracted = extractPrimaryColor(icon)
         val primary = extracted.primary
 
-        // 无主色（图标加载失败/纯黑白）→ 中性背景
-        if (primary == null) return neutralColors()
+        // 无主色（单色/纯黑白图标，聚类失败）→ 哈希兜底色（取代中性灰）
+        if (primary == null) {
+            if (icon != null) {
+                Log.w(TAG, "Neutral fallback: no dominant color for $packageName (monochrome icon?)")
+            }
+            return hashFallbackColors(packageName)
+        }
 
-        // 主色为黑白灰：尝试第二主色；没有则中性背景（禁止白底白字/黑底黑字）
+        // 主色为黑白灰：尝试第二主色；没有则哈希兜底色（禁止白底白字/黑底黑字）
         if (isGrayish(primary)) {
             val secondary = extracted.secondary
             if (secondary != null && !isGrayish(secondary)) {
                 return buildColors(secondary, primary)
             }
-            return neutralColors()
+            Log.w(TAG, "Neutral fallback: no dominant color for $packageName (monochrome icon?)")
+            return hashFallbackColors(packageName)
         }
 
         val secondary = extracted.secondary?.takeUnless { isGrayish(it) }
@@ -153,16 +163,37 @@ object NotificationColorEngine {
         )
     }
 
-    private fun neutralColors(): NotificationColors {
-        val text = chooseTextColor(NEUTRAL_BG)
+    /**
+     * 哈希兜底色：图标不可解析 / 单色 / packageName 为空时，用 packageName 哈希生成
+     * 确定性色相（0–360°），固定柔和饱和度与明度，再迭代到 WCAG ≥4.5:1。
+     * 同一 packageName 永远返回同一颜色；packageName 为 null 时用 "unknown" 兜底。
+     * 取代原固定中性灰 NEUTRAL_BG，保证第三方 App 即使无彩色图标也能拿到稳定可辨识的颜色。
+     */
+    private fun hashFallbackColors(packageName: String?): NotificationColors {
+        val seed = packageName ?: "unknown"
+        val hue = ((seed.hashCode().toLong() and 0x7FFFFFFF) % 360).toFloat()
+        val s = 0.42f
+        var l = 0.58f
+        var bg = hslToRgb(hue, s, l)
+        repeat(12) {
+            val crW = contrastRatio(Color.WHITE, bg)
+            val crB = contrastRatio(Color.BLACK, bg)
+            if (maxOf(crW, crB) >= MIN_CONTRAST_BODY) return@repeat
+            l = if (crW >= crB) (l - 0.05f).coerceAtLeast(0.20f) else (l + 0.05f).coerceAtMost(0.85f)
+            bg = hslToRgb(hue, s, l)
+        }
+        val text = chooseTextColor(bg)
+        val accent = hslToRgb(hue, 0.55f, (l + 0.14f).coerceAtMost(0.85f))
+        val crWhite = contrastRatio(Color.WHITE, bg)
+        val crBlack = contrastRatio(Color.BLACK, bg)
         return NotificationColors(
-            backgroundColor = NEUTRAL_BG,
-            primaryColor = NEUTRAL_ACCENT,
+            backgroundColor = bg,
+            primaryColor = bg,
             secondaryColor = null,
             primaryTextColor = text,
             secondaryTextColor = text,
-            accentColor = NEUTRAL_ACCENT,
-            contrastRatio = contrastRatio(Color.WHITE, NEUTRAL_BG)
+            accentColor = accent,
+            contrastRatio = maxOf(crWhite, crBlack)
         )
     }
 

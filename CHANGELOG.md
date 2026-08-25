@@ -30,6 +30,24 @@
 - `RuleWizardScreen` 私有 `SectionHeader(title: String)` 合并到 Stage 3 公共 `SectionHeader`（3 处调用点仅用 `title`，签名兼容）。
 - 无功能行为变化；未改动业务逻辑 / 引擎 / 监听 / 存储 / Action Flow / `NotificationColorEngine` / 依赖。
 
+## 本轮修改（Bug #2 · 动态色兜底 + 引擎日志 + 字段收敛 · 2026-08-25）
+
+> 范围：`NotificationColorEngine.kt`（日志 + 哈希兜底色）、`HistoryScreen.kt`（分组头字段收敛）。
+> 目标（bug2-fix.md）：① 中性回退补 `Log.w` 便于真机调试；② 图标不可解析/单色/包名为空时改返回「packageName 哈希兜底色」取代固定中性灰；③ 分组头 accent 取色源 `accentColor` → `backgroundColor` 与卡片统一。
+> 严格未改：业务逻辑 / 存储层 / NotificationCard·RuleCard 组件 / RulesScreen / 依赖 / 架构。
+>
+> 构建：`gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL。
+> 实机验证（`emulator-5554`，debug APK）：正常取色 App（shell）不打印日志；`com.android.chrome`/`com.nonexistent.app123` 走回退并打印 `icon not found` 日志并渲出哈希兜底色（非中性灰）；BY_TIME/BY_APP 像素分析确认三色可辨识、旧中性灰消失；浅色主题同样正常；规则页/三 tab/搜索/深浅色切换无回归。
+> 修复报告：`ui-ref/BUG2_FIX_REPORT.md`；证据：`ui-ref/bug2-fix/`。
+
+### Changed
+- `NotificationColorEngine`：删除固定中性灰 `NEUTRAL_BG/NEUTRAL_ACCENT` 与 `neutralColors()`，新增 `hashFallbackColors(packageName)`——对 `packageName` 哈希取色相（360°）、固定柔和饱和度、迭代到 WCAG ≥4.5:1，同一包名确定性同色；`getNotificationColors` 三个回退分支（null / 图标未找到 / 单色无主色）改走该兜底色。
+- `NotificationColorEngine`：新增 `TAG="NotificationColorEngine"` 与 `import android.util.Log`，三回退分支各补 `Log.w`（仅回退路径输出，正常取色不输出，仅含 packageName 不含通知内容）。
+- `HistoryScreen`：按应用 / 按规则分组头的 accent 取色源 `accentColor` → `backgroundColor`，与卡片统一。
+
+### Fixed
+- 第三方 App 图标不可解析 / 单色 / 包名为空时，历史卡片与分组头不再塌成中性灰，改渲「按包名哈希生成的稳定可辨识色」（Bug #2 根因报告 H1：升级后旧第三方失色多由图标解析性变化触发，本兜底保证始终有颜色）。
+
 ## 本轮修改（Stage 9 · Dialog 系统统一 + Token 化 · 2026-08-25）
 
 > 范围：8 个 Dialog 组件 + `NotixColorScheme.kt` + `MainActivity.kt`。
