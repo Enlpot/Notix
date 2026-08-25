@@ -28,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +49,9 @@ import com.enlpot.notix.NotificationHistoryEntry
 import com.enlpot.notix.R
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.ui.theme.NotixCorner
+import com.enlpot.notix.ui.theme.notix
+import com.enlpot.notix.ui.theme.notixSpacing
+import com.enlpot.notix.ui.theme.notixType
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,13 +72,20 @@ fun HistoryNotificationDetailsDialog(
     onDeleteNotification: (SimpleNotification) -> Unit = {},
     onRestoreNotification: (SimpleNotification) -> Unit = {}
 ) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     val timeFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()) }
     val changes = entry.changes
 
     Dialog(
         onDismissRequest = onDismiss,
-        // v8.3：关闭平台默认窄窗口，宽度 90% 真实生效，并手动补遮罩实现点外部关闭
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        // v8.3：关闭平台默认窄窗口，宽度 90% 真实生效，并手动补遮罩实现点外部关闭；
+        // 同时禁用系统默认的点击外部关闭，改由遮罩层自行判断
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnClickOutside = false,
+            dismissOnBackPress = true,
+        )
     ) {
         Box(
             modifier = Modifier
@@ -91,7 +100,7 @@ fun HistoryNotificationDetailsDialog(
         ) {
         BoxWithConstraints {
             val maxDialogHeight = this.maxHeight * 0.8f
-            Card(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth(0.9f)
                     .heightIn(max = maxDialogHeight)
@@ -101,11 +110,10 @@ fun HistoryNotificationDetailsDialog(
                         onClick = {}
                     ),
                 shape = NotixCorner.Dialog,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                color = c.surface,
+                tonalElevation = 6.dp
             ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Column(modifier = Modifier.padding(horizontal = sp.lg, vertical = sp.md)) {
                 // 顶部：聚合信息
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -114,37 +122,37 @@ fun HistoryNotificationDetailsDialog(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = entry.appLabel ?: entry.packageName.orEmpty(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.notixType.label,
+                            color = c.contentSecondary
                         )
                         Text(
                             text = entry.title ?: "",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.notixType.screenTitle,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = c.primaryContainer
                     ) {
                         Text(
                             text = stringResource(R.string.change_count, entry.displayCount),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            style = MaterialTheme.notixType.button,
+                            color = c.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = sp.md, vertical = 6.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(sp.md))
 
                 // 中部：变更通知卡片列表（占剩余空间，可滚动；内容短时压缩到内容高度；每条可点击弹详情弹窗）
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(sp.sm)
                 ) {
                     itemsIndexed(changes) { index, change ->
                         ChangeNotificationCard(
@@ -161,14 +169,13 @@ fun HistoryNotificationDetailsDialog(
                 }
 
                 // 底部：关闭按钮（固定不滚动）
-                TextButton(
+                NotixDialogButton(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
-                ) {
-                    Text(stringResource(R.string.close), style = MaterialTheme.typography.labelLarge)
-                }
+                        .padding(top = sp.sm),
+                    text = stringResource(R.string.close)
+                )
             }
             }
         }
@@ -188,21 +195,23 @@ private fun ChangeNotificationCard(
     onDelete: () -> Unit,
     onRestore: () -> Unit
 ) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     var detailExpanded by remember { mutableStateOf(false) }
     // v7.14：已过滤标签 error 实底 + 对比度文字色（与通知卡片一致）
-    val errorColor = MaterialTheme.colorScheme.error
+    val errorColor = c.error
     val errorFg = remember(errorColor) { Color(NotificationColorEngine.chooseTextColor(errorColor.toArgb())) }
     Box {
         Card(
             onClick = { detailExpanded = true },
             modifier = Modifier
                 .fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = NotixCorner.Control,
             colors = CardDefaults.cardColors(
                 containerColor = if (isLatest) {
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    c.primaryContainer.copy(alpha = 0.4f)
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    c.surfaceVariant.copy(alpha = 0.5f)
                 }
             )
         ) {
@@ -214,16 +223,16 @@ private fun ChangeNotificationCard(
                     packageName = change.packageName,
                     appName = change.appLabel,
                     size = 34.dp,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = NotixCorner.Sm
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = change.appLabel ?: change.packageName.orEmpty(),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.notixType.label,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = c.contentPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
@@ -231,13 +240,13 @@ private fun ChangeNotificationCard(
                         if (isLatest) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                shape = NotixCorner.Sm,
+                                color = c.primary.copy(alpha = 0.15f)
                             ) {
                                 Text(
                                     text = stringResource(R.string.latest),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = c.primary,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                                 )
@@ -247,7 +256,7 @@ private fun ChangeNotificationCard(
                     if (!change.title.isNullOrBlank()) {
                         Text(
                             text = change.title,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.notixType.bodySecondary,
                             fontWeight = if (isLatest) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -257,8 +266,8 @@ private fun ChangeNotificationCard(
                     if (!change.text.isNullOrBlank()) {
                         Text(
                             text = change.text,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.notixType.caption,
+                            color = c.contentSecondary,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 2.dp)
@@ -267,7 +276,7 @@ private fun ChangeNotificationCard(
                     Text(
                         text = timeFormat.format(Date(change.timestamp)),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = c.contentSecondary,
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
@@ -282,7 +291,7 @@ private fun ChangeNotificationCard(
                     .padding(end = 10.dp, bottom = 10.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(errorColor)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(horizontal = sp.sm, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -295,7 +304,7 @@ private fun ChangeNotificationCard(
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = stringResource(R.string.history_blocked_badge),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.notixType.bodySecondary,
                         fontWeight = FontWeight.Bold,
                         color = errorFg
                     )

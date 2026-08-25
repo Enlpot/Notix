@@ -11,6 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.enlpot.notix.R
+import com.enlpot.notix.ui.theme.notix
+import com.enlpot.notix.ui.theme.notixSpacing
+import com.enlpot.notix.ui.theme.notixType
 
 /**
  * 二次确认弹窗：标题 + 正文 + 取消/确认两个按钮。
@@ -30,16 +33,18 @@ fun NotixConfirmDialog(
     cancelText: String = stringResource(R.string.cancel),
     danger: Boolean = true,
 ) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     NotixDialog(
         onDismiss = onDismiss,
         title = title,
         content = {
             Text(
                 text = body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.notixType.bodySecondary,
+                color = c.contentSecondary
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(sp.lg))
         },
         buttons = {
             // 取消：次要、全宽、surfaceVariant 底色
@@ -47,17 +52,17 @@ fun NotixConfirmDialog(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth(),
                 text = cancelText,
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                containerColor = c.surfaceVariant,
+                contentColor = c.contentPrimary
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(sp.sm))
             // 确认：主操作、全宽
             NotixDialogButton(
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth(),
                 text = confirmText,
-                containerColor = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                contentColor = if (danger) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
+                containerColor = if (danger) c.error else c.primary,
+                contentColor = if (danger) c.onError else c.onPrimary
             )
         }
     )

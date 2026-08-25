@@ -51,6 +51,8 @@ data class NotixColors(
     val onWarning: Color,
     val error: Color,
     val onError: Color,
+    val errorContainer: Color,
+    val onErrorContainer: Color,
     val info: Color,
     val onInfo: Color,
 )
@@ -81,6 +83,8 @@ val LightNotixColors = NotixColors(
     onWarning = Color(0xFFFFFFFF),
     error = md_theme_light_error,
     onError = md_theme_light_onError,
+    errorContainer = md_theme_light_errorContainer,
+    onErrorContainer = md_theme_light_onErrorContainer,
     info = md_theme_light_primary,
     onInfo = md_theme_light_onPrimary,
 )
@@ -111,6 +115,8 @@ val DarkNotixColors = NotixColors(
     onWarning = Color(0xFF3A2400),
     error = md_theme_dark_error,
     onError = md_theme_dark_onError,
+    errorContainer = md_theme_dark_errorContainer,
+    onErrorContainer = md_theme_dark_onErrorContainer,
     info = md_theme_dark_primary,
     onInfo = md_theme_dark_onPrimary,
 )

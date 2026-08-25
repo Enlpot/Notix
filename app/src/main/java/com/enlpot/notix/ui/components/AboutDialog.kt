@@ -2,16 +2,19 @@ package com.enlpot.notix.ui.components
 
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.enlpot.notix.R
+import com.enlpot.notix.ui.theme.notix
+import com.enlpot.notix.ui.theme.notixSpacing
+import com.enlpot.notix.ui.theme.notixType
 
 @Composable
 fun AboutDialog(onDismiss: () -> Unit) {
@@ -26,20 +29,39 @@ fun AboutDialog(onDismiss: () -> Unit) {
     val appVersion = packageInfo?.versionName ?: stringResource(R.string.not_applicable)
     val developerEmail = "aj@Notix.com"
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.about)) },
-        text = {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
+    NotixDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.about),
+        content = {
             Column {
-                Text(stringResource(R.string.about_app, appName))
-                Text(stringResource(R.string.about_version, appVersion))
-                Text(stringResource(R.string.about_developer, developerEmail))
+                Text(
+                    text = stringResource(R.string.about_app, appName),
+                    style = MaterialTheme.notixType.bodySecondary,
+                    color = c.contentSecondary
+                )
+                Spacer(Modifier.height(sp.sm))
+                Text(
+                    text = stringResource(R.string.about_version, appVersion),
+                    style = MaterialTheme.notixType.bodySecondary,
+                    color = c.contentSecondary
+                )
+                Spacer(Modifier.height(sp.sm))
+                Text(
+                    text = stringResource(R.string.about_developer, developerEmail),
+                    style = MaterialTheme.notixType.bodySecondary,
+                    color = c.contentSecondary
+                )
             }
+            Spacer(Modifier.height(sp.lg))
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.close))
-            }
+        buttons = {
+            NotixDialogButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.close)
+            )
         }
     )
 }

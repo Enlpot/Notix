@@ -13,25 +13,17 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,11 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.enlpot.notix.CrashLogManager
 import com.enlpot.notix.R
+import com.enlpot.notix.ui.theme.NotixCorner
+import com.enlpot.notix.ui.theme.notix
+import com.enlpot.notix.ui.theme.notixSpacing
+import com.enlpot.notix.ui.theme.notixType
 
 /**
  * v7.13 崩溃日志弹窗（设置页 / 长按历史搜索按钮双入口共用）。
@@ -60,6 +55,8 @@ fun CrashLogDialog(
     onEnabledChanged: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     var showContent by remember { mutableStateOf(false) }
     var enabled by remember { mutableStateOf(CrashLogManager.isEnabled(context)) }
     // v7.24：打开日志位置失败时在弹窗内展示路径（不再使用系统 Toast）
@@ -83,148 +80,86 @@ fun CrashLogDialog(
     if (showContent) {
         CrashLogContentDialog(onBack = { showContent = false })
     } else {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+        NotixDialog(
+            onDismiss = onDismiss,
+            title = stringResource(R.string.crash_log_title),
+            content = {
+                // 日志抓取：圆角列表项（标题/副标题分行 + 开关居右），Control 圆角
+                Surface(
+                    color = c.surfaceVariant,
+                    shape = NotixCorner.Control
                 ) {
-                    Text(
-                        text = stringResource(R.string.crash_log_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.close),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            },
-            text = {
-                Column {
-                    // 日志抓取：圆角列表项（标题/副标题分行 + 开关居右），12dp 圆角
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(sp.lg),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.crash_log_capture_state),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = stringResource(
-                                        if (enabled) R.string.crash_log_capture_enabled
-                                        else R.string.crash_log_capture_disabled
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (enabled) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.crash_log_capture_state),
+                                style = MaterialTheme.notixType.button
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(
+                                    if (enabled) R.string.crash_log_capture_enabled
+                                    else R.string.crash_log_capture_disabled
+                                ),
+                                style = MaterialTheme.notixType.caption,
+                                color = if (enabled) c.primary
+                                else c.contentSecondary
+                            )
+                        }
+                        Switch(
+                            checked = enabled,
+                            onCheckedChange = {
+                                enabled = it
+                                CrashLogManager.setEnabled(context, it)
+                                onEnabledChanged(it)
                             }
-                            Switch(
-                                checked = enabled,
-                                onCheckedChange = {
-                                    enabled = it
-                                    CrashLogManager.setEnabled(context, it)
-                                    onEnabledChanged(it)
-                                }
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    // 查看日志 / 打开日志位置：两个等宽 Tonal 按钮（蓝色内容 + 灰色容器）
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Button(
-                            onClick = { showContent = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.primary
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Visibility,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = stringResource(R.string.crash_log_view),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Button(
-                            onClick = { openError = openLogLocation(context) },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.primary
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.FolderOpen,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = stringResource(R.string.crash_log_open_location),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    // v7.29：清空日志（二次确认后删除全部日志）—— 红色填充危险按钮
-                    Button(
-                        onClick = { showClearConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.crash_log_clear))
-                    }
-                    // v7.24：打开失败时在弹窗内展示日志路径（不再使用系统 Toast）
-                    openError?.let { err ->
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = err,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
-            },
-            confirmButton = {}
+                Spacer(Modifier.height(sp.lg))
+                // 查看日志 / 打开日志位置：两个等宽次级按钮（主题色内容 + 灰色容器）
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    NotixDialogButton(
+                        onClick = { showContent = true },
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.Visibility,
+                        text = stringResource(R.string.crash_log_view),
+                        containerColor = c.surfaceVariant,
+                        contentColor = c.primary
+                    )
+                    Spacer(Modifier.width(sp.sm))
+                    NotixDialogButton(
+                        onClick = { openError = openLogLocation(context) },
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.FolderOpen,
+                        text = stringResource(R.string.crash_log_open_location),
+                        containerColor = c.surfaceVariant,
+                        contentColor = c.primary
+                    )
+                }
+                Spacer(Modifier.height(sp.md))
+                // v7.29：清空日志（二次确认后删除全部日志）—— 红色填充危险按钮
+                NotixDangerButton(
+                    onClick = { showClearConfirm = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Default.Delete,
+                    text = stringResource(R.string.crash_log_clear)
+                )
+                // v7.24：打开失败时在弹窗内展示日志路径（不再使用系统 Toast）
+                openError?.let { err ->
+                    Spacer(Modifier.height(sp.md))
+                    Text(
+                        text = err,
+                        style = MaterialTheme.notixType.caption,
+                        color = c.error
+                    )
+                }
+            }
         )
     }
 }
@@ -233,11 +168,12 @@ fun CrashLogDialog(
 @Composable
 private fun CrashLogContentDialog(onBack: () -> Unit) {
     val context = LocalContext.current
+    val sp = MaterialTheme.notixSpacing
     val logs = remember { CrashLogManager.readLogs(context) }
-    AlertDialog(
-        onDismissRequest = onBack,
-        title = { Text(stringResource(R.string.crash_log_view)) },
-        text = {
+    NotixDialog(
+        onDismiss = onBack,
+        title = stringResource(R.string.crash_log_view),
+        content = {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -246,15 +182,18 @@ private fun CrashLogContentDialog(onBack: () -> Unit) {
             ) {
                 Text(
                     text = logs.ifEmpty { stringResource(R.string.crash_log_empty) },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.notixType.caption,
                     fontFamily = FontFamily.Monospace
                 )
             }
+            Spacer(Modifier.height(sp.lg))
         },
-        confirmButton = {
-            TextButton(onClick = onBack) {
-                Text(stringResource(R.string.close))
-            }
+        buttons = {
+            NotixDialogButton(
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth(),
+                text = stringResource(R.string.close)
+            )
         }
     )
 }

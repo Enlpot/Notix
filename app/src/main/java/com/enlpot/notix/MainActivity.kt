@@ -45,7 +45,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,7 +55,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface // Import Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -87,6 +85,13 @@ import androidx.core.content.ContextCompat
 import com.enlpot.notix.CrashLogManager
 import com.enlpot.notix.ui.components.CrashLogDialog
 import com.enlpot.notix.ui.components.HistoryNotificationDetailsDialog
+import com.enlpot.notix.ui.components.NotixConfirmDialog
+import com.enlpot.notix.ui.components.NotixDangerButton
+import com.enlpot.notix.ui.components.NotixDialog
+import com.enlpot.notix.ui.components.NotixDialogButton
+import com.enlpot.notix.ui.theme.notix
+import com.enlpot.notix.ui.theme.notixSpacing
+import com.enlpot.notix.ui.theme.notixType
 import com.enlpot.notix.health.HealthCheckWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -236,6 +241,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun MainScreen() {
         val context = LocalContext.current
+        val c = MaterialTheme.notix
+        val sp = MaterialTheme.notixSpacing
         // v7.40：旋转恢复——通知详情弹窗对象（Gson 序列化）
         val historyEntrySaver = remember {
             Saver<NotificationHistoryEntry?, String>(
@@ -447,57 +454,61 @@ class MainActivity : ComponentActivity() {
 
         // v7.13：上次崩溃提示弹窗（查看日志 / 忽略 / 清空日志）
         if (showCrashReportDialog) {
-            AlertDialog(
-                onDismissRequest = { showCrashReportDialog = false },
-                title = { Text(stringResource(R.string.crash_detected_title)) },
-                text = {
-                    Column {
-                        Text(stringResource(R.string.crash_detected_message))
-                        Spacer(Modifier.height(8.dp))
-                        // v7.29：清空日志按钮（二次确认）
-                        TextButton(onClick = { showCrashClearConfirm = true }) {
-                            Text(
-                                stringResource(R.string.crash_log_clear),
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
+            NotixDialog(
+                onDismiss = { showCrashReportDialog = false },
+                title = stringResource(R.string.crash_detected_title),
+                content = {
+                    Text(
+                        text = stringResource(R.string.crash_detected_message),
+                        style = MaterialTheme.notixType.bodySecondary,
+                        color = c.contentSecondary
+                    )
+                    Spacer(Modifier.height(sp.md))
+                    // v7.29：清空日志按钮（二次确认）
+                    NotixDangerButton(
+                        onClick = { showCrashClearConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        text = stringResource(R.string.crash_log_clear)
+                    )
+                    Spacer(Modifier.height(sp.lg))
                 },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showCrashReportDialog = false
-                        showCrashLogDialog = true
-                    }) {
-                        Text(stringResource(R.string.crash_view_log))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showCrashReportDialog = false }) {
-                        Text(stringResource(R.string.crash_ignore))
+                buttons = {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        // 忽略：次要、半宽
+                        NotixDialogButton(
+                            onClick = { showCrashReportDialog = false },
+                            modifier = Modifier.weight(1f),
+                            text = stringResource(R.string.crash_ignore),
+                            containerColor = c.surfaceVariant,
+                            contentColor = c.contentPrimary
+                        )
+                        Spacer(Modifier.width(sp.sm))
+                        // 查看日志：主操作、半宽
+                        NotixDialogButton(
+                            onClick = {
+                                showCrashReportDialog = false
+                                showCrashLogDialog = true
+                            },
+                            modifier = Modifier.weight(1f),
+                            text = stringResource(R.string.crash_view_log),
+                            containerColor = c.primary,
+                            contentColor = c.onPrimary
+                        )
                     }
                 }
             )
         }
         // v7.29：启动崩溃弹窗「清空日志」二次确认
         if (showCrashClearConfirm) {
-            AlertDialog(
-                onDismissRequest = { showCrashClearConfirm = false },
-                title = { Text(stringResource(R.string.crash_log_clear_title)) },
-                text = { Text(stringResource(R.string.crash_log_clear_confirm)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        CrashLogManager.clearLogs(context)
-                        showCrashClearConfirm = false
-                        showCrashReportDialog = false
-                    }) {
-                        Text(stringResource(R.string.confirm))
-                    }
+            NotixConfirmDialog(
+                onDismiss = { showCrashClearConfirm = false },
+                onConfirm = {
+                    CrashLogManager.clearLogs(context)
+                    showCrashClearConfirm = false
+                    showCrashReportDialog = false
                 },
-                dismissButton = {
-                    TextButton(onClick = { showCrashClearConfirm = false }) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                }
+                title = stringResource(R.string.crash_log_clear_title),
+                body = stringResource(R.string.crash_log_clear_confirm)
             )
         }
         if (showCrashLogDialog) {
@@ -551,6 +562,8 @@ class MainActivity : ComponentActivity() {
         onHistoryTabClick: () -> Unit
     ) {
         val context = LocalContext.current // Get context inside Composable
+        val c = MaterialTheme.notix
+        val sp = MaterialTheme.notixSpacing
         val coroutineScope = rememberCoroutineScope()
         // v7.37：底部"历史"tab 双击检测（300ms 内二次点击返回本周）
         var lastHistoryTabClickTime by remember { mutableLongStateOf(0L) }
@@ -838,21 +851,16 @@ class MainActivity : ComponentActivity() {
             }
             // v7.41：横屏左栏图表铃铛的暂停/恢复二次确认
             if (showListenerPauseConfirm) {
-                AlertDialog(
-                    onDismissRequest = { showListenerPauseConfirm = false },
-                    title = { Text(stringResource(if (listenerPaused) R.string.listener_resume_confirm_title else R.string.listener_pause_confirm_title)) },
-                    text = { Text(stringResource(if (listenerPaused) R.string.listener_resume_confirm_message else R.string.listener_pause_confirm_message)) },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            showListenerPauseConfirm = false
-                            onToggleListenerPaused(!listenerPaused)
-                        }) {
-                            Text(stringResource(if (listenerPaused) R.string.listener_resume else R.string.listener_pause))
-                        }
+                NotixConfirmDialog(
+                    onDismiss = { showListenerPauseConfirm = false },
+                    onConfirm = {
+                        showListenerPauseConfirm = false
+                        onToggleListenerPaused(!listenerPaused)
                     },
-                    dismissButton = {
-                        TextButton(onClick = { showListenerPauseConfirm = false }) { Text(stringResource(R.string.cancel)) }
-                    }
+                    title = stringResource(if (listenerPaused) R.string.listener_resume_confirm_title else R.string.listener_pause_confirm_title),
+                    body = stringResource(if (listenerPaused) R.string.listener_resume_confirm_message else R.string.listener_pause_confirm_message),
+                    confirmText = stringResource(if (listenerPaused) R.string.listener_resume else R.string.listener_pause),
+                    danger = false
                 )
             }
         } else {

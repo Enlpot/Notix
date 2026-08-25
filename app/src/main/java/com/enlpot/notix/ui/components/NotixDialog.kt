@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
@@ -41,6 +40,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.R
 import com.enlpot.notix.ui.theme.NotixCorner
+import com.enlpot.notix.ui.theme.notix
+import com.enlpot.notix.ui.theme.notixSpacing
+import com.enlpot.notix.ui.theme.notixType
 
 /**
  * 通用弹窗容器：标题栏（左侧标题 + 右侧 X 关闭）+ 自定义内容区 + 底部按钮区。
@@ -60,6 +62,8 @@ fun NotixDialog(
     content: @Composable ColumnScope.() -> Unit = {},
     buttons: @Composable ColumnScope.() -> Unit = {},
 ) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     Dialog(
         onDismissRequest = onDismiss,
         // 关闭平台默认窄窗口，让宽度按屏幕 92% 真实生效；
@@ -72,7 +76,7 @@ fun NotixDialog(
         )
     ) {
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 // 手动补半透明遮罩（视觉效果 + 点击外部关闭）
                 .background(Color.Black.copy(alpha = 0.32f))
@@ -96,21 +100,21 @@ fun NotixDialog(
                             onClick = {}
                         ),
                     shape = NotixCorner.Dialog,
-                    color = MaterialTheme.colorScheme.surface,
+                    color = c.surface,
                     tonalElevation = 6.dp
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(sp.xl)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = title,
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.notixType.screenTitle,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(end = 4.dp),
+                                    .padding(end = sp.xs),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -118,11 +122,11 @@ fun NotixDialog(
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = stringResource(R.string.close),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = c.contentSecondary
                                 )
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(sp.md))
                         Column {
                             content()
                             buttons()
@@ -146,18 +150,20 @@ fun NotixDialogButton(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     text: String,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    contentColor: Color = MaterialTheme.colorScheme.primary,
+    containerColor: Color = Color.Unspecified,
+    contentColor: Color = Color.Unspecified,
 ) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     Button(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = NotixCorner.Control,
         colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = contentColor
+            containerColor = if (containerColor == Color.Unspecified) c.surfaceVariant else containerColor,
+            contentColor = if (contentColor == Color.Unspecified) c.primary else contentColor
         ),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+        contentPadding = PaddingValues(horizontal = sp.md, vertical = 10.dp)
     ) {
         icon?.let {
             Icon(
@@ -169,9 +175,9 @@ fun NotixDialogButton(
         }
         Text(
             text = text,
+            style = MaterialTheme.notixType.button,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.Medium
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -186,12 +192,13 @@ fun NotixDangerButton(
     icon: ImageVector? = null,
     text: String,
 ) {
+    val c = MaterialTheme.notix
     NotixDialogButton(
         onClick = onClick,
         modifier = modifier,
         icon = icon,
         text = text,
-        containerColor = MaterialTheme.colorScheme.error,
-        contentColor = MaterialTheme.colorScheme.onError
+        containerColor = c.error,
+        contentColor = c.onError
     )
 }

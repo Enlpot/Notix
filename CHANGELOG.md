@@ -2,6 +2,28 @@
 
 > 基线：v8.2（versionCode=115 / versionName="8.2"）
 
+## 本轮修改（Stage 9 · Dialog 系统统一 + Token 化 · 2026-08-25）
+
+> 范围：8 个 Dialog 组件 + `NotixColorScheme.kt` + `MainActivity.kt`。
+> 目标：将 AlertDialog / Dialog+Card 实现统一到 `NotixDialog` 体系，并将颜色、字体、间距、圆角全面 Token 化。
+>
+> 构建：`gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL，产物 `app/build/outputs/apk/debug/app-debug.apk`。
+> 行为回归：在 `emulator-5554` 上实测 NotixDialog、NotixConfirmDialog、NotificationDetailDialog、CrashLogDialog、CrashLogContentDialog、HistoryNotificationDetailsDialog（count>1 徽标）；深浅色截图已留存。
+> 完整进度与截图见 `ui-ref/STAGE9_PROGRESS.md`。
+
+`app/src/main/java/com/enlpot/notix/ui/theme/NotixColorScheme.kt` | 补全 `errorContainer` / `onErrorContainer` 语义令牌。
+`app/src/main/java/com/enlpot/notix/ui/components/NotixDialog.kt` | 颜色/字体/间距/圆角 Token 化；统一 Surface + `NotixCorner.Dialog` + `tonalElevation=6.dp`；按钮默认参数改为 `Color.Unspecified` 哨兵。
+`app/src/main/java/com/enlpot/notix/ui/components/NotixConfirmDialog.kt` | Token 化标题、正文、按钮颜色与间距。
+`app/src/main/java/com/enlpot/notix/ui/components/AboutDialog.kt` | AlertDialog → NotixDialog；TextButton → NotixDialogButton。
+`app/src/main/java/com/enlpot/notix/ui/components/CrashLogDialog.kt` | 主 Dialog + 内容 Dialog 均从 AlertDialog → NotixDialog；状态区 Token 化。
+`app/src/main/java/com/enlpot/notix/ui/components/NotificationDetailDialog.kt` | 全面 Token 化；4 个 Button → NotixDialogButton。
+`app/src/main/java/com/enlpot/notix/ui/components/HistoryNotificationDetailsDialog.kt` | Card → Surface；Token 化；聚合列表圆角统一。
+`app/src/main/java/com/enlpot/notix/ui/components/AutoAddedRulesDialog.kt` | Dialog + Card → NotixDialog；TextButton/Button → NotixDialogButton。
+`app/src/main/java/com/enlpot/notix/MainActivity.kt` | 3 个 AlertDialog（崩溃报告 / 清空日志确认 / 监听暂停恢复确认）迁移到 NotixDialog / NotixConfirmDialog。
+`ui-ref/STAGE9_PROGRESS.md` | Stage 9 进度报告：Token 化清单 / 迁移清单 / 标准化清单 / 回归结果 / 截图路径 / Open Decisions。
+
+---
+
 ## 本轮修改（v8.14.1 · 2026-08-25）
 
 > 修复 release 包「移除」动作弹窗中冻结时长 chip 无法选中的 bug。
