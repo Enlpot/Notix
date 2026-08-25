@@ -29,7 +29,9 @@
 -keep class com.enlpot.notix.RuleCondition { *; }
 -keep class com.enlpot.notix.ExtraCondition { *; }
 -keep class com.enlpot.notix.TimeCondition { *; }
--keep class com.enlpot.notix.ActionParams { *; }
+-keep class com.enlpot.notix.ActionSpec { *; }
+-keep class com.enlpot.notix.DismissParams { *; }
+-keep class com.enlpot.notix.SnoozeDurations { *; }
 -keep enum com.enlpot.notix.RuleAction { *; }
 -keep enum com.enlpot.notix.MatchMode { *; }
 -keep enum com.enlpot.notix.ScreenState { *; }

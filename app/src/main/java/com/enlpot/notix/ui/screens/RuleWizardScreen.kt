@@ -2484,7 +2484,9 @@ private fun ActionParamEditor(
                     var includeOngoing by remember(spec) { mutableStateOf(includeOngoingInit) }
                     val durationInit = spec.params?.get("snoozeDurationMs")?.takeIf { it.isJsonPrimitive }?.asLong
                         ?.takeIf { it in SnoozeDurations.OPTIONS } ?: SnoozeDurations.DAY_7
-                    var snoozeDurationMs by remember(spec) { mutableStateOf(durationInit) }
+                    // v8.14.1：release 包发现 Long 状态在 R8 优化后偶发比较异常，改用 OPTIONS 索引。
+                    val initialIndex = SnoozeDurations.OPTIONS.indexOf(durationInit).coerceAtLeast(0)
+                    var selectedDurationIndex by remember(spec) { mutableIntStateOf(initialIndex) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2524,10 +2526,10 @@ private fun ActionParamEditor(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            SnoozeDurations.OPTIONS.forEach { ms ->
+                            SnoozeDurations.OPTIONS.forEachIndexed { index, ms ->
                                 FilterChip(
-                                    selected = snoozeDurationMs == ms,
-                                    onClick = { snoozeDurationMs = ms },
+                                    selected = selectedDurationIndex == index,
+                                    onClick = { selectedDurationIndex = index },
                                     label = { Text(RuleWizardSupport.formatSnoozeDuration(ms)) },
                                 )
                             }
@@ -2539,7 +2541,7 @@ private fun ActionParamEditor(
                     ) {
                         TextButton(onClick = onCancel) { Text(stringResource(R.string.rule_wizard_action_flow_cancel)) }
                         Button(
-                            onClick = { onCommit(RuleWizardSupport.dismissSpec(includeOngoing, snoozeDurationMs)) },
+                            onClick = { onCommit(RuleWizardSupport.dismissSpec(includeOngoing, SnoozeDurations.OPTIONS[selectedDurationIndex])) },
                         ) { Text(stringResource(R.string.rule_wizard_action_flow_save)) }
                     }
                 }

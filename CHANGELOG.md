@@ -1,6 +1,22 @@
 # Notix UI 改造清单（v8.3 · 一致性规范）
 
 > 基线：v8.2（versionCode=115 / versionName="8.2"）
+
+## 本轮修改（v8.14.1 · 2026-08-25）
+
+> 修复 release 包「移除」动作弹窗中冻结时长 chip 无法选中的 bug。
+>
+> 根因：release 构建启用 R8 全量优化后，`RuleWizardScreen` DISMISS 弹窗用 `Long` 状态保存冻结时长，`FilterChip` 的 `selected = snoozeDurationMs == ms` 在优化后比较异常，导致点击 chip 无视觉反馈、没有任何 chip 保持选中（debug 包正常）。
+>
+> 修复：将弹窗内部选中状态改为 `SnoozeDurations.OPTIONS` 的索引 `selectedDurationIndex`（`mutableIntStateOf`），`FilterChip` 按索引比较，保存时从索引取对应时长值。同时补充 ProGuard keep 规则：`ActionSpec`、`DismissParams`、`SnoozeDurations` 保持原类名与成员，避免 R8 过度优化影响运行时行为。
+
+`app/src/main/java/com/enlpot/notix/ui/screens/RuleWizardScreen.kt` | DISMISS 弹窗冻结时长状态由 `Long` 改为 `OPTIONS` 索引；`FilterChip` 按索引比较与赋值。
+`app/proguard-rules.pro` | 补充 keep：`ActionSpec`、`DismissParams`、`SnoozeDurations`；移除已不存在的 `ActionParams` keep 规则。
+`app/build.gradle.kts` | `versionCode` 127 → **128**，`versionName` "8.14" → **"8.14.1"**。
+`RELEASE_NOTES.md` | 整文件覆盖为 v8.14.1 英文发布说明。
+`VERSION_HISTORY.md` / `VERSION_HISTORY.zh-CN.md` | 顶部追加 v8.14.1 英/中文历史条目。
+
+---
 > 范围：仅 UI 层（screens / components / theme / RuleWizardSupport 展示部分 / strings）。
 > 未改动：build.gradle.kts、gradle 配置、版本号、AndroidManifest、包名、数据/存储/通知拦截等后台逻辑。
 > 构建：`gradlew.bat assembleDebug` → BUILD SUCCESSFUL，产物 `app/build/outputs/apk/debug/app-debug.apk`。
