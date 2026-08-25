@@ -2,6 +2,34 @@
 
 > 基线：v8.2（versionCode=115 / versionName="8.2"）
 
+## v8.15.0 · UI 重构收尾（Stages 2–12 · 2026-08-25）
+
+> 范围：UI 层全面 Token 化与组件化（Stages 2–11），Stage 12 做最终死代码清理与发布前检查。
+> 本次升版：versionCode 128 → **129**，versionName "8.14.1" → **"8.15.0"**。
+> 构建：`gradlew.bat assembleRelease --no-daemon` → BUILD SUCCESSFUL（release APK 经 `NOTIX_KEYSTORE_*` 签名）。
+> 全量回归：5 条端到端流程（向导 / 规则创建 / 历史管理 / 规则管理 / 设置）在 release 构建上全部走通；深浅色切换、空状态、首次启动向导均正常（详见 `ui-ref/STAGE12_PROGRESS.md`）。
+
+### Added
+- **Design System 令牌体系（Stage 2）**：`NotixColorScheme`（语义色 Light/Dark + `MaterialTheme.notix`）、`Spacing`（`NotixSpacing` xs4~xxl24 + `NotixLayout`）、`Elevation`（Base/Raised/Card/Dialog 双主题）、`NotixTypography`（10 档 + `MaterialTheme.notixType`）、`NotixCorner.Full=999dp`；`Theme.kt` 经 `CompositionLocalProvider` 注入全部 Local。`DesignSystemPreview`（Light/Dark `@Preview`）。
+- **可复用展示组件（Stage 3）**：`NotificationCard`（Normal/Multiple + CountBadge + accent 注入）、`RuleCard`（Switch + 禁用 alpha + 分隔线 + 命中次数）、`SettingRow`、`SectionHeader`（含可选 subtitle）、`Buttons`（Primary/Secondary/Text/IconButton，44dp 触控目标）、`Chip`、`SearchField`、`EmptyState`（语义 Token 对齐）。
+- **`NotixDialog` / `NotixConfirmDialog` / `NotixDialogButton` / `NotixDangerButton`（Stage 9）**：统一弹窗体系，替代散落的 `AlertDialog` / `Dialog+Card`。
+
+### Changed
+- **History 页面（Stages 5/6/7）**：骨架与卡片全面 Token 化；删除页内私有 `NotificationCard`，改用组件 + `NotificationColorEngine` 动态 accent 整卡底色；计数角标（独立点击 + 折叠展开 compact+indent）；子 Tab / 分组头 / 折叠 / 空态 / 柱状图 Token 化；剩余 dp → `notixSpacing` 收尾。
+- **Rules 页面（Stage 4）**：删除页内私有 `RuleCard`，改用组件 + 动态底色注入；页面 Token 化；重新扫描 / 长按删 / 命中计数重置 / 禁用 alpha。
+- **Settings 页面（Stage 8）**：1435 行全量 Token 化；私有 `SettingsSection` → `SectionHeader + Card`；`SettingsRow`/`RowDivider`/`NavChevron`/`ExpandableSection`/`DateField`/`PermissionCard` 全部 Token 化（保留 Notix 图标圆圈视觉语言）。
+- **Rule Wizard（Stage 10）**：2702 行全量 Token 化（颜色/字体/间距/圆角 211 处替换），视觉统一到设计系统。
+- **Dialog 系统（Stage 9）**：8 个 Dialog 统一到 `NotixDialog` 体系；补全 `NotixColors.errorContainer/onErrorContainer`；窗口尺寸 0.92f/0.85f、scrim 32%、`DialogProperties` 外部点击/返回关闭语义；`MainActivity` 3 个 `AlertDialog` 迁移。
+- **深浅色主题（Stage 7/11）**：全站 Token 化后深浅色切换一致性全面验证；`NotificationColorEngine` 动态底色多样性与 WCAG AA 对比度确认。
+
+### Fixed
+- release 包「移除」动作冻结时长 chip 无法选中（R8 优化导致 `Long` 比较异常）→ 改为索引状态（v8.14.1，为本次重构基线）。
+
+### Removed（Stage 12 最终清理）
+- 删除 3 个无调用方的孤儿 Dialog 组件：`AboutDialog.kt` / `AutoAddedRulesDialog.kt` / `DeleteConfirmationDialog.kt`（grep 全工程零调用证据）。
+- `RuleWizardScreen` 私有 `SectionHeader(title: String)` 合并到 Stage 3 公共 `SectionHeader`（3 处调用点仅用 `title`，签名兼容）。
+- 无功能行为变化；未改动业务逻辑 / 引擎 / 监听 / 存储 / Action Flow / `NotificationColorEngine` / 依赖。
+
 ## 本轮修改（Stage 9 · Dialog 系统统一 + Token 化 · 2026-08-25）
 
 > 范围：8 个 Dialog 组件 + `NotixColorScheme.kt` + `MainActivity.kt`。

@@ -163,6 +163,7 @@ import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.NotixDialog
 import com.enlpot.notix.ui.components.NotixDialogButton
 import com.enlpot.notix.ui.components.RealAppIcon
+import com.enlpot.notix.ui.components.SectionHeader
 import com.enlpot.notix.ui.theme.NotixCorner
 import com.enlpot.notix.ui.theme.notix
 import com.enlpot.notix.ui.theme.notixSpacing
@@ -683,21 +684,6 @@ private fun buildNewRule(
         actions = actions,
         description = description,
         createdAt = editingRule?.createdAt ?: now,
-    )
-}
-
-// ---------------------------------------------------------------------------
-// Section header
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.notix.contentSecondary,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(bottom = 2.dp),
     )
 }
 
