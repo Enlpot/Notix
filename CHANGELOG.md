@@ -495,3 +495,19 @@
 - `testDebugUnitTest` + `assembleDebug` 均 BUILD SUCCESSFUL；APK 已装 emulator-5554。
 - UIAutomator 实测：设置页「规则与数据」下显示「恢复常驻通知 / 把被规则冻结（移除）的常驻通知恢复到通知栏」；点击弹出确认弹窗（标题/正文/取消/确定）齐全；取消可正常关闭。
 - 恢复的实际效果（通知回栏）依赖 `restoreAllSnoozedNotifications()` 的 100ms 短时长 re-snooze，等用户在模拟器上手动触发冻结→点按钮验证闭环。
+
+### Stage 4：RulesScreen 迁移到组件 + RuleCard 能力补全（2026-08-25）
+
+**本轮修改**：
+- `app/src/main/java/com/enlpot/notix/ui/components/RuleCard.kt`（重写）：补全动态底色（accent/onAccent 注入）、重新扫描、长按删除、命中计数重置、禁用态整体 alpha=0.5。视觉层级：匹配条件弱色（bodySecondary / 动态底 onAccent·0.85）、执行动作强色（cardTitle SemiBold / 动态底 onAccent）；分隔线拉开。纯展示，数据由参数注入，组件内不调 `NotificationColorEngine`、不判 Light/Dark。
+- `app/src/main/java/com/enlpot/notix/ui/screens/RulesScreen.kt`（迁移）：删除页内私有 `RuleCard`（原 181–379 行），改用组件实例；页面 Token 化（标题/副标题/新建按钮/间距/圆角/字体均用语义 Token `notix`/`notixType`/`notixSpacing`/`notixLayout`/`NotixCorner`）。LazyColumn item 经 `produceState` 调 `NotificationColorEngine.getNotificationColors` 取色注入；动作摘要用 `RuleWizardSupport.actionFlowSummaryFlow` + 超 3 个补 `rule_flow_total_actions`；多来源用 `rule_sources_count`。
+- `app/src/main/java/com/enlpot/notix/ui/components/DesignSystemPreview.kt`（追加示例）：新增「Rule Card — 动态底色（accent 注入）」展示段。
+
+**设计要点**：
+- 探查结论：原页内 `accent` 变量为死代码，真实文本色用 `primaryTextColor`；组件参数映射 `accent=backgroundColor`、`onAccent=primaryTextColor`。
+- 边界：仅迁移 RulesScreen；未动 History/RuleWizard/Settings/SetupWizard、业务逻辑、数据模型、`NotificationColorEngine`、Dialog、死代码、导航框架、依赖。
+
+**验证**：
+- `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（约 59s）；仅既有弃用警告，无新增错误。
+- emulator-5554 实机 UIAutomator 行为回归（测试规则：日历 / 包含任一「测试通知」「模拟消息」/ 移除通知）：卡片层级正确、动态底色注入（结构）、长按→删除确认、点击→规则详情、Switch 切换 checked true⇄false（禁用 alpha 代码生效）、重新扫描无崩溃、命中>0 显示「重置命中计数」且可点（重置后回「无命中」）。深浅色 `cmd uimode` 切换正常。
+- 截图：`ui-ref/screenshots/stage4_rules_dark.png` / `stage4_rules_light.png`；基线对比 `screen_rules_filled.png` / `screen_rules_filled_light.png`。

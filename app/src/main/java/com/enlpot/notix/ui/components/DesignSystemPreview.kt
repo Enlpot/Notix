@@ -310,6 +310,22 @@ fun ComponentShowcaseContent() {
             )
         }
 
+        DsSection("Rule Card — 动态底色（accent 注入）") {
+            RuleCard(
+                appName = "天气",
+                packageName = null,
+                conditionText = "匹配：包含任一关键字 “雷阵雨”",
+                extraConditionText = "亮屏时",
+                actionText = "动作：移除通知（含常驻冻结 7 天）",
+                hitCount = 28,
+                enabled = true,
+                accent = c.primary,
+                onAccent = c.onPrimary,
+                onRescan = {},
+                onResetHitCount = {},
+            )
+        }
+
         DsSection("Setting Row") {
             SettingRow(icon = Icons.Default.Settings, title = "通知监听", subtitle = "已开启", onClick = {})
             SettingRow(
