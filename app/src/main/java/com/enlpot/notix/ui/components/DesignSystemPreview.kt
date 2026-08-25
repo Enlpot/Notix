@@ -17,9 +17,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -149,7 +154,7 @@ private fun DesignSystemContent() {
                         .border(1.dp, s.outline)
                         .padding(horizontal = sp.lg, vertical = sp.sm)
                 ) { Text("Secondary", style = NotixTypographyTokens.button, color = s.primary) }
-                TextButton(onClick = { }) { Text("Text", style = NotixTypographyTokens.button, color = s.primary) }
+                TextButton(text = "Text", onClick = { })
             }
         }
 
@@ -233,4 +238,151 @@ fun DesignSystemPreview_Light() {
 @Composable
 fun DesignSystemPreview_Dark() {
     NotixTheme(darkTheme = true) { DesignSystemContent() }
+}
+
+/**
+ * Stage 3 组件库展示（纯展示组件，仅用语义 Token）。
+ * 非 private，供临时 Preview 入口（MainActivity）在运行时实渲染验证后移除。
+ */
+@Composable
+fun ComponentShowcaseContent() {
+    val c = MaterialTheme.notix
+    val t = MaterialTheme.notixType
+    val sp = MaterialTheme.notixSpacing
+    val lay = MaterialTheme.notixLayout
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(c.background)
+            .padding(lay.screenHorizontal)
+    ) {
+        Text("Components", style = t.display, color = c.contentPrimary)
+
+        DsSection("Notification Card — Normal") {
+            NotificationCard(
+                data = NotificationCardData(
+                    appName = "天气",
+                    title = "雷阵雨预警",
+                    summary = "今天傍晚有雷阵雨，请注意携带雨具",
+                    timestamp = "08-25 10:30",
+                    count = 1,
+                ),
+                accent = c.primary,
+                onAccent = c.onPrimary,
+                packageName = null,
+            )
+        }
+
+        DsSection("Notification Card — Multiple") {
+            NotificationCard(
+                data = NotificationCardData(
+                    appName = "微信",
+                    title = "群消息",
+                    summary = "你收到了多条新消息",
+                    timestamp = "08-25 10:28",
+                    count = 5,
+                ),
+                accent = c.success,
+                onAccent = c.onSuccess,
+                packageName = null,
+                variant = NotificationCardVariant.Multiple,
+            )
+        }
+
+        DsSection("Rule Card — 视觉层级") {
+            RuleCard(
+                appName = "Shell",
+                packageName = null,
+                conditionText = "匹配：包含任一关键字 “天气预警”",
+                actionText = "动作：移除通知（含常驻冻结 7 天）",
+                hitCount = 12,
+                enabled = true,
+            )
+            Spacer(Modifier.height(sp.md))
+            RuleCard(
+                appName = "微博",
+                packageName = null,
+                conditionText = "匹配：来自指定频道",
+                actionText = "动作：静音 30 分钟",
+                hitCount = 3,
+                enabled = false,
+            )
+        }
+
+        DsSection("Setting Row") {
+            SettingRow(icon = Icons.Default.Settings, title = "通知监听", subtitle = "已开启", onClick = {})
+            SettingRow(
+                icon = Icons.Default.Delete,
+                title = "清除历史",
+                subtitle = "不可恢复",
+                destructive = true,
+                onClick = {},
+            )
+            SettingRow(
+                icon = Icons.Default.Notifications,
+                title = "普通项",
+                trailing = { Switch(checked = true, onCheckedChange = {}) },
+            )
+        }
+
+        DsSection("Section Header") {
+            SectionHeader(title = "历史记录", subtitle = "最近 30 天")
+        }
+
+        DsSection("Buttons") {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(sp.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PrimaryButton("Primary", onClick = {})
+                SecondaryButton("Secondary", onClick = {})
+                TextButton("Text", onClick = {})
+                IconButton(onClick = { }) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = c.contentPrimary)
+                }
+            }
+        }
+
+        DsSection("Chips") {
+            Row(horizontalArrangement = Arrangement.spacedBy(sp.sm)) {
+                Chip("已选", selected = true, onClick = {})
+                Chip("未选", selected = false, onClick = {})
+            }
+        }
+
+        DsSection("Search") {
+            SearchField(value = "", onValueChange = {}, placeholder = "搜索通知")
+        }
+
+        DsSection("Empty State") {
+            EmptyState(
+                icon = Icons.Default.Notifications,
+                title = "暂无通知",
+                description = "新通知会出现在这里",
+            )
+        }
+
+        Spacer(Modifier.height(sp.xxl))
+    }
+}
+
+@Preview(name = "Notix Components — Light", showBackground = true)
+@Composable
+fun ComponentPreview_Light() {
+    NotixTheme(darkTheme = false) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            ComponentShowcaseContent()
+        }
+    }
+}
+
+@Preview(name = "Notix Components — Dark", showBackground = true)
+@Composable
+fun ComponentPreview_Dark() {
+    NotixTheme(darkTheme = true) {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            ComponentShowcaseContent()
+        }
+    }
 }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,7 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.enlpot.notix.ui.theme.*
 
+/**
+ * 空状态（DESIGN_SYSTEM.md §11）。
+ *
+ * Stage 3：对齐到语义 Token（[MaterialTheme.notix] / [MaterialTheme.notixType]）；
+ * 操作按钮改用 [PrimaryButton]。签名保持不变，现有调用方无需改动。
+ */
 @Composable
 fun EmptyState(
     icon: ImageVector,
@@ -27,40 +33,42 @@ fun EmptyState(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null
 ) {
+    val c = MaterialTheme.notix
+    val t = MaterialTheme.notixType
+    val sp = MaterialTheme.notixSpacing
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(32.dp),
+            .padding(vertical = sp.xxl, horizontal = sp.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            modifier = Modifier.size(64.dp),
+            tint = c.contentTertiary,
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(sp.md))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = t.display,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface
+            color = c.contentPrimary
         )
         if (description.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(sp.sm))
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyMedium,
+                style = t.bodySecondary,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = c.contentSecondary
             )
         }
         if (actionLabel != null && onAction != null) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onAction) {
-                Text(actionLabel)
-            }
+            Spacer(modifier = Modifier.height(sp.xl))
+            PrimaryButton(text = actionLabel, onClick = onAction)
         }
     }
 }
