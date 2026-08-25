@@ -527,3 +527,20 @@
 - `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（50s / 46s 两次）；仅既有弃用警告，无新增错误。
 - emulator-5554 实机 UIAutomator 行为回归：标题/统计/柱状图正常；子 Tab 切换（按时间/按应用/已过滤）正常；搜索展开正常；暂停监听弹「暂停通知监听？」确认弹窗正常；点击卡片弹详情弹窗（删除/打开/还原/创建规则）正常；已过滤徽标显示正常；深浅色 `cmd uimode` 切换正常。
 - 截图：`ui-ref/screenshots/stage5_history_dark.png` / `stage5_history_light.png`；基线对比 `screen_history_filled.png` / `screen_history_filled_light.png`。Token 化前后视觉无破坏（值等价）。
+
+### Stage 6：History 卡片迁移（accent 整卡底色）（2026-08-25）
+
+**本轮修改**：
+- `app/src/main/java/com/enlpot/notix/ui/screens/HistoryScreen.kt`（卡片迁移 +208/−164）：删除页内私有 `NotificationCard`（原 1630–1804）；新增 `HistoryNotificationCard` 包装器（页面层取色 + 详情弹窗状态管理）；三处列表调用改用包装器；`HistorySubTabs` 条件 fontWeight → 条件 style（`t.cardTitle` / `t.bodySecondary`）；主屏水平 padding `16.dp` → `lay.screenHorizontal`。增 `import NotificationCard / NotificationCardData / NotificationCardVariant`。
+- `app/src/main/java/com/enlpot/notix/ui/components/NotificationCard.kt`（组件必办项 +31/−）：CountBadge 加下拉三角（`Icons.Default.ArrowDropDown` 16dp + contentDescription=`open_history`）；「其余 N 条」改用 `R.string.notification_more_count`；清理 `maxLines = if (compact) 1 else 1` 冗余。
+- `app/src/main/res/values/strings.xml`（新增 string +1）：`notification_more_count = "其余 %1$d 条"`。
+
+**设计要点**：
+- 私有 NC 删除后页面层取色：accent=NotificationColorEngine.backgroundColor / onAccent=primaryTextColor（引擎 chooseTextColor 保证 WCAG），与 RulesScreen 模式一致。
+- 计数角标背景由 accent 实底改为 onAccent.copy(alpha=0.18f) 半透；形态保留「数字 + ArrowDropDown 三角」。
+- 计数角标 14sp Bold 决策：使用现有 `notixType.numeric`（14sp SemiBold），不新增 14sp Bold 令牌（理由：Stage 5 已统一，视觉权重足够，维护成本低）。
+
+**验证**：
+- `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（53s / 47s / 49s 三次）；仅既有弃用警告，无新增错误。
+- emulator-5554 实机 UIAutomator 行为回归：标题/统计/柱状图正常；子 Tab 切换（按时间/按应用/已过滤）正常；组展开/收起正常；搜索展开正常；暂停监听弹确认弹窗正常；点击卡片弹详情弹窗（删除/打开/还原/创建规则）正常；已过滤徽标显示正常；深浅色 `cmd uimode` 切换正常。计数徽标点击 / 折叠展开 compact+indent 因数据条件未触发，代码路径已就位。
+- 截图：`ui-ref/screenshots/stage6_history_dark.png` / `stage6_history_light.png`；基线对比 `screen_history_filled.png` / `screen_history_filled_light.png`。视觉变化（预期）：卡片底色从 neutral surfaceVariant 变为 App 动态色 + 文字色由引擎对比度保证；圆角 12→16dp（NotixCorner.Card）。

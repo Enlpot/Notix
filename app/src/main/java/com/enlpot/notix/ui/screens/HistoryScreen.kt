@@ -125,6 +125,9 @@ import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.StatsStorage
 import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.CrashLogDialog
+import com.enlpot.notix.ui.components.NotificationCard
+import com.enlpot.notix.ui.components.NotificationCardData
+import com.enlpot.notix.ui.components.NotificationCardVariant
 import com.enlpot.notix.ui.components.NotificationDetailDialog
 import com.enlpot.notix.ui.components.EmptyState
 import com.enlpot.notix.ui.components.RealAppIcon
@@ -404,8 +407,9 @@ fun HistoryScreen(
     // v7.41：totalCount/todayCount 计算已移至 ChartPanel（通用图表面板）
     // v7.36：未知规则组名（在 composable 上下文解析，供 LazyListScope 扩展使用）
     val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
+    val lay = MaterialTheme.notixLayout
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = lay.screenHorizontal)) {
         // v7.50：标题行 + 总记录/今日统计（移入 LazyColumn 顶部 item，随滚动滚出）
         val headerNowDate = LocalDate.now()
         val headerTotalCount = remember(entries) { entries.sumOf { it.count } }
@@ -1176,12 +1180,11 @@ private fun HistorySubTabs(
                         else Color.Transparent
                     )
                 ) {
-                    Text(
-                        text = stringResource(labelRes),
-                        modifier = Modifier.padding(horizontal = if (compact) 12.dp else 16.dp, vertical = if (compact) 5.dp else 8.dp),
-                        color = if (isSelected) MaterialTheme.notix.contentPrimary else MaterialTheme.notix.contentSecondary,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    fontSize = if (compact) 13.sp else 14.sp
+                Text(
+                    text = stringResource(labelRes),
+                    style = if (isSelected) MaterialTheme.notixType.cardTitle else MaterialTheme.notixType.bodySecondary,
+                    modifier = Modifier.padding(horizontal = if (compact) 12.dp else 16.dp, vertical = if (compact) 5.dp else 8.dp),
+                    color = if (isSelected) MaterialTheme.notix.contentPrimary else MaterialTheme.notix.contentSecondary
                 )
             }
         }
@@ -1625,9 +1628,11 @@ private fun RuleGroupHeader(
 }
 
 // --- 聚合通知卡片：单击弹菜单；右侧徽标点击打开变更历史 ---
+// v6（Stage 6）：History 列表通知卡包装器——使用 NotificationCard 组件（accent 整卡底色），
+// 页面层计算 accent/onAccent 注入，详情弹窗由包装器内部管理。
 // v7.45：新增 indent 参数——折叠展开后的卡片水平缩进（宽度略缩），与未折叠卡片区分
 @Composable
-private fun NotificationCard(
+private fun HistoryNotificationCard(
     entry: NotificationHistoryEntry,
     onHistoryClick: () -> Unit,
     onOpen: () -> Unit,
@@ -1637,23 +1642,20 @@ private fun NotificationCard(
     showRestore: Boolean,
     context: android.content.Context,
     compact: Boolean = false,
-    indent: Dp = 0.dp
+    indent: Dp = 0.dp,
 ) {
     val notification = entry.latest ?: return
-    var menuExpanded by remember { mutableStateOf(false) }
     val packageName = notification.packageName
+    var menuExpanded by remember { mutableStateOf(false) }
 
-    // v7.10：复用 NotificationColorEngine 配色（accent 底 + 对比度文字色）
+    // accent 整卡底色：经 NotificationColorEngine 取色（与 RulesScreen 一致）
     val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName) {
         value = withContext(Dispatchers.Default) {
             NotificationColorEngine.getNotificationColors(context, packageName)
         }
     }
-    val accent = colors?.accentColor?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-    val accentFg = remember(accent) { Color(NotificationColorEngine.chooseTextColor(accent.toArgb())) }
-    // v7.14：已过滤标签使用 error 实底 + 对比度文字色（与变更计数角标一致）
-    val errorColor = MaterialTheme.colorScheme.error
-    val errorFg = remember(errorColor) { Color(NotificationColorEngine.chooseTextColor(errorColor.toArgb())) }
+    val accent = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.notix.primary
+    val onAccent = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.notix.onPrimary
 
     val displayAppName = notification.appLabel ?: packageName.orEmpty()
     val title = notification.title.orEmpty()
@@ -1661,145 +1663,36 @@ private fun NotificationCard(
     val sdf = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
     val timeStr = sdf.format(Date(notification.timestamp))
 
-    Box {
-        Card(
-            onClick = { menuExpanded = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .padding(horizontal = indent),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                RealAppIcon(
-                    packageName = packageName,
-                    appName = displayAppName,
-                    size = 36.dp,
-                    shape = RoundedCornerShape(8.dp),
-                )
-                Spacer(modifier = Modifier.width(10.dp))
+    NotificationCard(
+        data = NotificationCardData(
+            appName = displayAppName,
+            title = if (compact) "" else title,
+            summary = text,
+            timestamp = timeStr,
+            count = entry.count,
+        ),
+        accent = accent,
+        onAccent = onAccent,
+        packageName = packageName,
+        variant = if (entry.count > 1) NotificationCardVariant.Multiple else NotificationCardVariant.Normal,
+        onClick = { menuExpanded = true },
+        onHistoryClick = onHistoryClick,
+        blocked = entry.blocked,
+        compact = compact,
+        indent = indent,
+    )
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = displayAppName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    if (title.isNotEmpty() && !compact) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-
-                    if (text.isNotEmpty()) {
-                        Text(
-                            text = text,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = if (compact) 1 else 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-
-                    Text(
-                        text = timeStr,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-
-                // v7.10：变更次数角标——多条（count>1）时显示「数字 + 下拉三角」，点击打开历史变更窗口；单条不显示
-                if (entry.count > 1) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(accent)
-                            .clickable { onHistoryClick() }
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = entry.count.toString(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = accentFg
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = stringResource(R.string.open_history),
-                                tint = accentFg
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // v7.15：已过滤标签——固定卡片右下角（BottomEnd），右边缘与变更计数角标右侧竖直线对齐（end=12.dp 同卡片内边距）
-        // v7.51：缩进态下 badge 同步右移 indent，避免超出卡片右边界
-        if (entry.blocked) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp + indent, bottom = 12.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(errorColor)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.NotificationsOff,
-                        contentDescription = null,
-                        tint = errorFg,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = stringResource(R.string.history_blocked_badge),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = errorFg
-                    )
-                }
-            }
-        }
-
-        // v7.35：抽取为可复用组件 NotificationDetailDialog（历史列表与聚合窗口共用）
-        if (menuExpanded) {
-            NotificationDetailDialog(
-                notification = notification,
-                blocked = entry.blocked,
-                showRestore = showRestore,
-                onDismiss = { menuExpanded = false },
-                onDelete = onDelete,
-                onOpen = onOpen,
-                onCreateRule = onCreateRule,
-                onRestore = onRestore
-            )
-        }
+    if (menuExpanded) {
+        NotificationDetailDialog(
+            notification = notification,
+            blocked = entry.blocked,
+            showRestore = showRestore,
+            onDismiss = { menuExpanded = false },
+            onDelete = onDelete,
+            onOpen = onOpen,
+            onCreateRule = onCreateRule,
+            onRestore = onRestore
+        )
     }
 }
 
@@ -1933,7 +1826,7 @@ private fun LazyListScope.foldSegments(
             seg.entries.forEach { entry ->
                 itemIndex[0]++
                 item(key = entry.id) {
-                    NotificationCard(
+                    HistoryNotificationCard(
                         entry = entry,
                         onHistoryClick = { onEntryHistoryClick(entry) },
                         onOpen = { entry.latest?.let { onOpenNotification(it) } },
@@ -1958,7 +1851,7 @@ private fun LazyListScope.foldSegments(
             val headIndex = itemIndex[0]
             itemIndex[0]++
             item(key = "${first.id}_fold_head") {
-                NotificationCard(
+                HistoryNotificationCard(
                     entry = first,
                     onHistoryClick = { onEntryHistoryClick(first) },
                     onOpen = { first.latest?.let { onOpenNotification(it) } },
@@ -1998,7 +1891,7 @@ private fun LazyListScope.foldSegments(
                 seg.entries.drop(1).forEachIndexed { idx, entry ->
                     itemIndex[0]++
                     item(key = "${entry.id}_fold_body_$idx") {
-                        NotificationCard(
+                        HistoryNotificationCard(
                             entry = entry,
                             onHistoryClick = { onEntryHistoryClick(entry) },
                             onOpen = { entry.latest?.let { onOpenNotification(it) } },
@@ -2007,6 +1900,7 @@ private fun LazyListScope.foldSegments(
                             onDelete = { entry.latest?.let { onDeleteNotification(it) } },
                             showRestore = entry.blocked,
                             context = context,
+                            compact = true,
                             indent = FoldCardIndent
                         )
                     }

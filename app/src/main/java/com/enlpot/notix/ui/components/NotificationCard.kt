@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +43,11 @@ import com.enlpot.notix.ui.theme.*
  * - [blocked]：右下角 error 底「已过滤」徽标（与现有 History 行为一致）。
  * - [compact] + [indent]：折叠展开态缩宽显示（缩进 + 紧凑布局）。
  * - [onHistoryClick]：计数徽标独立点击（与卡片 [onClick] 分离）。
+ *
+ * v6（Stage 6）补全：
+ * - 计数徽标对齐现有 History 行为：「数字 + 下拉三角」（`Icons.Default.ArrowDropDown`）。
+ * - 「其余 N 条」改用 [R.string.notification_more_count]。
+ * - 清理冗余 `maxLines = if (compact) 1 else 1` → `maxLines = 1`。
  */
 enum class NotificationCardVariant { Normal, Multiple }
 
@@ -113,7 +121,7 @@ fun NotificationCard(
                         text = data.title,
                         style = t.body,
                         color = onAccent,
-                        maxLines = if (compact) 1 else 1,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -136,7 +144,7 @@ fun NotificationCard(
                 if (variant == NotificationCardVariant.Multiple) {
                     Spacer(Modifier.height(sp.xs))
                     Text(
-                        text = "其余 ${data.count - 1} 条",
+                        text = stringResource(R.string.notification_more_count, data.count - 1),
                         style = t.label,
                         color = onAccent,
                     )
@@ -174,10 +182,19 @@ private fun CountBadge(count: Int, onAccent: Color, onClick: () -> Unit) {
             .padding(horizontal = sp.sm, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.notixType.numeric,
-            color = onAccent,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.notixType.numeric,
+                color = onAccent,
+            )
+            Spacer(Modifier.width(2.dp))
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = stringResource(R.string.open_history),
+                tint = onAccent,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
