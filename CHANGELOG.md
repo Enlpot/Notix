@@ -544,3 +544,33 @@
 - `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（53s / 47s / 49s 三次）；仅既有弃用警告，无新增错误。
 - emulator-5554 实机 UIAutomator 行为回归：标题/统计/柱状图正常；子 Tab 切换（按时间/按应用/已过滤）正常；组展开/收起正常；搜索展开正常；暂停监听弹确认弹窗正常；点击卡片弹详情弹窗（删除/打开/还原/创建规则）正常；已过滤徽标显示正常；深浅色 `cmd uimode` 切换正常。计数徽标点击 / 折叠展开 compact+indent 因数据条件未触发，代码路径已就位。
 - 截图：`ui-ref/screenshots/stage6_history_dark.png` / `stage6_history_light.png`；基线对比 `screen_history_filled.png` / `screen_history_filled_light.png`。视觉变化（预期）：卡片底色从 neutral surfaceVariant 变为 App 动态色 + 文字色由引擎对比度保证；圆角 12→16dp（NotixCorner.Card）。
+
+### Stage 7：深浅色全面验证 + History 收尾 dp→spacing（2026-08-25）
+
+**本轮修改**：
+- `app/src/main/java/com/enlpot/notix/ui/screens/HistoryScreen.kt`（收尾 Token 化 +22/−15）：在 Stage 6 删除私有 NC 后，对 7 个目标子函数 `ChartPanel` / `StatsBarChart` / `HistoryTitleRow` / `HistorySubTabs` / `AppGroupHeader` / `RuleGroupHeader` / `FoldToggleCard` 做 `dp` → `notixSpacing` 收尾：
+  - `4.dp` → `sp.xs`、`8.dp` → `sp.sm`、`12.dp` → `sp.md`、`16.dp` → `sp.lg`（值等价）
+  - 特殊紧凑值 `2/3/5/6/10/11/14/28/40/48/96/144.dp` 按 DESIGN_SYSTEM §4 保留（令牌表只有 xs/sm/md/lg 四档）
+  - 每个子函数顶部加 `val sp = MaterialTheme.notixSpacing` 局部绑定
+- `ui-ref/STAGE7_PROGRESS.md`（新增）：截图清单 / Stage 6 遗留补测说明 / dp→spacing 替换清单 / 跨页一致性 / NEUTRAL_BG 评估 / 未迁移页回归 / 编译结果 / Open Decisions。
+
+**设计要点**：
+- 范围严格按 stage7 §五 5.1：只动 7 个目标子函数，`SearchHeaderBar` / `FilteredDayRow` / `EmptyStateBox` 等**不在范围**，保持原值。
+- dp → sp 等价替换，零视觉变化；深浅色截图核验一致。
+- 第一次 Edit 失误（AppGroupHeader / RuleGroupHeader 各插入重复 `Row(` + 缩进错位）→ Kotlin 编译报 6 个 syntax/argument-mismatch 错误 → 整段 Card 内容 lambda 重写干净版 → 编译通过。
+- NEUTRAL_BG 评估（stage7 §六）：浅色主题下卡片保持引擎取色（深灰/蓝/暖灰）属设计意图（包色识别），可读性由 `chooseTextColor()` 保证 WCAG AA。**不修改引擎**——记录到 Open Decisions 供未来产品决策参考。
+
+**验证**：
+- `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（37s）；仅既有弃用警告，无新增错误。
+- emulator-5554 实机 UIAutomator 截图回归（12 张：6 页 × 深/浅色）：
+  - History by-time / by-app / by-app 哔哩哔哩展开 / filtered
+  - Rules / Settings
+  - 深浅色 `cmd uimode night yes/no` 即时切换，柱状图 surfaceVariant alpha 0.45f 在浅色下明显为浅灰
+  - 引擎整卡底色：哔哩哔哩=深灰，Android 系统=蓝，日历=暖灰（多样性生效）
+  - 文字对比度：chooseTextColor 自动选黑/白，深浅色均满足 WCAG
+- 跨页一致性：History 卡片 vs Rules 卡片风格统一（NotixCorner.Card 16dp + lay.cardPadding + notixType.cardTitle/cardTitle 二级 + engine accent）。
+- Settings/Wizard 未迁移，深浅色切换无回归（Settings 截图核验；Setup Wizard 无主动进入条件，做无回归声明）。
+- Stage 6 两条未实测路径（count>1 卡片级徽标点击 / fold compact+indent）：代码路径已就位（CountBadge Box `clickable(onHistoryClick)` + ArrowDropDown `cd=open_history`；FoldToggleCard `sp.sm/sp.lg/sp.md/sp.xs` + HistoryNotificationCard 折叠体 `compact=true + indent=FoldCardIndent`），当前数据未触发（卡片级 count=1，fold 需要 ≥4 相邻同 App）——记录到 Open Decisions OD-7.1 / OD-7.2 留 Stage 8+ 补测。
+- 边界：仅 History 7 个子函数；未动 Settings/RuleWizard/SetupWizard、未动 NotificationColorEngine、未删死代码、未决定导航框架。
+- `git diff --stat` 只含 HistoryScreen.kt + STAGE7_PROGRESS.md（CHANGELOG.md 留工作区外累积），符合 stage7 §八 7 要求。
+- 未升版（用户未要求本轮发版）。

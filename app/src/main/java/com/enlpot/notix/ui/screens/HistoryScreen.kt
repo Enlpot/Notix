@@ -763,6 +763,7 @@ internal fun ChartPanel(
     showTitle: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    val sp = MaterialTheme.notixSpacing
     val nowDate = LocalDate.now()
     val thisMonday = nowDate.with(DayOfWeek.MONDAY)
     val weeksBefore = 26
@@ -813,7 +814,7 @@ internal fun ChartPanel(
                 onBackToCurrentWeek = onBackToCurrentWeek
             )
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = sp.xs),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                     Spacer(modifier = Modifier.weight(1f))
@@ -890,6 +891,7 @@ private fun StatsBarChart(
     onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val sp = MaterialTheme.notixSpacing
     val maxBarHeight = 96.dp
 
     HorizontalPager(
@@ -935,7 +937,7 @@ private fun StatsBarChart(
                         modifier = Modifier
                             .width(18.dp)
                             .height(barHeight)
-                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                            .clip(RoundedCornerShape(topStart = sp.sm, topEnd = sp.sm))
                             .background(
                                 when {
                                     isSelected -> MaterialTheme.colorScheme.primary
@@ -1113,11 +1115,12 @@ private fun HistoryTitleRow(
     onBackToCurrentWeek: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val sp = MaterialTheme.notixSpacing
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onBackToCurrentWeek() }
-            .padding(top = 8.dp, bottom = 2.dp),
+            .padding(top = sp.sm, bottom = 2.dp),
         verticalAlignment = Alignment.Bottom
     ) {
         Text(
@@ -1125,7 +1128,7 @@ private fun HistoryTitleRow(
             style = MaterialTheme.notixType.display,
             modifier = Modifier.alignByBaseline()
         )
-        Spacer(modifier = Modifier.width(8.dp).alignByBaseline())
+        Spacer(modifier = Modifier.width(sp.sm).alignByBaseline())
         // v8.4：总记录/今日合并为单行，与标题按基线对齐、紧凑间距
         Text(
             text = stringResource(R.string.history_total_today, totalCount, todayCount),
@@ -1160,6 +1163,7 @@ private fun HistorySubTabs(
     modifier: Modifier = Modifier,
     compact: Boolean = false
 ) {
+    val sp = MaterialTheme.notixSpacing
     val tabs = listOf(
         HistoryTab.BY_TIME to R.string.history_tab_by_time,
         HistoryTab.BY_APP to R.string.history_tab_by_app,
@@ -1167,7 +1171,7 @@ private fun HistorySubTabs(
     )
     Row(
         modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)
+        horizontalArrangement = Arrangement.spacedBy(if (compact) sp.xs else sp.sm)
     ) {
         tabs.forEach { (tab, labelRes) ->
             val isSelected = selectedTab == tab
@@ -1183,7 +1187,7 @@ private fun HistorySubTabs(
                 Text(
                     text = stringResource(labelRes),
                     style = if (isSelected) MaterialTheme.notixType.cardTitle else MaterialTheme.notixType.bodySecondary,
-                    modifier = Modifier.padding(horizontal = if (compact) 12.dp else 16.dp, vertical = if (compact) 5.dp else 8.dp),
+                    modifier = Modifier.padding(horizontal = if (compact) sp.md else sp.lg, vertical = if (compact) 5.dp else sp.sm),
                     color = if (isSelected) MaterialTheme.notix.contentPrimary else MaterialTheme.notix.contentSecondary
                 )
             }
@@ -1356,6 +1360,7 @@ private fun AppGroupHeader(
     onClick: () -> Unit,
     onStopMonitoringClick: () -> Unit,
 ) {
+    val sp = MaterialTheme.notixSpacing
     val context = LocalContext.current
     // v7.9：NotificationColorEngine 动态配色（Icon→主色提取→HSL 背景→WCAG 文字），后台线程分析 + 缓存
     val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName) {
@@ -1382,7 +1387,7 @@ private fun AppGroupHeader(
         )
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 8.dp),
+            modifier = Modifier.padding(vertical = sp.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // v7.8：左侧主色深色版装饰条
@@ -1390,7 +1395,7 @@ private fun AppGroupHeader(
                 modifier = Modifier
                     .width(5.dp)
                     .height(40.dp)
-                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .clip(RoundedCornerShape(topEnd = sp.xs, bottomEnd = sp.xs))
                     .background(accent)
             )
             Spacer(modifier = Modifier.width(11.dp))
@@ -1416,7 +1421,7 @@ private fun AppGroupHeader(
                 modifier = Modifier
                     .clip(NotixCorner.Sm)
                     .background(accent)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(horizontal = sp.sm, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -1433,7 +1438,7 @@ private fun AppGroupHeader(
                 tint = headerFg.copy(alpha = 0.8f)
             )
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(sp.xs))
 
             // 监控按钮：放到分组卡片右侧（标题行右侧）
             IconButton(onClick = onStopMonitoringClick) {
@@ -1548,6 +1553,7 @@ private fun RuleGroupHeader(
     isUnknown: Boolean,
     onClick: () -> Unit,
 ) {
+    val sp = MaterialTheme.notixSpacing
     val context = LocalContext.current
     // 未知规则组固定默认灰色配色；其余复用 NotificationColorEngine 动态配色（与按应用一致）
     val colors by produceState<NotificationColors?>(initialValue = null, key1 = if (isUnknown) null else packageName) {
@@ -1572,14 +1578,14 @@ private fun RuleGroupHeader(
         )
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 8.dp),
+            modifier = Modifier.padding(vertical = sp.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
                     .width(5.dp)
                     .height(40.dp)
-                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .clip(RoundedCornerShape(topEnd = sp.xs, bottomEnd = sp.xs))
                     .background(accent)
             )
             Spacer(modifier = Modifier.width(11.dp))
@@ -1604,7 +1610,7 @@ private fun RuleGroupHeader(
                 modifier = Modifier
                     .clip(NotixCorner.Sm)
                     .background(accent)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(horizontal = sp.sm, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -1622,7 +1628,7 @@ private fun RuleGroupHeader(
             )
 
             // v7.36：本 tab 组头右侧不放操作按钮（按应用 tab 的停止监控按钮保留）
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(sp.xs))
         }
     }
 }
@@ -1763,6 +1769,7 @@ private fun FoldToggleCard(
     isExpanded: Boolean,
     onClick: () -> Unit
 ) {
+    val sp = MaterialTheme.notixSpacing
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -1774,7 +1781,7 @@ private fun FoldToggleCard(
         )
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+            modifier = Modifier.padding(start = sp.lg, end = sp.md, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
