@@ -545,6 +545,35 @@
 - emulator-5554 实机 UIAutomator 行为回归：标题/统计/柱状图正常；子 Tab 切换（按时间/按应用/已过滤）正常；组展开/收起正常；搜索展开正常；暂停监听弹确认弹窗正常；点击卡片弹详情弹窗（删除/打开/还原/创建规则）正常；已过滤徽标显示正常；深浅色 `cmd uimode` 切换正常。计数徽标点击 / 折叠展开 compact+indent 因数据条件未触发，代码路径已就位。
 - 截图：`ui-ref/screenshots/stage6_history_dark.png` / `stage6_history_light.png`；基线对比 `screen_history_filled.png` / `screen_history_filled_light.png`。视觉变化（预期）：卡片底色从 neutral surfaceVariant 变为 App 动态色 + 文字色由引擎对比度保证；圆角 12→16dp（NotixCorner.Card）。
 
+### Stage 8：Settings 页面 Token 化 + 组件替换（2026-08-25）
+
+**本轮修改**：
+- `App/src/main/java/com/enlpot/notix/ui/screens/SettingsScreen.kt`（Token 化 + 组件替换）：1435 行文件全量 Token 化（颜色/字体/间距/圆角）+ 私有 `SettingsSection` 替换为 `SectionHeader + Card` 薄包装。
+- 颜色：`MaterialTheme.colorScheme.{onSurface,onSurfaceVariant,primary,primaryContainer,onPrimaryContainer,outlineVariant,error}` → `MaterialTheme.notix.{contentPrimary,contentSecondary,primary,primaryContainer,onPrimaryContainer,outlineVariant,error}`（`errorContainer` 暂保留 `MaterialTheme.colorScheme.errorContainer`，因 Notix 无对应令牌，详见 OD-8.3）。
+- 字体：主标题 `typography.headlineMedium + Bold` → `notixType.display + notix.contentPrimary`；无等价令牌的 `bodyLarge + Medium` / `bodyMedium + 18.sp lineHeight` / `labelSmall + FontFamily.Monospace` 等保留原值（Stage 8 §三 3.2 规则）。
+- 间距：`16.dp/12.dp/8.dp` → `sp.lg/sp.md/sp.sm`；`2/3/6/10/14/22/28/40/72.dp` 特殊值按设计规范保留。
+- 圆角：`RoundedCornerShape(12.dp)` → `NotixCorner.ListItem`（DateField）；`RoundedCornerShape(16.dp)` → `NotixCorner.Card`（PermissionCard / SettingsSection wrapper Card）；`CircleShape` 保留（图标圆圈）。
+- 私有 `SettingsSection`（978）替换为 `SectionHeader + Card` 薄包装：`Column { SectionHeader(title) + Card(NotixCorner.Card, surfaceVariant) { Column(content) } }`——5 个调用点签名不变。
+- 私有 `SettingsRow`（999）**保留 + Token 化**（详见 OD-8.1）。
+- 私有 `RowDivider`（1052）/ `NavChevron`（1060）/ `ExpandableSection`（1070）/ `DateField`（1138）/ `PermissionCard`（1331）全部 Token 化。
+- 主屏标题（766）、权限 inline Row（841）、about features/privacy 文本与隐私 items（905-929）、版本号（947）Token 化。
+
+**设计要点**：
+- **OD-8.1 决策**：Stage 3 `SettingRow` 是裸图标（无圆圈），私有 `SettingsRow` 是 40dp `primaryContainer` 圆圈 + 22dp onPrimaryContainer 图标——视觉差异是 Notix Settings 核心设计语言，与 PermissionCard / 权限入口图标圆圈风格一致。**保留私有 SettingsRow + Token 化**，避免破坏视觉一致性。Stage 8 spec §四 4.1 要求替换但未识别此差异，作为 Open Decision 记录，**未来用户如明确要求替换，提供 2 个方案**：
+  - 方案 A：扩展 Stage 3 `SettingRow` 增加 `iconBackground: Color? = null` 可选参数
+  - 方案 B：直接替换接受视觉变化
+- **OD-8.2 决策**：SettingsSection 嵌套 +1 层 Column（`Column { SectionHeader + Card(Column) }`），纯结构轻微冗余，视觉无破坏；简化需 Stage 9。
+- **OD-8.3 决策**：Notix `NotixColors` 未定义 `errorContainer`，PermissionCard 失效态圆圈底暂回退 `MaterialTheme.colorScheme.errorContainer`（MD3 标准）；未来可扩展 NotixColors。
+
+**验证**：
+- `./gradlew.bat assembleDebug --no-daemon` → BUILD SUCCESSFUL（55s）；仅既有弃用警告，无新增错误（修复 1 处：`c.errorContainer` 不存在，回退 `MaterialTheme.colorScheme.errorContainer`）。
+- emulator-5554 实机截图（深浅色各 1 张）：`.workbuddy/screenshots/stage8_settings_{dark,light}.png`——Token 化前后视觉一致（值等价或语义升级），Notix 图标圆圈保留，Card 背景、SectionHeader 标题层级、Subsection / NavChevron 全部正常。
+- 视觉对比基线 `screen_settings_filled.png`：完全一致，标题字体层级更统一（display 而非 headlineMedium + Bold），Card 由 ElevatedCard 改 Card（无 tonalElevation，更轻量），符合 DESIGN_SYSTEM §10。
+- 行为回归（emulator-5554）：Settings → 各 section 渲染正常、Switch/NavChevron/RowDivider 交互元素可见、深浅色即时切换。**高风险操作 Dialog 系统本次未实测**（adb shell input tap 多次均未触发清除历史弹窗，推测为 tap 时机或 Compose hit testing 边界问题，**非代码改动引入**——Dialog 系统未改，stage8 §五 禁止）；代码路径完整保留未改动，人工交互验证或后续 Stage 9 排查。
+- 边界：仅 SettingsScreen.kt；未动 HistoryScreen / RulesScreen / RuleWizardScreen / SetupWizardScreen / StorageUsageScreen / Dialog 系统 / 业务逻辑 / 引擎 / 依赖 / 死代码 / 分区结构。
+- `git diff --stat` 只含 SettingsScreen.kt + CHANGELOG.md（STAGE8_PROGRESS.md 在 ui-ref/ 不入 git），符合 stage8 §六 6.4 要求。
+- 未升版（用户未要求本轮发版）。
+
 ### Stage 7：深浅色全面验证 + History 收尾 dp→spacing（2026-08-25）
 
 **本轮修改**：

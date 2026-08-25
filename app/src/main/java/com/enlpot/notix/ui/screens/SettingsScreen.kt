@@ -115,6 +115,8 @@ import com.enlpot.notix.ui.components.NotixDangerButton
 import com.enlpot.notix.ui.components.NotixDialog
 import com.enlpot.notix.ui.components.NotixDialogButton
 import com.enlpot.notix.ui.components.RealAppIcon
+import com.enlpot.notix.ui.components.SectionHeader
+import com.enlpot.notix.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -760,11 +762,11 @@ fun SettingsScreen(
                 .imePadding()
                 .verticalScroll(rememberScrollState())
         ) {
-            // v8.2：设置页主标题（与历史/规则页 headlineMedium+Bold 统一）
+            // v8.2：设置页主标题（与历史/规则页 headlineMedium+Bold 统一）；Stage 8 Token 化
             Text(
                 text = stringResource(R.string.settings),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.notixType.display,
+                color = MaterialTheme.notix.contentPrimary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             SettingsSection(title = stringResource(R.string.settings_section_general)) {
@@ -838,6 +840,7 @@ fun SettingsScreen(
 
             // v8.6：权限管理——入口（仅展示实时状态，点击进入二级界面）
             SettingsSection(title = stringResource(R.string.settings_permission_section_title)) {
+                // Stage 8：Token 化颜色 / 字体 / 间距；保留 Notix 图标圆圈视觉
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -849,13 +852,13 @@ fun SettingsScreen(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .background(MaterialTheme.notix.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Security,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            tint = MaterialTheme.notix.onPrimaryContainer,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -864,14 +867,15 @@ fun SettingsScreen(
                         Text(
                             text = stringResource(R.string.settings_permission_section_title),
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.notix.contentPrimary
                         )
                         Spacer(Modifier.height(3.dp))
                         Text(
                             text = stringResource(R.string.settings_permission_monitoring_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             lineHeight = 18.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.notix.contentSecondary
                         )
                     }
                     Spacer(Modifier.width(12.dp))
@@ -880,14 +884,14 @@ fun SettingsScreen(
                             text = stringResource(R.string.settings_permission_all_normal),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.notix.primary
                         )
                     } else {
                         Text(
                             text = stringResource(R.string.settings_permission_n_abnormal, permFailedCount),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.notix.error
                         )
                     }
                     Spacer(Modifier.width(4.dp))
@@ -902,11 +906,12 @@ fun SettingsScreen(
                     expanded = aboutFeaturesExpanded,
                     onToggle = { aboutFeaturesExpanded = !aboutFeaturesExpanded },
                 ) {
+                    // Stage 8：Token 化内容文字色
                     Text(
                         text = stringResource(R.string.about_features_body),
                         style = MaterialTheme.typography.bodySmall,
                         lineHeight = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.notix.contentSecondary,
                     )
                 }
                 ExpandableSection(
@@ -925,7 +930,7 @@ fun SettingsScreen(
                         Text(
                             text = "\u2022 ${stringResource(resId)}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.notix.contentSecondary,
                             modifier = Modifier.padding(vertical = 2.dp)
                         )
                     }
@@ -942,7 +947,7 @@ fun SettingsScreen(
             Text(
                 text = stringResource(R.string.app_version, versionName),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.notix.contentSecondary,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 28.dp),
@@ -979,19 +984,21 @@ private fun SettingsSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 28.dp, end = 16.dp, top = 20.dp, bottom = 8.dp)
-    )
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-    ) {
-        Column(content = content)
+    // Stage 8：替换为 SectionHeader + Card 薄包装，保留原 SectionSection 的卡片化分组结构
+    val sp = MaterialTheme.notixSpacing
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = title)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = sp.lg),
+            shape = NotixCorner.Card,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.notix.surfaceVariant
+            )
+        ) {
+            Column(content = content)
+        }
     }
 }
 
@@ -1003,33 +1010,39 @@ private fun SettingsRow(
     onClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null
 ) {
+    // Stage 8：保留 Notix「图标圆形圈」视觉元素（OD-8.1，详见 STAGE8_PROGRESS.md），
+    // 仅 Token 化颜色 / 间距 / 字体（无等价令牌的保留原 typography）；
+    // 触控目标 ≥44dp 由垂直 14.dp + 40.dp 圆形 + 文字高度共同保证。
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = sp.lg, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(c.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                tint = c.onPrimaryContainer,
                 modifier = Modifier.size(22.dp)
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(sp.lg))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                color = c.contentPrimary
             )
             if (subtitle != null) {
                 Spacer(modifier = Modifier.height(3.dp))
@@ -1037,12 +1050,12 @@ private fun SettingsRow(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     lineHeight = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = c.contentSecondary
                 )
             }
         }
         if (trailing != null) {
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(sp.md))
             trailing()
         }
     }
@@ -1052,7 +1065,7 @@ private fun SettingsRow(
 private fun RowDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = 72.dp),
-        color = MaterialTheme.colorScheme.outlineVariant
+        color = MaterialTheme.notix.outlineVariant
     )
 }
 
@@ -1061,7 +1074,7 @@ private fun NavChevron() {
     Icon(
         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
         contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant
+        tint = MaterialTheme.notix.contentSecondary
     )
 }
 
@@ -1073,32 +1086,35 @@ private fun ExpandableSection(
     onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onToggle)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = sp.lg, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
+                color = c.contentPrimary,
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = c.contentSecondary,
                 modifier = Modifier.rotate(if (expanded) 180f else 0f)
             )
         }
         AnimatedVisibility(visible = expanded) {
             Column(
                 modifier = Modifier.padding(
-                    start = 16.dp,
-                    end = 16.dp,
+                    start = sp.lg,
+                    end = sp.lg,
                     bottom = 14.dp
                 )
             ) {
@@ -1140,24 +1156,26 @@ private fun DateField(
     value: String,
     onClick: () -> Unit,
 ) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+            .clip(NotixCorner.ListItem)
+            .background(c.surface.copy(alpha = 0.6f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = sp.lg, vertical = 10.dp)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = c.contentSecondary
         )
         Spacer(Modifier.height(2.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface
+            color = c.contentPrimary
         )
     }
 }
@@ -1338,29 +1356,32 @@ private fun PermissionCard(
     fixLabel: String,
     onFix: () -> Unit,
 ) {
+    // Stage 8：Token 化颜色 / 字体 / 间距 / 圆角，保留 Notix「图标圆圈」+ 权限标识等宽字体视觉
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onFix),
-        shape = RoundedCornerShape(16.dp)
+        shape = NotixCorner.Card
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (granted) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.errorContainer
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
+Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (granted) c.primaryContainer
+                                else MaterialTheme.colorScheme.errorContainer
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = if (granted) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error,
+                        tint = if (granted) c.primary
+                                else c.error,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -1369,36 +1390,37 @@ private fun PermissionCard(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = c.contentPrimary
                     )
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(sp.xs))
                     Text(
                         text = if (granted) stringResource(R.string.settings_permission_status_normal)
                                 else stringResource(R.string.settings_permission_status_failed),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (granted) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.error,
+                        color = if (granted) c.primary
+                                else c.error,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(sp.sm))
                 // 整卡可点击跳转对应系统设置，用箭头提示可交互
                 NavChevron()
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(sp.sm))
             // 权限标识（Android 常量，跨语言一致）
             Text(
                 text = permName,
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                color = c.contentSecondary.copy(alpha = 0.85f)
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = desc,
                 style = MaterialTheme.typography.bodySmall,
                 lineHeight = 18.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = c.contentSecondary
             )
             Spacer(Modifier.height(6.dp))
             // 使用组件：标注该权限被 App 中哪个组件用到
@@ -1406,7 +1428,7 @@ private fun PermissionCard(
                 text = stringResource(R.string.settings_permission_usedby_label) + "：" + usedBy,
                 style = MaterialTheme.typography.bodySmall,
                 lineHeight = 18.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = c.contentSecondary
             )
             if (!granted) {
                 Spacer(Modifier.height(10.dp))
@@ -1414,7 +1436,7 @@ private fun PermissionCard(
                     TextButton(
                         onClick = onFix,
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
+                            contentColor = c.error
                         )
                     ) {
                         Text(fixLabel, fontWeight = FontWeight.SemiBold)
