@@ -1,4 +1,4 @@
-package com.enlpot.notix
+﻿package com.enlpot.notix
 
 import android.app.Activity
 import android.app.NotificationChannel
@@ -114,7 +114,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     private lateinit var ruleStorage: RuleStorage
-    private lateinit var notificationHistoryStorage: NotificationHistoryStorage
+    private lateinit var notificationHistoryRepository: com.enlpot.notix.data.repository.NotificationHistoryRepository
     private lateinit var blockedNotificationHistoryStorage: BlockedNotificationHistoryStorage
     private lateinit var unmonitoredAppsStorage: UnmonitoredAppsStorage
     private lateinit var appInfoStorage: AppInfoStorage
@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
         uiScope.launch {
             delay(400)
             historyRefreshScheduled = false
-            val entries = withContext(Dispatchers.IO) { notificationHistoryStorage.getEntries() }
+            val entries = withContext(Dispatchers.IO) { kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() } }
             historyEntries = entries
             pastNotifications = entries.flatMap { it.changes }
             rules = ruleStorage.getRules().filter { it.isValid }
@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
             if (restoredNotification != null) prefillNotification = restoredNotification
         }
         ruleStorage = RuleStorage(this)
-        notificationHistoryStorage = NotificationHistoryStorage(this)
+        notificationHistoryRepository = com.enlpot.notix.data.repository.NotificationHistoryRepository(this)
         blockedNotificationHistoryStorage = BlockedNotificationHistoryStorage(this)
         unmonitoredAppsStorage = UnmonitoredAppsStorage(this)
         appInfoStorage = AppInfoStorage(this)
@@ -193,7 +193,7 @@ class MainActivity : ComponentActivity() {
         // v7.12 数据迁移：老版本分流存储的被过滤历史并入统一历史（blocked 标记）
         val legacyBlocked = blockedNotificationHistoryStorage.getHistory()
         if (legacyBlocked.isNotEmpty()) {
-            notificationHistoryStorage.mergeBlockedNotifications(legacyBlocked)
+            kotlinx.coroutines.runBlocking { notificationHistoryRepository.mergeBlockedNotifications(legacyBlocked) }
             blockedNotificationHistoryStorage.clearHistory()
         }
 
@@ -229,7 +229,7 @@ class MainActivity : ComponentActivity() {
         }
         // v8.0：历史/规则读取移到 IO 线程，避免大历史文件在主线程 Gson 解析导致进入页面卡顿
         uiScope.launch {
-            val entries = withContext(Dispatchers.IO) { notificationHistoryStorage.getEntries() }
+            val entries = withContext(Dispatchers.IO) { kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() } }
             historyEntries = entries
             pastNotifications = entries.flatMap { it.changes }
             rules = ruleStorage.getRules().filter { it.isValid }
@@ -346,7 +346,7 @@ class MainActivity : ComponentActivity() {
                 scrollToTopTrigger = scrollToTopTrigger,
                 onHistoryTabClick = { scrollToTopTrigger++ },
                 onRefreshHistory = {
-                    historyEntries = notificationHistoryStorage.getEntries()
+                    historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
                     listenerPaused = NotificationBlockerService.isListenerPaused(context)
                 },
@@ -358,23 +358,23 @@ class MainActivity : ComponentActivity() {
                     showRuleWizard = true
                 },
                 onClearHistory = {
-                    notificationHistoryStorage.clearHistory()
+                    kotlinx.coroutines.runBlocking { notificationHistoryRepository.clearHistory() }
                     appInfoStorage.clearAllAppInfo()
                     historyEntries = emptyList()
                     pastNotifications = emptyList()
                     showMessage(context.getString(R.string.toast_history_cleared))
                 },
                 onClearBlockedHistory = {
-                    notificationHistoryStorage.clearBlockedHistory()
-                    historyEntries = notificationHistoryStorage.getEntries()
+                    kotlinx.coroutines.runBlocking { notificationHistoryRepository.deleteBlocked() }
+                    historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
                     showMessage(context.getString(R.string.toast_blocked_history_cleared))
                 },
                 onRuleClick = { rule -> editingRule = rule; showRuleWizard = true },
                 onCreateRuleClick = { showRuleWizard = true },
                 onDeleteHistoryNotificationClick = { notification ->
-                    notificationHistoryStorage.deleteNotification(notification)
-                    historyEntries = notificationHistoryStorage.getEntries()
+                    kotlinx.coroutines.runBlocking { notificationHistoryRepository.deleteNotification(notification) }
+                    historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
                     showMessage(context.getString(R.string.toast_notification_deleted))
                 },
@@ -388,13 +388,13 @@ class MainActivity : ComponentActivity() {
                 },
                 isServiceEnabled = isServiceEnabled, // Pass isServiceEnabled
                 onClearHistoryByDate = { startMs, endMs ->
-                    notificationHistoryStorage.clearHistoryBetween(startMs, endMs)
-                    historyEntries = notificationHistoryStorage.getEntries()
+                    kotlinx.coroutines.runBlocking { notificationHistoryRepository.clearHistoryBetween(startMs, endMs) }
+                    historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
                 },
                 onClearHistoryByPackages = { packages ->
-                    notificationHistoryStorage.clearHistoryByPackages(packages.toSet())
-                    historyEntries = notificationHistoryStorage.getEntries()
+                    kotlinx.coroutines.runBlocking { notificationHistoryRepository.clearHistoryByPackages(packages.toSet()) }
+                    historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
                 },
                 onToggleAllRules = { enabled ->
@@ -440,8 +440,8 @@ class MainActivity : ComponentActivity() {
                     showRuleWizard = true
                 },
                 onDeleteNotification = { notification ->
-                    notificationHistoryStorage.deleteNotification(notification)
-                    historyEntries = notificationHistoryStorage.getEntries()
+                    kotlinx.coroutines.runBlocking { notificationHistoryRepository.deleteNotification(notification) }
+                    historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
                     notificationToShowHistoryDetailsDialog = null
                     showMessage(context.getString(R.string.toast_notification_deleted))

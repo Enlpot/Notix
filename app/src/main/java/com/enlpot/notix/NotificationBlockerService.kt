@@ -36,7 +36,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
     private val TAG = "NotificationBlockerService"
     private lateinit var ruleStorage: RuleStorage
-    private lateinit var notificationHistoryStorage: NotificationHistoryStorage
+    private lateinit var notificationHistoryRepository: com.enlpot.notix.data.repository.NotificationHistoryRepository
     private lateinit var blockedNotificationHistoryStorage: BlockedNotificationHistoryStorage
     private lateinit var statsStorage: StatsStorage
     private lateinit var unmonitoredAppsStorage: UnmonitoredAppsStorage
@@ -311,7 +311,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         super.onCreate()
         instance = this
         ruleStorage = RuleStorage(this)
-        notificationHistoryStorage = NotificationHistoryStorage(this)
+        notificationHistoryRepository = com.enlpot.notix.data.repository.NotificationHistoryRepository(this)
         blockedNotificationHistoryStorage = BlockedNotificationHistoryStorage(this)
         statsStorage = StatsStorage(this)
         unmonitoredAppsStorage = UnmonitoredAppsStorage(this)
@@ -319,6 +319,27 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         ensureRepostChannel()
         ensureKeepAliveChannel()
         loadSnoozedKeys()
+
+        // v8.22：启动时执行旧 JSON 历史数据到 Room 的迁移（后台线程，不阻塞监听）
+        Thread {
+            try {
+                val migration = com.enlpot.notix.data.migration.HistoryMigration(
+                    this,
+                    com.enlpot.notix.data.database.AppDatabase.getInstance(this).notificationGroupDao(),
+                    com.enlpot.notix.data.database.AppDatabase.getInstance(this).notificationChangeDao()
+                )
+                if (migration.needsMigration()) {
+                    Log.i(TAG, "Starting history migration in background")
+                    val result = kotlinx.coroutines.runBlocking { migration.migrate() }
+                    Log.i(TAG, "History migration result: $result")
+                    if (result is com.enlpot.notix.data.migration.HistoryMigration.MigrationResult.SUCCESS) {
+                        sendBroadcast(Intent(ACTION_HISTORY_UPDATED))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "History migration failed", e)
+            }
+        }.start()
     }
 
     private fun ensureRepostChannel() {
@@ -439,7 +460,9 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                 }
                 if (savedAppName == packageName) {
                     historyExecutor.execute {
-                        notificationHistoryStorage.updateAppLabelForPackage(packageName, appLabel)
+                        kotlinx.coroutines.runBlocking {
+                            notificationHistoryRepository.updateAppLabelForPackage(packageName, appLabel)
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -490,9 +513,11 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             }
         } else {
             // v7.15：携带 sbnKey/postTime 供存储层按"同一条通知"去重，不再按 pkg+title 误吞
+            // v8.22：wasOngoing 从 notification.flags 读取真实状态，不再硬编码 false
+            val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
             val simpleNotification = SimpleNotification(
                 appLabel, packageName, title, text, currentTime,
-                wasOngoing = false,
+                wasOngoing = isOngoing,
                 sbnKey = sbn.key,
                 postTime = sbn.postTime,
                 matchedRuleIds = hitRuleIds
@@ -514,13 +539,17 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                         ruleStorage.incrementHitCounts(hitRuleIds)
                         if (isHandled) {
                             // v7.12：被过滤通知并入统一历史（blocked 标记），不再分流写入
-                            val isNew = notificationHistoryStorage.saveNotification(simpleNotification, blocked = true)
+                            val isNew = kotlinx.coroutines.runBlocking {
+                                notificationHistoryRepository.saveNotification(simpleNotification, blocked = true)
+                            }
                             if (isNew) {
                                 statsStorage.incrementBlockedNotificationsCount()
                             }
                         } else {
                             if (!unmonitoredAppsStorage.isAppUnmonitored(packageName)) {
-                                notificationHistoryStorage.saveNotification(simpleNotification)
+                                kotlinx.coroutines.runBlocking {
+                                    notificationHistoryRepository.saveNotification(simpleNotification)
+                                }
                                 statsStorage.recordNotification(currentTime)
                             }
                         }
