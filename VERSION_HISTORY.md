@@ -6,6 +6,22 @@
 
 ---
 
+## 8.16.0 (2026-08-29)
+
+**Improved**
+- **Notification cards are more compact.** Internal padding reduced from 16dp to 12dp and inter-row spacing from 4dp to 2dp, bringing a typical Chinese card (app name + title + summary + timestamp) from 319px to ~280px (107dp) on a 420dpi device. Font sizes are unchanged; more cards fit per screen.
+- **Consistent vertical spacing between notification cards.** Cards now use 2dp vertical padding, matching the gap between app-group headers.
+- **Fold-expanded cards now display the notification title.** Previously the body cards inside an expanded fold group used compact mode which hid the title; they now show the full title while retaining the horizontal indent.
+
+**Fixed**
+- **Removed the redundant "其余 N 条" footer line on aggregated cards.** The count badge in the top-right corner already conveys the total.
+- **Fixed excessive blank scroll space on empty or low-content history tabs.** Removed the full-viewport `scroll_room` spacer and the extra 240dp bottom content-padding margin; short lists no longer over-scroll into blank space.
+
+**Notes**
+- `STRONG_REMIND` and `POSTPONE` remain UI-only shells.
+
+---
+
 ## 8.15.2 (2026-08-25)
 
 **Fixed**
