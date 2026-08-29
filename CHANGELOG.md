@@ -2,6 +2,171 @@
 
 > 基线：v8.2（versionCode=115 / versionName="8.2"）
 
+## 本轮修改（v8.28.0 · blocked 状态修复 · 2026-08-29）
+
+> 范围：NotificationHistoryRepository.kt、NotificationGroupDao.kt。
+> 问题：规则启用后调用 pplyRulesToActiveNotifications 移除通知栏现有通知时，全局去重路径发现通知已存在就直接跳过，不更新 locked 标志，导致「已过滤」tab 为空。
+> 修复：去重时若新通知 locked=true 且现有记录 locked=0，调用 markBlockedBySbnKeyAndPostTime 更新现有记录的 blocked 状态。
+> 验证：规则关闭时发 3 条微信通知 → 启用规则 → 通知栏 0 条，历史 3 条 blocked=1，已过滤 tab 显示 3 条。
+
+### Fixed
+- NotificationHistoryRepository.insertNotifications：全局去重时补充 blocked 状态更新逻辑。
+- NotificationGroupDao：新增 markBlockedBySbnKeyAndPostTime(sbnKey, postTime) 方法，通过 sbnKey+postTime 直接更新 group 的 blocked 状态。
+
+---
+
+## 本轮修改（v8.27.0 · 规则自动应用到现有通知 · 2026-08-29）
+
+> 范围：NotificationBlockerService.kt、RuleRepository.kt。
+> 新功能：创建、更新或启用规则时，自动对通知栏当前所有活跃通知执行一次规则匹配和动作（移除等），无需等待新通知到达。
+> 实现：新增 pplyRulesToActiveNotifications() 方法，通过 NotificationManager.activeNotifications 获取当前通知，复用 onNotificationPosted 链路匹配规则并执行动作。
+> 触发点：saveRules / ddRules / updateRuleById / setEnabledByIds / setAllEnabled 等规则变更方法。
+
+### Added
+- NotificationBlockerService.applyRulesToActiveNotifications()：遍历当前活跃通知，匹配规则并执行动作。
+- 规则变更时自动触发应用到现有通知的逻辑。
+
+---
+
+## 本轮修改（v8.26.0 · BUG-001 重复通知分组修复 · 2026-08-29）
+
+> 范围：NotificationHistoryRepository.kt。
+> 问题：全局去重仅按 sbnKey 判断，同一 key 但不同 postTime 的更新通知被误判为重复而丢弃，导致聊天消息等快速更新的通知丢失。
+> 修复：去重键改为 sbnKey + postTime，同一 key 不同时间的通知视为独立记录。
+
+### Fixed
+- 全局去重键从 sbnKey 改为 sbnKey + postTime，修复快速更新通知被误丢弃的问题。
+
+---
+
+## 本轮修改（v8.25.0 · 重连同步 + 移除防抖 · 2026-08-29）
+
+> 范围：NotificationBlockerService.kt。
+> 新功能：通知监听服务重连后（进程重启、权限切换等），主动拉取当前活跃通知列表并补录遗漏的通知到历史。
+> 修复：移除同 key 通知的 3 秒防抖——该防抖本意是减少重复写入，但导致同一对话的快速消息（相同 sbnKey）被丢弃，已移除，每条通知都记录。
+
+### Added
+- 监听服务重连时同步当前活跃通知并补录历史。
+
+### Fixed
+- 移除 3 秒同 key 防抖，避免快速聊天消息丢失。
+
+---
+
+## 本轮修改（v8.24.0 · 版本号推进 · 2026-08-29）
+
+> 跟随 v8.23.0 Room 迁移与搜索改进后的版本号推进。
+
+---
+
+## 本轮修改（v8.23.0 · 全文搜索 + 分页加载 + 索引优化 · 2026-08-29）
+
+> 范围：NotificationHistoryRepository.kt、NotificationGroupDao.kt、数据库 Schema。
+> 新功能：搜索改为查询整个 Room 数据库（而非仅已加载页面），支持搜索到几个月前的通知；历史列表改为分页加载（每页 100 条），滚动流畅；搜索结果上限提升到 500 条。
+> 性能：为常用查询模式（按时间、按包名、按 blocked 状态）添加复合数据库索引。
+> 修复：数据库版本升级到 2，采用破坏性迁移以干净应用新 Schema 和索引。
+
+### Added
+- 全历史全文搜索，支持搜索到所有历史数据。
+- 分页历史列表加载（每页 100 条）。
+- 搜索结果上限提升到 500 条。
+- 自动清理旧 JSON 文件，存储统计包含 Room 数据库大小。
+
+### Performance
+- 为常用查询添加复合数据库索引。
+
+### Fixed
+- 数据库版本升级到 2，破坏性迁移应用新 Schema。
+
+---
+
+## 本轮修改（v8.22.0 · Room 数据库迁移 + ongoing 聚合 · 2026-08-29）
+
+> 范围：存储层全面重构。
+> 新功能：通知历史从 JSON 文件存储（
+otification_history.json）迁移到 Room/SQLite 数据库，支持快速查询、分页和全文搜索；ongoing（前台）通知按应用聚合为单卡片，带变更计数角标，与普通通知聚合一致。
+
+### Added
+- Room 数据库存储层，替代 JSON 文件。
+- ongoing 通知按应用聚合。
+
+---
+
+## 本轮修改（v8.21.0 · 未监控应用管理 · 2026-08-29）
+
+> 范围：HistoryScreen.kt、SettingsScreen.kt、通知监听逻辑。
+> 新功能：停止监控的应用在按应用分组视图中视觉区分（对角线划掉），卡片上直接提供一键恢复按钮；设置页新增专用卡片，支持多选和搜索应用来恢复监控。
+> 改进：恢复监控时增加二次确认弹窗；成功 toast 显示应用名称而非原始包名。
+
+### Added
+- 未监控应用视觉区分（对角线划掉）+ 卡片一键恢复按钮。
+- 设置页未监控应用管理卡片（多选 + 搜索）。
+- 恢复监控二次确认弹窗。
+
+### Fixed
+- 恢复监控 toast 显示应用名称而非包名。
+
+---
+
+## 本轮修改（v8.20.0 · 动态取色开关 + 聚合窗口配色 · 2026-08-29）
+
+> 范围：SettingsScreen.kt、NotificationColorEngine.kt、聚合窗口组件。
+> 新功能：设置页新增动态取色开关，用户可自主选择是否开启按应用动态取色，关闭时所有卡片使用默认中性底色；变更计数聚合窗口的卡片颜色与主卡片一致。
+> UI：缩小历史页柱状图顶部间距；历史页标题栏铃铛图标改为播放/暂停样式图标，更贴合功能。
+
+### Added
+- 设置页动态取色开关。
+- 聚合窗口卡片颜色与主卡片一致。
+
+### Changed
+- 历史页柱状图顶部间距缩小。
+- 历史页标题栏铃铛图标改为播放/暂停图标。
+
+---
+
+## 本轮修改（v8.19.0 · 低优先级优化 · 2026-08-29）
+
+> 取色引擎与历史渲染管线的低优先级性能和细节优化（第 7-8 项）。
+
+### Improved
+- 取色引擎与历史渲染的低优先级性能和细节优化。
+
+---
+
+## 本轮修改（v8.18.0 · 取色引擎优化 + 设置页卡片化 · 2026-08-29）
+
+> 范围：NotificationColorEngine.kt、SettingsScreen.kt、弹窗组件。
+> 新功能：通知取色引擎 8 项优化（高+中优先级），更快的颜色提取、更好的缓存、更一致的回退行为。
+> UI：设置页改为独立卡片布局（4dp 间隙），移除分割线和导航箭头；关于部分从可展开改为弹窗样式；全站移除弹窗右上角 X 关闭按钮（点空白或返回键已可关闭）；权限监控弹窗状态移到标题行，滚动时保持可见；关于卡片使用 SettingsRow 带图标（信息 + 锁）。
+
+### Added
+- 通知取色引擎 8 项优化（高+中优先级）。
+- 设置页关于部分弹窗化。
+- 关于卡片图标（信息 + 锁）。
+
+### Changed
+- 设置页独立卡片布局，移除分割线和导航箭头。
+- 全站移除弹窗 X 关闭按钮。
+- 权限监控状态移到弹窗标题行。
+
+---
+
+## 本轮修改（v8.17.0 · 标题统一 + 设置页吸顶 · 2026-08-29）
+
+> 范围：HistoryScreen.kt、RulesScreen.kt、SettingsScreen.kt。
+> UI：通知历史、规则、设置三个页面的标题样式统一（字体、字号、副标题布局）；设置页「设置」标题自然上滑后吸顶，下滑时恢复；规则页标题位置与设置页对齐。
+> 修复：设置页分栏标题与卡片左边缘对齐（16dp 水平内边距），不再紧贴屏幕边缘。
+
+### Changed
+- 三页面标题样式统一。
+- 设置页标题吸顶效果。
+- 规则页标题位置与设置页对齐。
+
+### Fixed
+- 设置页分栏标题与卡片左边缘对齐（16dp 内边距）。
+
+---
+
 ## 本轮修改（v8.15.2 升版发布 · 2026-08-25）
 
 > 升版四件套：versionCode 130 → **131**，versionName "8.15.1" → **"8.15.2"**。
