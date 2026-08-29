@@ -27,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -170,6 +171,8 @@ fun HistoryScreen(
     selectedDay: LocalDate? = null,
     onSelectedDayChange: (LocalDate?) -> Unit = {}
 ) {
+    // v8.18：深浅主题适配——同步当前主题到取色引擎
+    NotificationColorEngine.isDarkTheme = isSystemInDarkTheme()
     // v7.40：旋转恢复——三 tab 及弹窗/搜索/展开等 UI 状态
     var selectedTab by rememberSaveable { mutableStateOf(HistoryTab.BY_TIME) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -1348,11 +1351,8 @@ private fun AppGroupHeader(
     val headerBg = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
     // v7.9：文字颜色由引擎按实际对比度选择（白/黑），加载完成前用主题 onSurface
     val headerFg = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurface
-    // v7.9：强调色（左侧色条/角标底）由引擎生成
-    val fallbackAccent = MaterialTheme.colorScheme.primary
-    val accent = colors?.backgroundColor?.let { Color(it) } ?: fallbackAccent
-    // v7.9：角标文字复用引擎对比度逻辑（对 accent 实际对比度选黑/白），禁止硬编码
-    val accentFg = remember(accent) { Color(NotificationColorEngine.chooseTextColor(accent.toArgb())) }
+    // v8.18 优化：左侧色条改用 accentColor（品牌色明亮版），形成暗背景+亮装饰层次
+    val accent = colors?.accentColor?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1394,26 +1394,29 @@ private fun AppGroupHeader(
             )
 
             // v7.8：变更计数角标——主色深色版底 + 白色文字
+            // v8.18 优化：计数+箭头统一包裹在半透明背景中（与 NotificationCard CountBadge 一致）
             Box(
                 modifier = Modifier
                     .clip(NotixCorner.Sm)
-                    .background(accent)
+                    .background(headerFg.copy(alpha = 0.18f))
                     .padding(horizontal = sp.sm, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = count.toString(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = accentFg
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = headerFg
+                    )
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                        contentDescription = stringResource(if (isExpanded) R.string.collapse else R.string.expand),
+                        tint = headerFg,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
-
-            Icon(
-                imageVector = if (isExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                contentDescription = stringResource(if (isExpanded) R.string.collapse else R.string.expand),
-                tint = headerFg.copy(alpha = 0.8f)
-            )
 
             Spacer(modifier = Modifier.width(sp.xs))
 
@@ -1640,6 +1643,7 @@ private fun HistoryNotificationCard(
     val accent = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.notix.primary
     val onAccent = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.notix.onPrimary
 
+    val onAccentTertiary = colors?.tertiaryTextColor?.let { Color(it) } ?: onAccent.copy(alpha = 0.8f)
     val displayAppName = notification.appLabel ?: packageName.orEmpty()
     val title = notification.title.orEmpty()
     val text = notification.text.orEmpty()
@@ -1658,6 +1662,7 @@ private fun HistoryNotificationCard(
         modifier = Modifier.padding(vertical = 2.dp),
         accent = accent,
         onAccent = onAccent,
+        onAccentTertiary = onAccentTertiary,
         packageName = packageName,
         variant = if (entry.count > 1) NotificationCardVariant.Multiple else NotificationCardVariant.Normal,
         onClick = { menuExpanded = true },
@@ -1746,9 +1751,21 @@ private fun FoldToggleCard(
     appLabel: String,
     hiddenCount: Int,
     isExpanded: Boolean,
+    packageName: String?,
     onClick: () -> Unit
 ) {
     val sp = MaterialTheme.notixSpacing
+    val context = LocalContext.current
+    // v8.18 优化：折叠提示卡改用同应用动态取色（品牌色半透明），与整体风格连贯
+    val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName) {
+        value = withContext(Dispatchers.Default) {
+            NotificationColorEngine.getNotificationColors(context, packageName)
+        }
+    }
+    val foldBg = colors?.backgroundColor?.let { Color(it).copy(alpha = 0.25f) }
+        ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+    val foldFg = colors?.primaryTextColor?.let { Color(it) }
+        ?: MaterialTheme.colorScheme.onSurfaceVariant
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -1756,7 +1773,7 @@ private fun FoldToggleCard(
             .padding(vertical = 2.dp),
         shape = NotixCorner.ListItem,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+            containerColor = foldBg
         )
     ) {
         Row(
@@ -1769,7 +1786,7 @@ private fun FoldToggleCard(
                     appLabel, hiddenCount
                 ),
                 style = MaterialTheme.notixType.button,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = foldFg,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
@@ -1777,7 +1794,7 @@ private fun FoldToggleCard(
             Icon(
                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 contentDescription = stringResource(if (isExpanded) R.string.collapse else R.string.expand),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = foldFg
             )
         }
     }
@@ -1861,6 +1878,7 @@ private fun LazyListScope.foldSegments(
                             appLabel = appLabel,
                             hiddenCount = hiddenCount,
                             isExpanded = true,
+                            packageName = pkg,
                             onClick = {
                                 // v7.50：仅当段头已滚出视口（靠 stickyHeader 吸顶显示）时才回滚到段头；
                                 // 段头仍在视口内时保持原滚动位置，避免突兀跳转
@@ -1898,6 +1916,7 @@ private fun LazyListScope.foldSegments(
                         appLabel = appLabel,
                         hiddenCount = hiddenCount,
                         isExpanded = false,
+                        packageName = pkg,
                         onClick = { onToggleFold(foldKey) }
                     )
                 }

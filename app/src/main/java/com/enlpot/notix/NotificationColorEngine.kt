@@ -27,6 +27,7 @@ data class NotificationColors(
     val secondaryColor: Int?,
     val primaryTextColor: Int,
     val secondaryTextColor: Int,
+    val tertiaryTextColor: Int,
     val accentColor: Int,
     val contrastRatio: Float
 )
@@ -45,6 +46,9 @@ object NotificationColorEngine {
 
     private val cache = ConcurrentHashMap<String, NotificationColors>()
 
+    // v8.18：深浅主题适配——由调用方在主题切换时设置，影响目标背景亮度
+    var isDarkTheme: Boolean = true
+
     /**
      * 主入口：根据 App 图标生成整套通知卡片配色。
      * 内部自动加载图标并按 packageName + lastUpdateTime 缓存。
@@ -60,7 +64,17 @@ object NotificationColorEngine {
         val icon = loadAppIcon(context, packageName)
         if (icon == null) return hashFallbackColors(packageName)
         val colors = compute(icon, packageName)
-        if (cache.size >= MAX_CACHE_SIZE) cache.clear()
+        // v8.18 优化：满时分批淘汰最旧的 1/4，避免全清导致的集中性能抖动
+        if (cache.size >= MAX_CACHE_SIZE) {
+            val target = MAX_CACHE_SIZE / 4
+            val iterator = cache.keys.iterator()
+            var removed = 0
+            while (iterator.hasNext() && removed < target) {
+                iterator.next()
+                iterator.remove()
+                removed++
+            }
+        }
         cache[key] = colors
         return colors
     }
@@ -152,15 +166,25 @@ object NotificationColorEngine {
         val crWhite = contrastRatio(Color.WHITE, bg)
         val crBlack = contrastRatio(Color.BLACK, bg)
         val accent = buildAccent(primary)
+        // v8.18：三级文字色——主文字纯黑/白，正文 0.85 alpha，辅助 0.60 alpha
+        val textSecondary = withAlpha(text, 0.85f)
+        val textTertiary = withAlpha(text, 0.60f)
         return NotificationColors(
             backgroundColor = bg,
             primaryColor = primary,
             secondaryColor = secondary,
             primaryTextColor = text,
-            secondaryTextColor = text,
+            secondaryTextColor = textSecondary,
+            tertiaryTextColor = textTertiary,
             accentColor = accent,
             contrastRatio = maxOf(crWhite, crBlack)
         )
+    }
+
+    /** 给 Int 颜色设置透明度（0-1） */
+    private fun withAlpha(color: Int, alpha: Float): Int {
+        val a = (alpha * 255).toInt().coerceIn(0, 255)
+        return Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
     }
 
     /**
@@ -191,7 +215,8 @@ object NotificationColorEngine {
             primaryColor = bg,
             secondaryColor = null,
             primaryTextColor = text,
-            secondaryTextColor = text,
+            secondaryTextColor = withAlpha(text, 0.85f),
+            tertiaryTextColor = withAlpha(text, 0.60f),
             accentColor = accent,
             contrastRatio = maxOf(crWhite, crBlack)
         )
@@ -311,13 +336,23 @@ object NotificationColorEngine {
         return bg
     }
 
-    /** 目标背景亮度：暗色系为主（视觉统一 + 白字可读）；过亮压暗，过暗提亮 */
-    private fun targetLightness(l: Float): Float = when {
-        l > 0.80f -> 0.30f // 过亮（黄/亮蓝等）
-        l > 0.60f -> 0.34f
-        l > 0.40f -> 0.38f
-        l > 0.20f -> 0.36f
-        else -> 0.30f // 过暗
+    /** 目标背景亮度：深色主题偏暗（0.30-0.38），浅色主题提亮（0.45-0.52） */
+    private fun targetLightness(l: Float): Float = if (isDarkTheme) {
+        when {
+            l > 0.80f -> 0.30f
+            l > 0.60f -> 0.34f
+            l > 0.40f -> 0.38f
+            l > 0.20f -> 0.36f
+            else -> 0.30f
+        }
+    } else {
+        when {
+            l > 0.80f -> 0.45f
+            l > 0.60f -> 0.48f
+            l > 0.40f -> 0.52f
+            l > 0.20f -> 0.50f
+            else -> 0.45f
+        }
     }
 
     /** 目标背景饱和度：太鲜艳降低，太灰小幅提高，保持品牌色相 */

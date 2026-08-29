@@ -64,6 +64,7 @@ fun NotificationCard(
     data: NotificationCardData,
     accent: Color,
     onAccent: Color,
+    onAccentTertiary: Color = onAccent.copy(alpha = 0.8f),
     modifier: Modifier = Modifier,
     packageName: String? = null,
     variant: NotificationCardVariant =
@@ -139,7 +140,7 @@ fun NotificationCard(
                 Text(
                     text = data.timestamp,
                     style = t.caption,
-                    color = onAccent.copy(alpha = 0.8f),
+                    color = onAccentTertiary,
                 )
             }
         }
