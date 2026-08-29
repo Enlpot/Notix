@@ -1317,24 +1317,24 @@ fun PermissionScreen(
     NotixDialog(
         onDismiss = onBack,
         title = stringResource(R.string.settings_permission_section_title),
+        titleTrailing = {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_permission_monitoring_pill),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
         content = {
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 item {
-                    // 实时监控中 徽标
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_permission_monitoring_pill),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.settings_permission_monitor_title),
                         style = MaterialTheme.typography.titleMedium,

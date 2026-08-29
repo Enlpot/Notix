@@ -59,6 +59,7 @@ fun NotixDialog(
     onDismiss: () -> Unit,
     title: String,
     modifier: Modifier = Modifier,
+    titleTrailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit = {},
     buttons: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -118,13 +119,7 @@ fun NotixDialog(
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            IconButton(onClick = onDismiss) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = stringResource(R.string.close),
-                                    tint = c.contentSecondary
-                                )
-                            }
+                            titleTrailing?.invoke()
                         }
                         Spacer(Modifier.height(sp.md))
                         Column {
