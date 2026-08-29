@@ -1,4 +1,4 @@
-package com.enlpot.notix.data.entity
+﻿package com.enlpot.notix.data.entity
 
 import androidx.room.Entity
 import androidx.room.Index
@@ -15,7 +15,9 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["last_timestamp"]),
         Index(value = ["sbn_key"]),
-        Index(value = ["package_name"])
+        Index(value = ["package_name"]),
+        // v8.22：复合索引——普通通知聚合查找（同包名+同标题+同blocked）
+        Index(value = ["package_name", "title", "blocked"])
     ]
 )
 data class NotificationGroupEntity(

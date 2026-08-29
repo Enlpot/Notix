@@ -1,4 +1,4 @@
-package com.enlpot.notix.data.entity
+﻿package com.enlpot.notix.data.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -24,7 +24,9 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["group_id"]),
         Index(value = ["timestamp"]),
-        Index(value = ["sbn_key"])
+        Index(value = ["sbn_key"]),
+        // v8.22：复合索引——组内变更按时间排序查询
+        Index(value = ["group_id", "timestamp"])
     ]
 )
 data class NotificationChangeEntity(
