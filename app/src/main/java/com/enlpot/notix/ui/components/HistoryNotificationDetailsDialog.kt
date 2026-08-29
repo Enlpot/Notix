@@ -30,9 +30,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.NotificationColorEngine
+import com.enlpot.notix.NotificationColors
 import com.enlpot.notix.NotificationHistoryEntry
 import com.enlpot.notix.R
 import com.enlpot.notix.SimpleNotification
@@ -52,6 +55,8 @@ import com.enlpot.notix.ui.theme.NotixCorner
 import com.enlpot.notix.ui.theme.notix
 import com.enlpot.notix.ui.theme.notixSpacing
 import com.enlpot.notix.ui.theme.notixType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -198,6 +203,15 @@ private fun ChangeNotificationCard(
     val c = MaterialTheme.notix
     val sp = MaterialTheme.notixSpacing
     var detailExpanded by remember { mutableStateOf(false) }
+    // v8.20：变更聚合窗口卡片使用动态取色，与主通知卡片品牌色一致
+    val context = LocalContext.current
+    val colors by produceState<NotificationColors?>(initialValue = null, key1 = change.packageName to NotificationColorEngine.colorVersion) {
+        value = withContext(Dispatchers.Default) {
+            NotificationColorEngine.getNotificationColors(context, change.packageName)
+        }
+    }
+    val accent = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
+    val onAccent = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant
     // v7.14：已过滤标签 error 实底 + 对比度文字色（与通知卡片一致）
     val errorColor = c.error
     val errorFg = remember(errorColor) { Color(NotificationColorEngine.chooseTextColor(errorColor.toArgb())) }
@@ -209,9 +223,9 @@ private fun ChangeNotificationCard(
             shape = NotixCorner.Control,
             colors = CardDefaults.cardColors(
                 containerColor = if (isLatest) {
-                    c.primaryContainer.copy(alpha = 0.4f)
+                    accent
                 } else {
-                    c.surfaceVariant.copy(alpha = 0.5f)
+                    accent.copy(alpha = 0.75f)
                 }
             )
         ) {
@@ -232,7 +246,7 @@ private fun ChangeNotificationCard(
                             text = change.appLabel ?: change.packageName.orEmpty(),
                             style = MaterialTheme.notixType.label,
                             fontWeight = FontWeight.SemiBold,
-                            color = c.contentPrimary,
+                            color = onAccent,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
@@ -241,12 +255,12 @@ private fun ChangeNotificationCard(
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
                                 shape = NotixCorner.Sm,
-                                color = c.primary.copy(alpha = 0.15f)
+                                color = onAccent.copy(alpha = 0.18f)
                             ) {
                                 Text(
                                     text = stringResource(R.string.latest),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = c.primary,
+                                    color = onAccent,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                                 )
@@ -257,6 +271,7 @@ private fun ChangeNotificationCard(
                         Text(
                             text = change.title,
                             style = MaterialTheme.notixType.bodySecondary,
+                            color = onAccent,
                             fontWeight = if (isLatest) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -267,7 +282,7 @@ private fun ChangeNotificationCard(
                         Text(
                             text = change.text,
                             style = MaterialTheme.notixType.caption,
-                            color = c.contentSecondary,
+                            color = onAccent.copy(alpha = 0.8f),
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 2.dp)
@@ -276,7 +291,7 @@ private fun ChangeNotificationCard(
                     Text(
                         text = timeFormat.format(Date(change.timestamp)),
                         style = MaterialTheme.typography.labelSmall,
-                        color = c.contentSecondary,
+                        color = onAccent.copy(alpha = 0.6f),
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
