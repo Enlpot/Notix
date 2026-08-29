@@ -792,22 +792,18 @@ fun SettingsScreen(
                         )
                     }
                 )
-                RowDivider()
                 SettingsRow(
                     icon = Icons.Filled.History,
                     title = stringResource(R.string.clear_history),
                     subtitle = stringResource(R.string.clear_history_desc),
                     onClick = { showClearModeDialog = true },
-                    trailing = { NavChevron() }
                 )
                 // v7.50：存储占用入口（常规分区）
-                RowDivider()
                 SettingsRow(
                     icon = Icons.Filled.Storage,
                     title = stringResource(R.string.settings_storage_usage),
                     subtitle = formatStorageBytes(storageTotalBytes),
                     onClick = { showStorageUsageScreen = true },
-                    trailing = { NavChevron() }
                 )
             }
 
@@ -817,16 +813,13 @@ fun SettingsScreen(
                     title = stringResource(R.string.export_import_rules),
                     subtitle = stringResource(R.string.export_import_rules_desc),
                     onClick = { showExportImportDialog = true },
-                    trailing = { NavChevron() }
                 )
                 // v8.14：恢复常驻通知——恢复所有被规则冻结（snooze）的常驻通知
-                RowDivider()
                 SettingsRow(
                     icon = Icons.Filled.Notifications,
                     title = stringResource(R.string.settings_restore_snoozed),
                     subtitle = stringResource(R.string.settings_restore_snoozed_desc),
                     onClick = { showRestoreSnoozedDialog = true },
-                    trailing = { NavChevron() }
                 )
             }
 
@@ -840,13 +833,17 @@ fun SettingsScreen(
                         else R.string.settings_crash_log_summary_off
                     ),
                     onClick = { showCrashLogDialog = true },
-                    trailing = { NavChevron() }
                 )
             }
 
             // v8.6：权限管理——入口（仅展示实时状态，点击进入二级界面）
             SettingsSection(title = stringResource(R.string.settings_permission_section_title)) {
                 // Stage 8：Token 化颜色 / 字体 / 间距；保留 Notix 图标圆圈视觉
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = NotixCorner.Card,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant)
+                ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -900,8 +897,7 @@ fun SettingsScreen(
                             color = MaterialTheme.notix.error
                         )
                     }
-                    Spacer(Modifier.width(4.dp))
-                    NavChevron()
+                }
                 }
             }
 
@@ -1018,7 +1014,7 @@ private fun SettingsSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // Stage 8：替换为 SectionHeader + Card 薄包装，保留原 SectionSection 的卡片化分组结构
+    // v8.17：每行独立 Card
     val sp = MaterialTheme.notixSpacing
     Column(modifier = Modifier.fillMaxWidth()) {
         // v8.16：分栏标题加水平边距，与下方卡片左边缘对齐
@@ -1026,16 +1022,13 @@ private fun SettingsSection(
             title = title,
             modifier = Modifier.padding(horizontal = sp.lg)
         )
-        Card(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = sp.lg),
-            shape = NotixCorner.Card,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.notix.surfaceVariant
-            )
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Column(content = content)
+            content()
         }
     }
 }
@@ -1053,13 +1046,18 @@ private fun SettingsRow(
     // 触控目标 ≥44dp 由垂直 14.dp + 40.dp 圆形 + 文字高度共同保证。
     val c = MaterialTheme.notix
     val sp = MaterialTheme.notixSpacing
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
-            .padding(horizontal = sp.lg, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = NotixCorner.Card,
+        colors = CardDefaults.cardColors(containerColor = c.surfaceVariant)
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+                .padding(horizontal = sp.lg, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -1096,6 +1094,7 @@ private fun SettingsRow(
             Spacer(modifier = Modifier.width(sp.md))
             trailing()
         }
+        }
     }
 }
 
@@ -1126,6 +1125,11 @@ private fun ExpandableSection(
 ) {
     val c = MaterialTheme.notix
     val sp = MaterialTheme.notixSpacing
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = NotixCorner.Card,
+        colors = CardDefaults.cardColors(containerColor = c.surfaceVariant)
+    ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -1159,7 +1163,7 @@ private fun ExpandableSection(
                 content()
             }
         }
-        RowDivider()
+    }
     }
 }
 
