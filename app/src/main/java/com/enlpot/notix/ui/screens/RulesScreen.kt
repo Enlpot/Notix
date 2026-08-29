@@ -3,6 +3,7 @@ package com.enlpot.notix.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -68,20 +69,27 @@ fun RulesScreen(
             .fillMaxSize()
             .padding(horizontal = lay.screenHorizontal)
     ) {
-        Spacer(modifier = Modifier.height(sp.lg))
-        // 主标题「规则」
-        Text(
-            text = stringResource(R.string.rules_title),
-            style = t.screenTitle,
-            color = c.contentPrimary,
-        )
-        Spacer(modifier = Modifier.height(sp.xs))
-        // 副标题「共 N 条规则」
-        Text(
-            text = stringResource(R.string.rules_count, rules.size),
-            style = t.bodySecondary,
-            color = c.contentSecondary,
-        )
+        // v8.16：标题顶部间距与设置页一致（4dp，原 sp.lg=16dp 过大）
+        Spacer(modifier = Modifier.height(4.dp))
+        // 主标题「规则」+ 副标题「共 N 条规则」同行布局（与通知历史页一致，基线对齐）
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                text = stringResource(R.string.rules_title),
+                style = t.display,
+                color = c.contentPrimary,
+                modifier = Modifier.alignByBaseline()
+            )
+            Spacer(modifier = Modifier.width(sp.sm).alignByBaseline())
+            Text(
+                text = stringResource(R.string.rules_count, rules.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = c.contentSecondary,
+                modifier = Modifier.alignByBaseline()
+            )
+        }
         Spacer(modifier = Modifier.height(sp.lg))
         // 顶部横幅：主题色圆角「+ 新建规则」
         Button(

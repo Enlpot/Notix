@@ -80,14 +80,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -749,26 +753,28 @@ fun SettingsScreen(
         )
     }
 
-    // v7.25：移除顶部 TopAppBar（底部 tab 已有"设置"入口），内容从状态栏下直接开始
+    // v8.16：吸顶标题——左上角"设置"随内容自然上滑，到达状态栏下沿后吸顶固定
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+
     Scaffold(
-        // v7.24：应用内 Snackbar 提示（替代系统 Toast）
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
-                .navigationBarsPadding()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
+                // 注意：不应用 innerPadding——父级 MainActivity Scaffold 已处理状态栏/导航栏 inset，
+                // 再次应用会导致双重顶部 padding，标题与状态栏间隙过大
         ) {
-            // v8.2：设置页主标题（与历史/规则页 headlineMedium+Bold 统一）；Stage 8 Token 化
-            Text(
-                text = stringResource(R.string.settings),
-                style = MaterialTheme.notixType.display,
-                color = MaterialTheme.notix.contentPrimary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .verticalScroll(scrollState)
+            ) {
+                // 标题区域占位（原标题：8dp + display 34sp + 8dp ≈ 50dp）
+                Spacer(modifier = Modifier.height(50.dp))
             SettingsSection(title = stringResource(R.string.settings_section_general)) {
                 // v7.45：无文本通知文字提取开关（默认关）
                 SettingsRow(
@@ -953,8 +959,36 @@ fun SettingsScreen(
                     .padding(vertical = 28.dp),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(16.dp))
         }
+
+        // v8.16：吸顶时顶部背景条——标题到达顶部后渐显，盖住滚动内容避免重叠
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .graphicsLayer {
+                    val threshold = with(density) { 4.dp.toPx() }
+                    alpha = (scrollState.value.toFloat() / threshold).coerceIn(0f, 1f)
+                }
+                .background(MaterialTheme.colorScheme.background)
+        )
+
+        // v8.16：吸顶标题——左上角随内容自然上滑，到达状态栏下沿后吸顶固定，下滑还原
+        Text(
+            text = stringResource(R.string.settings),
+            style = MaterialTheme.notixType.display,
+            color = MaterialTheme.notix.contentPrimary,
+            modifier = Modifier.graphicsLayer {
+                val startX = with(density) { 16.dp.toPx() }
+                val startY = with(density) { 4.dp.toPx() }
+                translationX = startX
+                // 自然上滑：Y = 原位置 - 滚动量，到顶后（Y>=0）吸顶
+                translationY = maxOf(startY - scrollState.value.toFloat(), 0f)
+            }
+        )
     }
+}
 
     // v8.6→重构：权限管理改为弹窗（不再全屏路由）
     if (showPermissionScreen) {
