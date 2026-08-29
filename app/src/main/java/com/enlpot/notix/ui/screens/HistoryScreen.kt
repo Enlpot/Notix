@@ -1,5 +1,6 @@
 ﻿package com.enlpot.notix.ui.screens
 
+import com.enlpot.notix.FoldStateStorage
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -198,6 +199,15 @@ fun HistoryScreen(
     // v7.51：通知折叠——折叠段的展开状态（默认收起，按"pkg_firstId"段级唯一标识保存，旋转不丢失）。
     // 此前按 packageName 保存会导致同包名多个折叠段被一个开关联动展开，现改为段级隔离。
     val expandedFoldPackages = rememberSaveable { mutableStateOf(setOf<String>()) }
+    // v8.29：折叠展开状态持久化——app 重启后恢复用户之前展开的段，上限 20 个
+    val foldContext = LocalContext.current
+    val foldStateStorage = remember { FoldStateStorage(foldContext) }
+    LaunchedEffect(Unit) {
+        val saved = foldStateStorage.getExpandedKeys()
+        if (saved.isNotEmpty()) {
+            expandedFoldPackages.value = saved.toSet()
+        }
+    }
 
     // --- v7.5：列表滚动状态 / 吸顶搜索区 / 下拉刷新 / 回顶 / 权限掉线提示 ---
     // v7.37：三 tab 页各自独立滚动状态（滑动切换后保留各自位置）
@@ -435,11 +445,36 @@ fun HistoryScreen(
     }
     // v7.51：折叠段开关——入参为段级唯一标识"${pkg}_${firstId}"，实现各折叠段独立展开/收起
     val toggleFold = { foldKey: String ->
-        expandedFoldPackages.value = if (expandedFoldPackages.value.contains(foldKey)) {
+        val isExpanded = expandedFoldPackages.value.contains(foldKey)
+        expandedFoldPackages.value = if (isExpanded) {
             expandedFoldPackages.value - foldKey
         } else {
             expandedFoldPackages.value + foldKey
         }
+        // v8.29：同步持久化展开状态
+        foldStateStorage.toggle(foldKey)
+        Unit
+    }
+    // v8.29：删除通知时迁移折叠展开状态——若被删通知是某展开段第一条，将展开状态迁移到新第一条
+    val handleDeleteNotification: (SimpleNotification) -> Unit = { notification ->
+        val allSegments = timeFoldSegments + appFoldSegments.flatten() + ruleFoldSegments.flatten()
+        for (seg in allSegments) {
+            if (seg.entries.isEmpty()) continue
+            val first = seg.entries.first()
+            val isFirstMatch = first.latest?.id == notification.id ||
+                first.changes.any { it.id == notification.id }
+            if (isFirstMatch && seg.entries.size >= 2) {
+                val oldKey = "${seg.packageName}_${first.id}"
+                if (expandedFoldPackages.value.contains(oldKey)) {
+                    val newFirst = seg.entries[1]
+                    val newKey = "${seg.packageName}_${newFirst.id}"
+                    expandedFoldPackages.value = (expandedFoldPackages.value - oldKey) + newKey
+                    foldStateStorage.migrateKey(oldKey, newKey)
+                }
+                break
+            }
+        }
+        onDeleteNotification(notification)
     }
 
     // v7.41：totalCount/todayCount 计算已移至 ChartPanel（通用图表面板）
@@ -560,7 +595,7 @@ fun HistoryScreen(
                                 onOpenNotification = onOpenNotification,
                                 onRestoreNotification = onRestoreNotification,
                                 onCreateRuleFromNotification = onCreateRuleFromNotification,
-                                onDeleteNotification = onDeleteNotification,
+                                onDeleteNotification = handleDeleteNotification,
                                 onResumeMonitoring = onResumeMonitoring,
                                 onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
                                 context = context,
@@ -616,7 +651,7 @@ fun HistoryScreen(
                                 onOpenNotification = onOpenNotification,
                                 onRestoreNotification = onRestoreNotification,
                                 onCreateRuleFromNotification = onCreateRuleFromNotification,
-                                onDeleteNotification = onDeleteNotification,
+                                onDeleteNotification = handleDeleteNotification,
                                 onResumeMonitoring = onResumeMonitoring,
                                 onShowStopMonitoringDialog = { showStopMonitoringDialog = it },
                                 context = context,
@@ -1731,7 +1766,7 @@ private fun HistoryNotificationCard(
 // 段内最新一条（时间倒序第一位）正常显示，其下方插入折叠卡片；点击展开后其余条目缩宽显示，
 // 收起提示卡带吸顶效果（与应用分组头一致）。不修改聚合逻辑，仅在列表层做折叠。
 
-private const val FOLD_THRESHOLD = 4
+private const val FOLD_THRESHOLD = 3
 /** 折叠展开后卡片的水平缩进量（宽度略缩，与未折叠卡片区分） */
 private val FoldCardIndent = 20.dp
 
