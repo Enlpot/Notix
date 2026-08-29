@@ -66,6 +66,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Search
@@ -810,7 +812,7 @@ internal fun ChartPanel(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 6.dp),
+                    .padding(top = 2.dp),
                 shape = NotixCorner.Card,
                 color = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.45f)
             ) {
@@ -1120,13 +1122,13 @@ private fun HistoryTitleRow(
         IconButton(onClick = { onToggleListenerPaused() }) {
             if (listenerPaused) {
                 Icon(
-                    imageVector = Icons.Default.NotificationsOff,
+                    imageVector = Icons.Default.Pause,
                     contentDescription = stringResource(R.string.listener_pause),
                     tint = MaterialTheme.colorScheme.error
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.NotificationsActive,
+                    imageVector = Icons.Default.PlayArrow,
                     contentDescription = stringResource(R.string.listener_monitor),
                     tint = MaterialTheme.notix.contentSecondary
                 )
