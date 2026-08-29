@@ -530,9 +530,6 @@ fun HistoryScreen(
                                 listState = tabListStates[page],
                                 scope = listScope
                             )
-                            item(key = "scroll_room") {
-                                Spacer(modifier = Modifier.fillParentMaxHeight())
-                            }
                         }
                     } else {
                         // v8.4：竖屏——筛选 tab 已移到 pager 上方常驻（见上方 SubTabsHeader）；
@@ -586,9 +583,6 @@ fun HistoryScreen(
                                 listState = tabListStates[page],
                                 scope = listScope
                             )
-                            item(key = "scroll_room") {
-                                Spacer(modifier = Modifier.fillParentMaxHeight())
-                            }
                         }
                     }
                 }

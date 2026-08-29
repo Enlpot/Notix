@@ -77,7 +77,6 @@ fun NotificationCard(
     val c = MaterialTheme.notix
     val t = MaterialTheme.notixType
     val sp = MaterialTheme.notixSpacing
-    val lay = MaterialTheme.notixLayout
 
     Box(
         modifier = modifier
@@ -86,7 +85,8 @@ fun NotificationCard(
             .clip(NotixCorner.Card)
             .background(accent)
             .clickable(onClick = onClick)
-            .padding(lay.cardPadding)
+            // v8.16：卡片内边距由 16dp 收紧为 12dp，行间距由 4dp 收紧为 2dp，中文卡片高度约 280px
+            .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.Top) {
             RealAppIcon(
@@ -116,7 +116,7 @@ fun NotificationCard(
                     }
                 }
                 if (data.title.isNotEmpty()) {
-                    Spacer(Modifier.height(sp.xs))
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = data.title,
                         style = t.body,
@@ -126,7 +126,7 @@ fun NotificationCard(
                     )
                 }
                 if (data.summary.isNotEmpty()) {
-                    Spacer(Modifier.height(sp.xs))
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = data.summary,
                         style = t.bodySecondary,
@@ -135,7 +135,7 @@ fun NotificationCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Spacer(Modifier.height(sp.xs))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = data.timestamp,
                     style = t.caption,
