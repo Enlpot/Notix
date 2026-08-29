@@ -342,4 +342,13 @@ class NotificationHistoryRepository(context: Context) {
             changes = changes.map { it.toDomain() }
         )
     }
+
+    /**
+     * v8.24：检查指定 sbnKey 的通知是否已存在于历史中（防漏通知同步时去重用）。
+     * @return true=已存在，false=不存在
+     */
+    suspend fun existsBySbnKey(sbnKey: String?): Boolean {
+        if (sbnKey.isNullOrBlank()) return false
+        return groupDao.findBySbnKey(sbnKey) != null
+    }
 }

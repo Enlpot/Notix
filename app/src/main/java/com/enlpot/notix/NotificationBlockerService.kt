@@ -1,4 +1,4 @@
-package com.enlpot.notix
+﻿package com.enlpot.notix
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -50,8 +50,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         /** v8.14：调试/用户入口——恢复全部被冻结的常驻通知（un-snooze），由设置页「恢复常驻通知」或 adb 触发 */
         const val ACTION_RESTORE_SNOOZED = "com.enlpot.notix.RESTORE_SNOOZED"
         const val EXTRA_RULE_JSON = "rule_json"
-        private const val DEBOUNCE_PERIOD_MS = 3000L
-
         /**
          * 阶段4C-B P1-1：Action Flow 级防抖窗口——同一 notification key 在窗口内
          * （POST/UPDATE/apply/rescan）只执行一次 Action Flow，避免通知更新导致
@@ -252,8 +250,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             heartbeatHandler.postDelayed(this, HEARTBEAT_INTERVAL_MS)
         }
     }
-
-    private val recentlyBlocked = mutableMapOf<String, Long>()
 
     /**
      * v8.14：被 snooze 冻结的常驻通知 key，按「所属规则 id」分组（同步 Map，跨线程安全）。
@@ -490,78 +486,52 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         val isHandled = matchedRule != null
         val hitRuleIds = if (matchedRule != null) listOf(matchedRule.id) else emptyList()
 
-        // v7.14 服务层统一防抖：所有通知（不限是否命中规则）都按 sbn.key（含 pkg+id+tag）登记，
-        // 防抖窗口 10 秒，命中防抖的普通/已过滤通知均不再重复写历史（已过滤仍累加命中次数）。
-        val notificationKey = sbn.key
-        val isDuplicate = recentlyBlocked.containsKey(notificationKey) && currentTime - (recentlyBlocked[notificationKey] ?: 0) < DEBOUNCE_PERIOD_MS
+        // v8.24：移除服务层防抖——依赖 Repository 层去重（同 sbnKey 同 postTime）和聚合机制。
+        // 原 3s 防抖会导致聊天消息等内容变化的短时间更新被漏记录，故删除。
+        // v7.15：携带 sbnKey/postTime 供存储层按"同一条通知"去重，不再按 pkg+title 误吞
+        // v8.22：wasOngoing 从 notification.flags 读取真实状态，不再硬编码 false
+        val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+        val simpleNotification = SimpleNotification(
+            appLabel, packageName, title, text, currentTime,
+            wasOngoing = isOngoing,
+            sbnKey = sbn.key,
+            postTime = sbn.postTime,
+            matchedRuleIds = hitRuleIds
+        )
 
-        if (isDuplicate) {
-            Log.i(TAG, "Ignoring duplicate for history/stats: $notificationKey")
-            if (hitRuleIds.isNotEmpty()) {
-                // v7.35：判活——线程池已销毁（服务销毁后残留回调）时不再提交，避免 RejectedExecutionException
-                if (!historyExecutor.isShutdown) {
-                    historyExecutor.execute {
-                        try {
-                            ruleStorage.incrementHitCounts(hitRuleIds)
-                            // v7.24：命中计数已变更，补发广播刷新 UI 的 rules 列表（计数显示）
-                            sendBroadcast(Intent(ACTION_HISTORY_UPDATED))
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to save rules", e)
-                        }
-                    }
-                }
-            }
-        } else {
-            // v7.15：携带 sbnKey/postTime 供存储层按"同一条通知"去重，不再按 pkg+title 误吞
-            // v8.22：wasOngoing 从 notification.flags 读取真实状态，不再硬编码 false
-            val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
-            val simpleNotification = SimpleNotification(
-                appLabel, packageName, title, text, currentTime,
-                wasOngoing = isOngoing,
-                sbnKey = sbn.key,
-                postTime = sbn.postTime,
-                matchedRuleIds = hitRuleIds
-            )
-
-            sbn.notification.contentIntent?.let { intent ->
-                simpleNotification.id?.let { id ->
-                    NotificationActionRepository.saveAction(id, intent)
-                }
-            }
-
-            // v7.14：所有通知统一登记防抖（不限是否命中规则），防重复推送进入历史/统计
-            recentlyBlocked[notificationKey] = currentTime
-
-            // v7.35：判活——线程池已销毁（服务销毁后残留回调）时不再提交，避免 RejectedExecutionException
-            if (!historyExecutor.isShutdown) {
-                historyExecutor.execute {
-                    try {
-                        ruleStorage.incrementHitCounts(hitRuleIds)
-                        if (isHandled) {
-                            // v7.12：被过滤通知并入统一历史（blocked 标记），不再分流写入
-                            val isNew = kotlinx.coroutines.runBlocking {
-                                notificationHistoryRepository.saveNotification(simpleNotification, blocked = true)
-                            }
-                            if (isNew) {
-                                statsStorage.incrementBlockedNotificationsCount()
-                            }
-                        } else {
-                            if (!unmonitoredAppsStorage.isAppUnmonitored(packageName)) {
-                                kotlinx.coroutines.runBlocking {
-                                    notificationHistoryRepository.saveNotification(simpleNotification)
-                                }
-                                statsStorage.recordNotification(currentTime)
-                            }
-                        }
-                        sendBroadcast(Intent(ACTION_HISTORY_UPDATED))
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to save notification data", e)
-                    }
-                }
+        sbn.notification.contentIntent?.let { intent ->
+            simpleNotification.id?.let { id ->
+                NotificationActionRepository.saveAction(id, intent)
             }
         }
 
-        recentlyBlocked.entries.removeIf { (_, timestamp) -> currentTime - timestamp > DEBOUNCE_PERIOD_MS }
+        // v7.35：判活——线程池已销毁（服务销毁后残留回调）时不再提交，避免 RejectedExecutionException
+        if (!historyExecutor.isShutdown) {
+            historyExecutor.execute {
+                try {
+                    ruleStorage.incrementHitCounts(hitRuleIds)
+                    if (isHandled) {
+                        // v7.12：被过滤通知并入统一历史（blocked 标记），不再分流写入
+                        val isNew = kotlinx.coroutines.runBlocking {
+                            notificationHistoryRepository.saveNotification(simpleNotification, blocked = true)
+                        }
+                        if (isNew) {
+                            statsStorage.incrementBlockedNotificationsCount()
+                        }
+                    } else {
+                        if (!unmonitoredAppsStorage.isAppUnmonitored(packageName)) {
+                            kotlinx.coroutines.runBlocking {
+                                notificationHistoryRepository.saveNotification(simpleNotification)
+                            }
+                            statsStorage.recordNotification(currentTime)
+                        }
+                    }
+                    sendBroadcast(Intent(ACTION_HISTORY_UPDATED))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save notification data", e)
+                }
+            }
+        }
         // v7.25：顺带清理过期 TTS 防抖登记，防止 map 无限增长
         ttsDebounce.entries.removeIf { (_, entry) -> currentTime - entry.speakTime > TTS_DEBOUNCE_MS }
         } catch (e: Exception) {
@@ -990,6 +960,51 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         // v7.23：监听建立后拉起前台服务，保活防回收
         startKeepAliveForeground()
         Log.i(TAG, "Listener connected")
+        // v8.24：防漏通知——监听重连后同步当前通知栏中已有的通知，补记录
+        syncActiveNotifications()
+    }
+
+    /**
+     * v8.24：同步当前通知栏中已有的通知，防止服务重启/监听断开期间漏记录。
+     *
+     * 场景：app 被系统杀死、崩溃、监听权限重授权后重启，通知栏中已有的通知
+     * 不会触发 onNotificationPosted，导致历史记录缺失。这里主动拉取当前通知栏
+     * 通知，按 sbnKey 去重后补记录。
+     */
+    private fun syncActiveNotifications() {
+        Thread {
+            try {
+                val active = getActiveNotifications()
+                if (active.isNullOrEmpty()) {
+                    Log.i(TAG, "Sync active notifications: none in shade")
+                    return@Thread
+                }
+                Log.i(TAG, "Sync active notifications: found  in shade, starting sync")
+                var synced = 0
+                var skipped = 0
+                for (sbn in active) {
+                    try {
+                        val key = sbn.key
+                        // 检查是否已在历史中（按 sbnKey 去重）
+                        val exists: Boolean = kotlinx.coroutines.runBlocking {
+                            notificationHistoryRepository.existsBySbnKey(key)
+                        }
+                        if (exists) {
+                            skipped++
+                            continue
+                        }
+                        // 未记录则走正常处理流程
+                        onNotificationPosted(sbn)
+                        synced++
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Sync notification failed for key=", e)
+                    }
+                }
+                Log.i(TAG, "Sync active notifications complete: synced=, skipped=, total=")
+            } catch (e: Exception) {
+                Log.e(TAG, "Sync active notifications failed", e)
+            }
+        }.start()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
