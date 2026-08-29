@@ -1,19 +1,18 @@
 # Notix - Developer Guide
 
-A practical guide for developers working on the Notix codebase.
-
----
+A practical guide for developers working on the Notix codebase, matching **v8.15.2**.
 
 ## Table of Contents
 
 - [Getting Started](#getting-started)
 - [Build & Run](#build--run)
+- [Project Layout](#project-layout)
 - [How to Add a New Feature](#how-to-add-a-new-feature)
-- [How to Add a New Prebuilt Rule](#how-to-add-a-new-prebuilt-rule)
+- [Understanding the Rule System](#understanding-the-rule-system)
+- [Understanding the Action Flow](#understanding-the-action-flow)
 - [How to Add a New Storage Mechanism](#how-to-add-a-new-storage-mechanism)
 - [How to Add a New Screen](#how-to-add-a-new-screen)
 - [How to Add a New Dialog](#how-to-add-a-new-dialog)
-- [Understanding the Rule System](#understanding-the-rule-system)
 - [Key Design Decisions](#key-design-decisions)
 - [Common Patterns](#common-patterns)
 - [Testing](#testing)
@@ -27,21 +26,23 @@ A practical guide for developers working on the Notix codebase.
 
 - Android Studio (latest stable)
 - JDK 11+
-- Android SDK with API level 36 installed
+- Android SDK with API level 36
 - An Android device or emulator running API 24+
 
 ### Project Setup
 
-1. Clone the repository
-2. Open in Android Studio (project auto-syncs Gradle)
+1. Clone the repository.
+2. Open in Android Studio (Gradle syncs automatically).
 3. Build: `./gradlew assembleDebug`
 4. Run on device: `./gradlew installDebug`
 
+### Signing (release only)
+
+The release signing config reads `KEYSTORE_NOTIX_FILE / KEYSTORE_NOTIX_PASSWORD / KEYSTORE_NOTIX_ALIAS / KEYSTORE_NOTIX_KEYPASSWORD` from `local.properties` or environment variables. Debug builds need no keystore. **Never commit the keystore or its passwords** (`.gitignore` already excludes `*.jks`, `*.keystore`, `signing.properties`, `keystore.properties`, `local.properties`).
+
 ### Important: Notification Listener Permission
 
-The app requires `BIND_NOTIFICATION_LISTENER_SERVICE` permission, which can only be granted via system settings. On first launch, the app shows an `EnableNotificationListenerScreen` that directs users to the system settings.
-
-For development/testing, navigate to **Settings > Apps > Special app access > Notification access** and enable Notix.
+Notix is a `NotificationListenerService`; this permission can only be granted via system settings. The first-run setup wizard guides the user through it. For development: **Settings > Apps > Special app access > Notification access > Notix**.
 
 ---
 
@@ -51,14 +52,14 @@ For development/testing, navigate to **Settings > Apps > Special app access > No
 # Debug APK
 ./gradlew assembleDebug
 
-# Release APK (R8 minification enabled)
+# Release APK (R8 minification; needs signing config)
 ./gradlew assembleRelease
 
 # Install on connected device
 ./gradlew installDebug
 
 # Run unit tests
-./gradlew test
+./gradlew testDebugUnitTest
 
 # Run instrumented tests (requires device/emulator)
 ./gradlew connectedAndroidTest
@@ -67,363 +68,283 @@ For development/testing, navigate to **Settings > Apps > Special app access > No
 ./gradlew clean
 ```
 
+Unit tests run on plain JVM (no Robolectric); `testOptions.unitTests.isReturnDefaultValues = true` stubs `android.util.Log`.
+
+---
+
+## Project Layout
+
+```
+app/src/main/java/com/enlpot/notix/
+├── NotixApp.kt                  # Application entry
+├── MainActivity.kt              # UI root & state
+├── NotificationBlockerService.kt# Listener engine
+├── BlockerRule.kt               # Rule + action models
+├── RuleMatcher.kt               # Pure decision engine
+├── ActionFlowExecutor.kt        # Action-chain executor + runners
+├── RuleStorage.kt / RuleIds.kt / RuleMutations.kt / RuleImport.kt / RuleWizardSupport.kt
+├── NotificationHistoryStorage.kt / BlockedNotificationHistoryStorage.kt / NotificationHistoryEntry.kt / SimpleNotification.kt
+├── StatsStorage.kt / AppInfoStorage.kt / UnmonitoredAppsStorage.kt / NotificationActionRepository.kt
+├── TtsSpeaker.kt / RemoteViewsTextExtractor.kt / NotificationColorEngine.kt / CrashLogManager.kt / ExternalLinks.kt
+├── health/HealthCheckWorker.kt
+├── setup/OemAutostart.kt / SetupState.kt
+└── ui/
+    ├── components/              # Reusable composables
+    ├── screens/                 # History / Rules / RuleWizard / Settings / SetupWizard / StorageUsage
+    └── theme/                   # Theme + semantic tokens
+```
+
 ---
 
 ## How to Add a New Feature
 
-### Example: Adding a "Snooze Rule" Feature
+### Example: add a new action to the action chain
 
-1. **Update the data model** - Add fields to `BlockerRule` in `BlockerRule.kt`:
-   ```kotlin
-   val snoozeUntil: Long? = null  // Timestamp when snooze expires
-   ```
-   Since `BlockerRule` uses `@Keep` and Gson, new nullable fields with defaults are backward-compatible with existing stored JSON.
+The action chain is the core extensibility point. Adding a new action touches these files:
 
-2. **Update rule evaluation** - Modify `RuleMatcher.matches()` in `RuleMatcher.kt` to check the snooze timestamp.
+1. **`BlockerRule.kt`** — add the value to `enum RuleAction`; add a params data class (e.g. `MyActionParams`) and any validation in `ActionSpec.isValid`.
+2. **`ActionFlowExecutor.kt`** — add a `when` branch in `advance()` that calls the runner and then `completeAction(...)`; if it is async, wait for its completion callback first (see TTS/DELAY). Wire any Android side-effect through `ActionFlowHost` and `SyncActionRunner` / `AsyncActionRunner`.
+3. **`RuleWizardSupport.kt`** — add `hasActionParams(type)`, `defaultParamsFor(type)`, a `*Spec(...)` builder, and an `actionFlowSummary` case for the new action.
+4. **`ui/screens/RuleWizardScreen.kt`** — add label/icon/description + `ActionParamEditor` UI for the new action.
+5. **Tests** — engine logic is covered in `ActionFlowExecutorTest`; behavior in a new test class.
 
-3. **Update the UI** - Add snooze controls to `RuleDialog` in `ui/components/Dialogs.kt` or create a new dialog component.
+### File modification order (general)
 
-4. **Update the service** - If the feature affects notification processing, modify `NotificationBlockerService.onNotificationPosted()`.
-
-5. **Add tests** - Add test cases to `RuleMatcherTest.kt`.
-
-### File modification order
-
-For most features, the modification order is:
 1. Data models (`BlockerRule.kt`, `SimpleNotification.kt`)
-2. Business logic (`RuleMatcher.kt`)
-3. Storage (if new storage needed)
-4. Service (`NotificationBlockerService.kt`)
+2. Pure logic (`RuleMatcher.kt`, `RuleMutations.kt`, `RuleWizardSupport.kt`)
+3. Storage (if needed)
+4. Engine (`NotificationBlockerService.kt`, `ActionFlowExecutor.kt`)
 5. UI components (`ui/components/`)
 6. UI screens (`ui/screens/`)
 7. Activity wiring (`MainActivity.kt`)
 8. Tests
 
----
-
-## How to Add a New Prebuilt Rule
-
-1. **Edit `app/src/main/assets/prebuilt_rules.json`** - Add a new entry:
-   ```json
-   {
-     "appName": "AppName",
-     "packageName": "com.example.app",
-     "titleFilter": null,
-     "titleMatchType": "CONTAINS",
-     "textFilter": "(?i).*(spam|promo|offer).*",
-     "textMatchType": "REGEX",
-     "hitCount": 0,
-     "ruleType": "DENYLIST",
-     "isEnabled": true
-   }
-   ```
-
-2. **Test** - Install the target app on a test device, then launch Notix. The auto-install logic in `MainActivity.checkForNewRules()` should detect and install the rule. Check via the "Browse Pre-built Rules" screen.
-
-> Note: Notix does **not** declare a `<queries>` block and does **not** hold `QUERY_ALL_PACKAGES`. App metadata is resolved lazily from the posting package at notification time, so no package-visibility declaration is needed when adding a prebuilt rule.
-
-### Tips for writing regex patterns
-
-- Use `(?i)` prefix for case-insensitive matching
-- Wrap with `.*` for partial matching: `(?i).*(keyword1|keyword2).*`
-- `MatchType.REGEX` uses `String.matches()` which requires the pattern to match the **entire string**
-- Test patterns against real notification text from the History tab
-
----
-
-## How to Add a New Storage Mechanism
-
-The app uses four storage patterns. Choose based on your needs:
-
-### JSON File (for structured lists)
-Follow `RuleStorage` pattern:
-```kotlin
-class MyStorage(private val context: Context) {
-    private val gson = Gson()
-    private val file = File(context.filesDir, "my_data.json")
-
-    fun getData(): List<MyData> {
-        if (!file.exists()) return emptyList()
-        val type = object : TypeToken<List<MyData>>() {}.type
-        return gson.fromJson(file.readText(), type) ?: emptyList()
-    }
-
-    fun saveData(data: List<MyData>) {
-        file.writeText(gson.toJson(data))
-    }
-}
-```
-
-### SharedPreferences (for simple key-value data)
-Follow `StatsStorage` pattern for primitives, or `UnmonitoredAppsStorage` pattern for Gson-serialized sets.
-
-### SQLite (for large or queryable data)
-Follow `AppInfoStorage` / `AppInfoDatabaseHelper` pattern. Use `SQLiteOpenHelper` subclass for schema management.
-
-### In-Memory (for transient session data)
-Follow `NotificationActionRepository` pattern using a singleton `object` with `ConcurrentHashMap`.
-
-### Integration
-
-After creating a storage class:
-1. Add a `lateinit var` field in `NotificationBlockerService` and/or `MainActivity`
-2. Initialize in `onCreate()`
-3. Use from the appropriate callback or composable
-
----
-
-## How to Add a New Screen
-
-1. **Create the screen composable** in `ui/screens/`:
-   ```kotlin
-   @Composable
-   fun MyNewScreen(
-       data: List<MyData>,
-       onClose: () -> Unit,
-       onAction: (MyData) -> Unit
-   ) {
-       Scaffold(
-           topBar = {
-               TopAppBar(
-                   title = { Text("My Screen") },
-                   navigationIcon = {
-                       IconButton(onClick = onClose) {
-                           Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                       }
-                   }
-               )
-           }
-       ) { paddingValues ->
-           // Screen content
-       }
-   }
-   ```
-
-2. **Add navigation state** in `MainActivity`:
-   ```kotlin
-   private var showMyScreen by mutableStateOf(false)
-   ```
-
-3. **Wire into `MainScreen()`** - Add a condition in the screen switching logic:
-   ```kotlin
-   if (showMyScreen) {
-       BackHandler { showMyScreen = false }
-       MyNewScreen(
-           data = myData,
-           onClose = { showMyScreen = false },
-           onAction = { /* handle */ }
-       )
-   }
-   ```
-
-The app uses manual boolean-based navigation rather than Jetpack Navigation. Each screen is a full-screen composable shown conditionally.
-
----
-
-## How to Add a New Dialog
-
-1. **Create the dialog composable** in `ui/components/`:
-   ```kotlin
-   @Composable
-   fun MyDialog(
-       data: MyData,
-       onDismiss: () -> Unit,
-       onConfirm: (MyData) -> Unit
-   ) {
-       Dialog(onDismissRequest = onDismiss) {
-           Card {
-               Column(modifier = Modifier.padding(16.dp)) {
-                   // Dialog content
-                   Row(
-                       modifier = Modifier.fillMaxWidth(),
-                       horizontalArrangement = Arrangement.End
-                   ) {
-                       Button(onClick = onDismiss) { Text("Cancel") }
-                       Spacer(modifier = Modifier.width(8.dp))
-                       Button(onClick = { onConfirm(data) }) { Text("Confirm") }
-                   }
-               }
-           }
-       }
-   }
-   ```
-
-2. **Add trigger state** in `MainActivity.MainScreen()`:
-   ```kotlin
-   var itemToShowDialog by remember { mutableStateOf<MyData?>(null) }
-   ```
-
-3. **Show conditionally**:
-   ```kotlin
-   itemToShowDialog?.let { item ->
-       MyDialog(
-           data = item,
-           onDismiss = { itemToShowDialog = null },
-           onConfirm = { /* handle */ }
-       )
-   }
-   ```
-
-The pattern uses nullable state variables: setting to non-null shows the dialog, setting to null dismisses it.
+> Keep Android side-effects behind the interfaces (`ActionFlowHost`, `*ActionRunner`) so the logic stays JVM-testable.
 
 ---
 
 ## Understanding the Rule System
 
-### Evaluation Priority
+### Rule anatomy
 
-1. Rules are scoped per package (`packageName`)
-2. Only enabled rules are evaluated
-3. Within a package, allowlist rules are checked first
-4. Then denylist rules are checked
-5. A notification is blocked if:
-   - There are allowlist rules for the package AND none matched, OR
-   - Any denylist rule matched
-6. **Denylist wins over allowlist** - if both match, the notification is blocked
-7. **STACK** is evaluated only when not blocked: `shouldStack = !blocked && matchesStack && !wasOngoing`. STACK rules never block and never gate (they don't make a package allowlist-gated). Resolved by the pure `RuleMatcher.planNotificationDecision()`; first enabled STACK match wins. Stacked notifications are re-posted via `StackedNotificationManager` and saved to *normal* history (not blocked history)
+```
+sourcePackages (≥1 app)
+  → condition:  keyword matching (MatchMode + include/exclude keywords)
+  → extraCondition: phone-state (screen / charging / DND / Bluetooth / time window)
+  → actions: ordered action chain
+```
 
-### Filter Behavior
+### Decision flow (`RuleMatcher`)
 
-- Null or blank filter = matches everything (wildcard)
-- Both title and text filters must match for a rule to match (AND logic)
-- `CONTAINS` is case-insensitive
-- `REGEX` uses full-string matching (`String.matches()`), so patterns like `.*keyword.*` are needed for partial matches
+1. Rule must be `isValid && isEnabled`.
+2. Source-app filter: the notification's package must be in `sourcePackages`.
+3. Keyword match (`matchesCondition`): per `MatchMode`, case-insensitive against title or text. **Empty condition = always matches.**
+4. Extra conditions (`matchesExtra`): all configured phone-state checks must pass; the time window supports overnight ranges; empty weekdays = every day.
+5. **First rule that passes all checks wins** (`planNotificationDecision` → `RuleDecision.Apply`); otherwise `Pass`.
 
-### Time Windows
+### Hit counting
 
-- When `isTimeLimitEnabled` is true, the rule only activates during the configured time window
-- Supports overnight ranges (e.g., 22:00 to 06:00) - handles midnight crossing
-- Time is evaluated in the device's current timezone
+Each matched notification bumps `hitCount` on the matched rule via `RuleStorage.incrementHitCounts`. Counts are visible on rule cards; reset from the Rules screen.
 
-### Hit Counting
+### Rule identity & ids
 
-- Each time a rule matches, its `hitCount` is incremented
-- The updated rule list is saved back to storage
-- Hit counts are visible in the Rules screen UI
+- Every rule has a stable `id` (`RuleIds`); ids are never re-keyed on update (`RuleMutations`), because a rule's id owns a notification channel.
+- Imported/legacy rules are normalized and sanitized on load; invalid rules (no source app or empty action chain) are filtered out.
+
+---
+
+## Understanding the Action Flow
+
+- `rule.actions` is an ordered `List<ActionSpec>`; `actions[0]` runs first.
+- Execution is **strictly serial**: each action completes (success or failure) before the next starts; failures are recorded (`ActionFailure`) and the flow continues.
+- Async actions (TTS, DELAY) advance only after their completion callback; duplicate callbacks are ignored (at-most-once).
+- The flow is cancelled if the service is destroyed (`hostAlive`).
+- **Placeholders**: `STRONG_REMIND` and `POSTPONE` are validated/saved but currently execute as no-ops (logged `skipped (execution TODO)`).
+
+Adding an action: see [How to Add a New Feature](#how-to-add-a-new-feature).
+
+---
+
+## How to Add a New Storage Mechanism
+
+The app uses several storage patterns; choose by need:
+
+### JSON file (structured lists) — `RuleStorage` / `NotificationHistoryStorage`
+
+Use `AtomicFile` + a process-level cache + a lock for read-modify-write safety:
+
+```kotlin
+class MyStorage(context: Context) {
+    private val gson = Gson()
+    private val file = File(context.filesDir, "my_data.json")
+    private val atomicFile = AtomicFile(file)
+
+    fun getData(): List<MyData> {
+        if (!file.exists()) return emptyList()
+        val type = object : TypeToken<List<MyData>>() {}.type
+        return gson.fromJson(atomicFile.readFully().toString(Charsets.UTF_8), type) ?: emptyList()
+    }
+
+    fun saveData(data: List<MyData>) {
+        val stream = atomicFile.startWrite()
+        try {
+            stream.write(gson.toJson(data).toByteArray(Charsets.UTF_8))
+            atomicFile.finishWrite(stream)
+        } catch (e: Exception) {
+            atomicFile.failWrite(stream)
+            throw e
+        }
+    }
+}
+```
+
+> If the data can be written from multiple threads (e.g. the listener executor and the UI), add a shared lock and a cache, like `RuleStorage` does.
+
+### SharedPreferences (key-value) — `StatsStorage` / `UnmonitoredAppsStorage`
+
+Follow `StatsStorage` for primitives (with a lock around read-modify-write), or `UnmonitoredAppsStorage` for Gson-serialized collections (with a cache).
+
+### SQLite (queryable / larger data) — `AppInfoStorage`
+
+Follow `AppInfoStorage` / `AppInfoDatabaseHelper` (`SQLiteOpenHelper`).
+
+### In-memory (transient) — `NotificationActionRepository`
+
+Singleton `object` with a `ConcurrentHashMap`.
+
+### Integration
+
+After creating the storage class, instantiate it where needed (the service owns the write path; the activity/screens own the read path). Keep the **single-writer** principle: concurrent writers must share one lock.
+
+---
+
+## How to Add a New Screen
+
+1. **Create the screen composable** in `ui/screens/`.
+2. **Add navigation state** in `MainActivity`:
+   ```kotlin
+   private var showMyScreen by mutableStateOf(false)
+   ```
+3. **Wire it in the root composable** with a state check + `BackHandler`. The app uses boolean/state-based navigation (no Jetpack Navigation):
+   ```kotlin
+   if (showMyScreen) {
+       BackHandler { showMyScreen = false }
+       MyScreen(onClose = { showMyScreen = false }, ...)
+   }
+   ```
+
+Read UI text from `strings.xml` (there are `values`, `values-zh-rCN`, `values-es`, `values-fr`, `values-ja`, `values-ko`, `values-pl`, `values-ru`); use the semantic tokens (`MaterialTheme.notix*`) instead of hardcoded colors/spacing.
+
+---
+
+## How to Add a New Dialog
+
+1. **Create the dialog composable** in `ui/components/`, extending the unified system `NotixDialog` / `NotixConfirmDialog` where possible.
+2. **Add trigger state** in the owning composable:
+   ```kotlin
+   var itemToShow by remember { mutableStateOf<MyData?>(null) }
+   ```
+3. **Show conditionally** (nullable state: non-null shows, null dismisses):
+   ```kotlin
+   itemToShow?.let { item -> MyDialog(data = item, onDismiss = { itemToShow = null }, ...) }
+   ```
 
 ---
 
 ## Key Design Decisions
 
 ### No Architecture Framework
-The app uses direct state management with Compose's `mutableStateOf` rather than ViewModel/LiveData/StateFlow. State lives in `MainActivity` and is passed down as parameters. This works for the app's scale but would need refactoring for significantly more complex features.
-
-### Full List Replacement
-All JSON storage classes replace the entire file on every write. This is simple and correct for the app's data sizes (typically <100 rules, <1000 notifications) but wouldn't scale to very large datasets.
-
-### Boolean Navigation
-Screen navigation uses boolean flags (`showSettingsScreen`, `showPrebuiltRulesScreen`) rather than Jetpack Navigation or a router. This keeps the dependency set minimal but limits deep linking and transition animations.
+Direct state management with Compose `mutableStateOf`, state owned by `MainActivity` and passed down as parameters (no ViewModel/LiveData/StateFlow). Appropriate at this scale; refactor if complexity grows.
 
 ### Single Module
-Everything lives in the `:app` module. For a project of this size (~3,200 lines), this is appropriate and avoids unnecessary build complexity.
+Everything lives in `:app`. Avoids build complexity for a project of this size.
 
 ### No Network
-The app declares zero network permissions and makes no HTTP requests. All data stays on-device.
+Zero network permissions; all data stays on-device. Don't add networking without a strong reason and a privacy review.
 
 ### Gson over Kotlin Serialization
-The project uses Gson for JSON serialization. Data classes use `@Keep` annotations to survive R8 minification (Gson uses reflection).
+Data classes use `@Keep` to survive R8 (Gson uses reflection). Keep `@Keep` on anything Gson touches.
+
+### Full List Replacement + AtomicFile
+JSON storages replace the whole file atomically; with single-writer executors and locks this is correct for the data sizes here.
+
+### Boolean Navigation
+State-based navigation instead of Jetpack Navigation — minimal dependencies, no deep-linking.
+
+### Engine / Android side-effect seams
+The decision engine (`RuleMatcher`) and the action engine (`ActionFlowExecutor`) depend only on interfaces (`ActionFlowHost`, `*ActionRunner`); the service provides the real implementations. Keep it that way so logic stays JVM-testable.
 
 ---
 
 ## Common Patterns
 
-### Storage Access in Composables
-Storage classes are instantiated via `remember { Storage(context) }` within composables when needed locally (e.g., `AppInfoStorage` in `HistoryScreen`).
+### Storage access in composables
+Instantiate via `remember { Storage(context) }`; load async with `produceState` + `Dispatchers.IO` (e.g. app icons from `AppInfoStorage`).
 
-### Async Image Loading
-App icons are loaded from SQLite using `produceState` with `Dispatchers.IO`:
-```kotlin
-val appIcon by produceState<Bitmap?>(initialValue = null, key1 = packageName) {
-    if (packageName != null) {
-        value = withContext(Dispatchers.IO) {
-            appInfoStorage.getAppIcon(packageName)
-        }
-    }
-}
-```
+### App icon colors
+Use `NotificationColorEngine.getNotificationColors(context, packageName)` for accent colors (falls back to a hash color when the icon is unresolvable).
 
 ### Debouncing
-`NotificationBlockerService` uses a time-based debounce map to avoid recording duplicate notifications within 5 seconds. The map is cleaned on each notification processing cycle.
+- Service: 3 s Action-Flow debounce per `sbn.key`, 3 s `recentlyBlocked` window.
+- TTS: 5 s debounce in `TtsSpeaker`.
+- UI broadcast refresh: 400 ms debounce in `MainActivity`.
 
-### Deduplication in Storage
-Both history storage classes deduplicate by content (appLabel, packageName, title, text) - if a notification with the same content arrives, the old entry is removed and the new one is prepended (updating the timestamp).
+### Rule mutation safety
+Never mutate the rule list outside `RuleStorage`'s id-keyed methods (`incrementHitCounts`, `updateRuleById`, `deleteRuleById`, …). They re-read under the lock and can't resurrect a deleted rule.
+
+### Snackbar over Toast
+Use the in-app `SnackbarHostState` (see `RuleWizardScreen`) instead of system toasts.
 
 ---
 
 ## Testing
 
-### Unit Tests
+### Unit tests (`app/src/test/`)
 
-Located in `app/src/test/java/com/enlpot/notix/`.
+Plain JVM, no Robolectric. Run: `./gradlew testDebugUnitTest`.
 
-Run: `./gradlew test`
+- `ActionFlowExecutorTest` / `ActionFlowModelTest` / `ActionFlowCopyBehaviorTest` / `DismissSpecTest` / `ActionFlowEditorTest` — engine behavior with fakes.
+- `RuleImportExportRoundTripTest` — v4 import/export round trip.
+- `RuleWizardSupportTest` — wizard pure helpers.
 
-The primary test class is `RuleMatcherTest` which covers:
-- Empty rule sets
-- Denylist matching and non-matching
-- Allowlist matching and implicit blocking
-- Denylist priority over allowlist
-- Regex matching
-- Disabled rule handling
-- Real-world regex patterns (Mygate)
-- STACK: never blocks, doesn't gate like allowlist, filter parity with DENYLIST
+Inject fakes for `ActionFlowHost` / `SyncActionRunner` / `AsyncActionRunner` and assert on `FlowResult` / `FlowExecution`. Example:
 
-Two further JVM test classes cover the STACK feature (no Robolectric — pure functions + a fake `StackPoster`):
-- **`NotificationDecisionTest`** — the full block/stack precedence matrix of `RuleMatcher.planNotificationDecision()`
-- **`StackedNotificationManagerTest`** — `groupKeyFor`, pure `planAbsorb`, and transactional `absorbAndPost` (precondition, update/ping, eviction caps, rollback, `reconcileOnConnect`)
-
-> Unit tests rely on `testOptions.unitTests.isReturnDefaultValues = true` (in `app/build.gradle.kts`) so stubbed `android.util.Log` calls return defaults instead of throwing. Keep Android side-effects behind the `StackPoster` seam (or other interfaces) and assert on the pure plan objects.
-
-### Writing New Tests
-
-Add tests to `RuleMatcherTest` or create new test classes. Use the existing pattern:
 ```kotlin
 @Test
-fun `descriptive test name`() {
-    val rule = BlockerRule(
-        packageName = "com.example.app",
-        titleFilter = "pattern",
-        ruleType = RuleType.DENYLIST
-    )
-    val result = RuleMatcher.shouldBlock("com.example.app", "title", "text", listOf(rule))
-    assertTrue(result)  // or assertFalse
+fun `dismiss failure continues the flow`() {
+    val host = FakeHost(failDismiss = true)
+    val exec = ActionFlowExecutor(RealSyncActionRunner(host), RealAsyncRunner(host))
+    val flow = exec.execute(listOf(dismissSpec(), copySpec(CopyMode.TITLE)), ctx)
+    assertEquals(FlowStatus.PARTIAL_FAILURE, flow.result?.status)
 }
 ```
 
-### Instrumented Tests
+### Instrumented tests (`app/src/androidTest/`)
 
-Located in `app/src/androidTest/`. Currently contains a basic context test. Run with:
-```bash
-./gradlew connectedAndroidTest
-```
+Run: `./gradlew connectedAndroidTest`. Use `TestNotificationFactory` / `TestRuleFactory` / `TestPendingIntentReceiver` and `BaseActionFlowTest` to drive real notifications; `RulesScreenFlow*` classes cover the Compose UI flows.
 
 ---
 
 ## Release Process
 
-### Version Bumping
+### Version bumping
 
-Update in `app/build.gradle.kts`:
+In `app/build.gradle.kts`:
+
 ```kotlin
 defaultConfig {
-    versionCode = 28          // Increment for each release
-    versionName = "2.62"      // Human-readable version
+    versionCode = 132          // increment per release
+    versionName = "8.16.0"     // human-readable
 }
 ```
 
-### Building Release
+Also update `RELEASE_NOTES.md`, `VERSION_HISTORY.md` / `VERSION_HISTORY.zh-CN.md`, and `CHANGELOG.md` as appropriate.
 
-```bash
-./gradlew assembleRelease
-```
+### CI auto-release
 
-Release builds use R8 minification (`isMinifyEnabled = true`). Data classes are preserved via `@Keep` annotations.
+`.github/workflows/release.yml` runs on push to `main` (and manual dispatch). It:
+1. Reads `versionName`, skips if a `v<version>` GitHub release already exists.
+2. Decodes the keystore from `secrets.NOTIX_KEYSTORE_BASE64` (plus `NOTIX_KEYSTORE_PASSWORD`, `KEYSTORE_NOTIX_KEYPASSWORD`, `KEYSTORE_NOTIX_ALIAS`) and builds `assembleRelease`.
+3. Publishes the APK as a GitHub Release with `RELEASE_NOTES.md`.
 
-### Store Metadata
-
-Fastlane metadata is in `fastlane/metadata/android/en-US/`:
-- `title.txt` - App title
-- `short_description.txt` - Short description
-- `full_description.txt` - Full store description
-- `changelogs/{versionCode}.txt` - Version-specific changelog
-- `images/` - Screenshots and icon
+> **Important:** keep the GitHub Secrets in sync with any local keystore. The release keystore is the signing identity of every published APK — store the keystore and passwords carefully, and never commit them.

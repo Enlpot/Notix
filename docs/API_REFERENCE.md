@@ -1,18 +1,16 @@
 # Notix - API Reference
 
-Complete method-level reference for every class in the codebase.
-
----
+Method-level reference for the classes in the codebase, matching **v8.15.2** (`com.enlpot.notix`). Signatures are taken directly from source; any drift between this file and the code should be resolved in favor of the code.
 
 ## Table of Contents
 
 - [Data Models](#data-models)
-- [Core Services](#core-services)
+- [Core Engine](#core-engine)
 - [Storage Classes](#storage-classes)
+- [Supporting Subsystems](#supporting-subsystems)
 - [UI - Screens](#ui---screens)
 - [UI - Components](#ui---components)
 - [UI - Theme](#ui---theme)
-- [MainActivity](#mainactivity)
 
 ---
 
@@ -20,133 +18,141 @@ Complete method-level reference for every class in the codebase.
 
 ### `BlockerRule` (`BlockerRule.kt`)
 
-Parcelable data class representing a notification filtering rule.
+`@Keep @Parcelize data class BlockerRule` — a notification rule.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `appName` | `String?` | `null` | Human-readable name of the target app |
-| `packageName` | `String?` | `null` | Android package name to match against |
-| `titleFilter` | `String?` | `null` | Pattern for matching notification title. Null/blank = match all. |
-| `titleMatchType` | `MatchType` | `CONTAINS` | How to evaluate `titleFilter` |
-| `textFilter` | `String?` | `null` | Pattern for matching notification text body. Null/blank = match all. |
-| `textMatchType` | `MatchType` | `CONTAINS` | How to evaluate `textFilter` |
-| `hitCount` | `Int` | `0` | Number of times this rule has matched a notification |
-| `ruleType` | `RuleType` | `DENYLIST` | Whether this rule blocks, allowlists, or stacks |
-| `isEnabled` | `Boolean` | `true` | Whether the rule is currently active |
-| `advancedConfig` | `AdvancedRuleConfig?` | `null` | Optional time-window scheduling |
+| `id` | `String` | `""` | Stable id; normalized by `RuleIds`. Never re-keyed on update |
+| `description` | `String?` | `null` | Optional rule name |
+| `isEnabled` | `Boolean` | `true` | Whether the rule is active |
+| `hitCount` | `Int` | `0` | Match count |
+| `sourcePackages` | `List<SourceApp>` | `emptyList()` | Source apps (multi-select) |
+| `condition` | `RuleCondition` | `RuleCondition()` | Keyword matching |
+| `extraCondition` | `ExtraCondition` | `ExtraCondition()` | Phone-state conditions |
+| `actions` | `List<ActionSpec>` | `emptyList()` | Ordered action chain |
+| `createdAt` | `Long` | `0L` | Creation time |
 
-### `MatchType` (enum, `BlockerRule.kt`)
+Property: `isValid: Boolean` — true iff ≥1 source app **and** non-empty `actions` **and** every `ActionSpec.isValid`.
 
-| Value | Behavior |
+### `SourceApp` (`BlockerRule.kt`)
+
+`data class SourceApp(val packageName: String, val appName: String? = null)`.
+
+### `RuleCondition` (`BlockerRule.kt`)
+
+`data class RuleCondition(mode: MatchMode = CONTAINS_ANY, includeKeywords: List<String> = emptyList(), excludeKeywords: List<String> = emptyList())` — `isEmpty()` true when both keyword lists are empty.
+
+### `ExtraCondition` (`BlockerRule.kt`)
+
+`data class ExtraCondition(screenState: ScreenState = ANY, chargingState: ChargingState = ANY, dndState: DndState = ANY, bluetoothState: BluetoothState = ANY, bluetoothDeviceNames: List<String> = emptyList(), time: TimeCondition = TimeCondition())` — `isEmpty()` true when all fields are default.
+
+### `TimeCondition` (`BlockerRule.kt`)
+
+`data class TimeCondition(enabled: Boolean = false, startHour: Int = 0, startMinute: Int = 0, endHour: Int = 23, endMinute: Int = 59, weekdays: List<Int> = emptyList())` — weekdays 1=Mon…7=Sun; empty = every day.
+
+### Enums (`BlockerRule.kt`)
+
+| Enum | Values |
 |---|---|
-| `CONTAINS` | Case-insensitive substring match via `String.contains(filter, ignoreCase = true)` |
-| `REGEX` | Full string regex match via `String.matches(filter.toRegex())` |
+| `MatchMode` | `CONTAINS_ANY, CONTAINS_ALL, NOT_CONTAINS_ANY, NOT_CONTAINS_ALL, MIXED, ADVANCED` |
+| `ScreenState` | `ANY, SCREEN_ON, SCREEN_OFF` |
+| `ChargingState` | `ANY, WIRED, WIRELESS, BATTERY` |
+| `DndState` | `ANY, ON, OFF` |
+| `BluetoothState` | `ANY, CONNECTED, DISCONNECTED` |
+| `RuleAction` | `DISMISS, CLICK_BUTTON, OPEN_NOTIFICATION, COPY, TTS, STRONG_REMIND, DELAY, POSTPONE` |
+| `CopyMode` | `TITLE, TEXT, TITLE_AND_TEXT` |
 
-### `RuleType` (enum, `BlockerRule.kt`)
+### Action params (`BlockerRule.kt`)
 
-| Value | Behavior |
+| Data class | Fields |
 |---|---|
-| `DENYLIST` | Block notifications that match this rule |
-| `ALLOWLIST` | Allow only matching notifications; implicitly block non-matching ones for this package |
-| `STACK` | Don't block — cancel the source notification and re-post matching ones as a single native notification group (summary + children). Serialized with `@SerializedName(value = "STACK", alternate = ["GROUP", "STACKED"])` |
+| `ActionSpec` | `type: RuleAction`, `params: JsonObject?` (native Gson; `isValid` checks CLICK_BUTTON label, DELAY/POSTPONE duration) |
+| `TtsParams` | `template: String?` |
+| `CopyParams` | `mode: CopyMode = TITLE_AND_TEXT` |
+| `DelayParams` | `durationMs: Long = 1000L` |
+| `DismissParams` | `includeOngoing: Boolean = false`, `snoozeDurationMs: Long = DAY_7` |
+| `StrongRemindParams` | `sound: Boolean = true`, `vibrate: Boolean = true` |
+| `PostponeParams` | `delayMs: Long = 60_000L` |
+| `ClickButtonParams` | `buttonLabel: String = ""` |
 
-### `AdvancedRuleConfig` (`BlockerRule.kt`)
+`object SnoozeDurations`: `HOUR_1=3_600_000`, `DAY_1=86_400_000`, `DAY_7=604_800_000`, `DAY_30=2_592_000_000`, `YEAR_1=31_536_000_000`; `DEFAULT: Long = DAY_7`; `OPTIONS: List<Long>`.
 
-Parcelable data class for time-based rule scheduling.
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `isTimeLimitEnabled` | `Boolean` | `false` | Whether time restriction is active |
-| `startTimeHour` | `Int` | `9` | Start hour (0-23) |
-| `startTimeMinute` | `Int` | `0` | Start minute (0-59) |
-| `endTimeHour` | `Int` | `17` | End hour (0-23) |
-| `endTimeMinute` | `Int` | `0` | End minute (0-59) |
+Gson helpers: `fun Any.toParamsJson(): JsonObject` and `inline fun <reified T> JsonObject?.asParams(): T`.
 
 ### `SimpleNotification` (`SimpleNotification.kt`)
 
-Parcelable data class representing a notification for storage and display.
+`@Keep @Parcelize data class SimpleNotification(appLabel: String?, packageName: String?, title: String?, text: String?, timestamp: Long, wasOngoing: Boolean = false, id: String? = UUID.randomUUID().toString(), sbnKey: String? = null, postTime: Long? = null, matchedRuleIds: List<String> = emptyList())`.
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `appLabel` | `String?` | - | Display name of the source app |
-| `packageName` | `String?` | - | Android package identifier |
-| `title` | `String?` | - | Notification title text |
-| `text` | `String?` | - | Notification body text |
-| `timestamp` | `Long` | - | Unix timestamp in milliseconds |
-| `wasOngoing` | `Boolean` | `false` | Whether the notification had `FLAG_ONGOING_EVENT` |
-| `id` | `String?` | `UUID.randomUUID()` | Unique identifier for PendingIntent caching |
+### `NotificationHistoryEntry` (`NotificationHistoryEntry.kt`)
+
+`@Keep data class NotificationHistoryEntry(id: String = UUID.randomUUID().toString(), packageName: String? = null, appLabel: String? = null, title: String? = null, count: Int = 1, firstTimestamp: Long = 0L, lastTimestamp: Long = 0L, blocked: Boolean = false, changes: List<SimpleNotification> = emptyList())`.
+
+Properties: `latest: SimpleNotification?` (first of `changes`), `displayCount: String` (real count, no 9+ cap).
 
 ---
 
-## Core Services
-
-### `NotificationBlockerService` (`NotificationBlockerService.kt`)
-
-**Extends:** `NotificationListenerService`
-
-Android system service that receives all posted notifications.
-
-#### Constants
-
-| Constant | Value | Description |
-|---|---|---|
-| `ACTION_HISTORY_UPDATED` | `"com.enlpot.notix.HISTORY_UPDATED"` | Broadcast action sent after processing |
-| `DEBOUNCE_PERIOD_MS` | `5000L` | Milliseconds to suppress duplicate recording |
-
-#### Fields
-
-| Field | Type | Description |
-|---|---|---|
-| `ruleStorage` | `RuleStorage` | Rule persistence |
-| `notificationHistoryStorage` | `NotificationHistoryStorage` | History persistence |
-| `blockedNotificationHistoryStorage` | `BlockedNotificationHistoryStorage` | Blocked history persistence |
-| `statsStorage` | `StatsStorage` | Block count tracker |
-| `unmonitoredAppsStorage` | `UnmonitoredAppsStorage` | Excluded apps tracker |
-| `appInfoStorage` | `AppInfoStorage` | App icon/name cache |
-| `recentlyBlocked` | `MutableMap<String, Long>` | Debounce map (key → timestamp) |
-
-#### Methods
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `onCreate()` | - | `Unit` | Initializes all storage instances |
-| `onNotificationPosted(sbn)` | `StatusBarNotification?` | `Unit` | Main processing callback. Extracts notification data, evaluates rules, blocks/records, and broadcasts updates. |
-| `resolveAppName(context, sbn)` | `Context`, `StatusBarNotification` | `CharSequence` | Resolves human-readable app name. Tries: (1) `android.substituteAppName` extra, (2) `PackageManager.getApplicationLabel()`, (3) raw package name. |
-
----
+## Core Engine
 
 ### `RuleMatcher` (`RuleMatcher.kt`)
 
-**Type:** Singleton `object`
+Pure-JVM singleton `object`. No Android dependency.
 
-Stateless rule evaluation engine.
-
-#### Methods
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `matches(rule, packageName, title, text)` | `BlockerRule`, `String?`, `String?`, `String?` | `Boolean` | Evaluates a single rule against notification data. Checks time window, package match, title match, and text match. Returns `false` on regex errors. STACK rules match identically to DENYLIST/ALLOWLIST rules with the same filters. |
-| `shouldBlock(packageName, title, text, rules)` | `String`, `String?`, `String?`, `List<BlockerRule>` | `Boolean` | Evaluates all rules for a package. Returns `true` if notification should be blocked. Logic: `(hasAllowlist && !matchesAllowlist) \|\| matchesDenylist`. STACK rules never block and never gate. |
-| `planNotificationDecision(rules, packageName, title, text, wasOngoing)` | `List<BlockerRule>`, `String`, `String?`, `String?`, `Boolean` | `NotificationDecision` | Pure precedence resolution used by the service. Returns `isBlocked`, `matchedDenylistRule`, `shouldStack`, `matchedStackRule`, `matchedRuleIndices`. First enabled match wins per type; a block wins over STACK; `wasOngoing` suppresses stacking. Extracted to keep the precedence matrix JVM-testable. |
-
-### `NotificationDecision` (data class, `RuleMatcher.kt`)
-
-Plain result of `planNotificationDecision` (no Android types): `isBlocked: Boolean`, `matchedDenylistRule: BlockerRule?`, `shouldStack: Boolean`, `matchedStackRule: BlockerRule?` (non-null only when `shouldStack`), `matchedRuleIndices: List<Int>` (rules to bump `hitCount` for).
-
-### `StackedNotificationManager` (`StackedNotificationManager.kt`)
-
-**Type:** Singleton `object` (volatile in-memory STACK registry).
-
-| Member | Returns | Description |
+| Member | Signature | Description |
 |---|---|---|
-| `groupKeyFor(packageName, rule)` | `String` | Stable key per distinct full rule signature: canonical length-prefixed serialization → hex SHA-256. One stack per signature. |
-| `planAbsorb(snapshot, entry, now, idAllocator, maxChildren)` | `AbsorbPlan` | Pure: child id (reuse on same `sbnKey`), update/ping flags, cumulative count, evictions, visibility/redaction, summary lines. No Android types. |
-| `absorbAndPost(poster, groupKey, appLabel, entry, largeIcon)` | `Boolean` | Transactional: precondition → plan → post → commit → post-commit cleanup. Returns `true` only when child **and** summary are posted and committed; the caller cancels the source only then. |
-| `canPost(context)` / `postBlockVia(poster)` | `PostBlock` | Typed post-capability (`OK` / `NOTIFICATIONS_DISABLED` / `CHANNEL_DISABLED`). `canPost` is UI-only; `postBlockVia` is the JVM-testable path used internally. |
-| `onOurNotificationRemoved(poster, removedId, appLabel)` | — | Keeps the registry in sync when one of our stack notifications is dismissed (summary → clear group; child → rebuild). |
-| `reconcileOnConnect(poster)` | — | On listener (re)connect, cancels surviving `dnn_stack:` notifications by listener key and clears the registry (restart-safety). |
+| `evaluate` | `(rule, packageName, title, text, env = EnvironmentSnapshot()): Boolean` | Full single-rule evaluation: valid+enabled → source-app → keyword → extra condition |
+| `matchesCondition` | `(condition, title, text): Boolean` | Keyword matching per `MatchMode` (case-insensitive, title-or-text) |
+| `matchesExtra` | `(extra, env): Boolean` | Phone-state / time-window checks (cross-midnight aware) |
+| `isTimeInRange` | `(hour, minute, startHour, startMinute, endHour, endMinute): Boolean` | Time-range check supporting overnight spans |
+| `planNotificationDecision` | `(rules, packageName, title, text, env = EnvironmentSnapshot()): RuleDecision` | First-match-wins decision entry point |
 
-`StackPoster` is the side-effect seam (`areEnabled`, `channelImportance`, `activeStackNotifications`, `postChild`, `postSummary`, `cancel`, `cancelByKey`) with a real `AndroidStackPoster` impl and an in-memory fake for tests.
+Support types:
+- `data class EnvironmentSnapshot(screenOn: Boolean = true, charging: ChargingState = ANY, dndOn: Boolean = false, bluetoothDeviceNames: List<String> = emptyList(), now: Long = System.currentTimeMillis())`
+- `sealed interface RuleDecision` → `data object Pass` | `data class Apply(val rule: BlockerRule)`
+
+### `ActionFlowExecutor` (`ActionFlowExecutor.kt`)
+
+Serial action-chain executor.
+
+| Member | Signature | Description |
+|---|---|---|
+| ctor | `(syncRunner: SyncActionRunner, asyncRunner: AsyncActionRunner, log: (String) -> Unit = {}, hostAlive: () -> Boolean = { true })` | Runners + host-alive check |
+| `execute` | `(actions: List<ActionSpec>, context: ActionContext, onComplete: ((FlowResult) -> Unit)? = null): FlowExecution` | Run the chain; per-flow state |
+
+Types in the file:
+- `class ActionContext(ruleId, packageName, appName, title, text, notificationKey, postTime, includeOngoing = false, snoozeDurationMs = DAY_7, sbn: StatusBarNotification? = null, notificationActions: Array<Notification.Action>? = null, contentIntent: PendingIntent? = null)`
+- `interface ActionFlowHost` — `cancelNotificationCompat(key)`, `snoozeNotificationCompat(key, ruleId?, durationMs)`, `copyToClipboard(text)`, `buildTtsText(template, app, title, text, postTime): String`, `speakTts(ctx, text, onDone: (Boolean) -> Unit)`
+- `interface SyncActionRunner` — `dismiss(ctx)`, `clickButton(ctx, spec)`, `openNotification(ctx)`, `copy(ctx, spec)`
+- `interface AsyncActionRunner` — `runTts(ctx, spec, onDone: (Boolean) -> Unit)`, `runDelay(delayMs: Long, onComplete: () -> Unit)`
+- `class RealSyncActionRunner(host)` — production sync impl
+- `class RealAsyncRunner(host)` — production async impl (main-thread `Handler.postDelayed`, TTS via host)
+- `class FlowExecution(actions, context)` — `isCompleted/isCancelled/result/failedActions`; `cancel()`
+- `enum FlowStatus` — `SUCCESS, PARTIAL_FAILURE, EMPTY, CANCELLED`
+- `data class ActionFailure(index: Int, type: RuleAction, reason: String)`
+- `class FlowResult(status, failedActions = [], executedCount = 0)` — `isSuccess`, `hasFailures`
+
+> `STRONG_REMIND` and `POSTPONE` are executed as no-ops (logged `skipped (execution TODO)`).
+
+### `NotificationBlockerService` (`NotificationBlockerService.kt`)
+
+`NotificationListenerService` subclass — the processing engine (see ARCHITECTURE §8 for the pipeline).
+
+| Member | Description |
+|---|---|
+| `const val ACTION_HISTORY_UPDATED = "com.enlpot.notix.HISTORY_UPDATED"` | Broadcast after processing |
+| `const val RULE_REPOST_CHANNEL_ID = "rule_repost"` | Channel used in self-package guard (repost fn is dead code) |
+| `onNotificationPosted(sbn)` | Main pipeline callback |
+| `onListenerConnected()` / `onListenerDisconnected()` | Foreground keep-alive + heartbeat; reconnect (`requestRebind`) unless paused |
+| `onDestroy()` | Cancels active flows; delayed executor shutdown |
+| `onStartCommand(intent, flags, startId)` | Handles `ACTION_APPLY_RULE` / `ACTION_RESCAN_ALL` / `ACTION_RESTORE_SNOOZED` |
+| `companion object { val instance: NotificationBlockerService? }` | Live service reference |
+
+### `NotixApp` (`NotixApp.kt`)
+
+`Application` — `onCreate()` installs `CrashLogManager`, creates the health channel, enqueues `HealthCheckWorker`.
+
+### `MainActivity` (`MainActivity.kt`)
+
+`ComponentActivity` — UI root / state coordinator. Key behaviors: edge-to-edge, data loading + legacy migration, `ACTION_HISTORY_UPDATED` receiver with 400 ms debounced refresh, boolean/state-based navigation, `triggerNotificationAction(...)`, `restoreNotificationToShade(...)`, `Color.luminance(): Float` extension.
 
 ---
 
@@ -154,449 +160,188 @@ Plain result of `planNotificationDecision` (no Android types): `isBlocked: Boole
 
 ### `RuleStorage` (`RuleStorage.kt`)
 
-JSON file-based storage for blocking rules.
+File: `{filesDir}/rules.json` via `AtomicFile`. Process-level cache + `Any()` lock; all writes id-keyed.
 
-| Property | Value |
-|---|---|
-| File path | `{filesDir}/rules.json` |
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `getRules()` | - | `List<BlockerRule>` | Reads and deserializes rules. Returns empty list if file missing. |
-| `saveRules(rules)` | `List<BlockerRule>` | `Unit` | Serializes and overwrites the entire rules file. |
-
----
+| Method | Returns | Description |
+|---|---|---|
+| `getRules()` | `List<BlockerRule>` | Cached/load; normalizes ids, sanitizes null fields, filters invalid, backs up `rules.json.bak` |
+| `saveRules(rules)` | `Unit` | Whole-list overwrite (normalizes ids) — prefer id-keyed methods |
+| `incrementHitCounts(ruleIds)` | `Unit` | Listener hot path; bump-only mutation |
+| `updateRuleById(id, newRule)` | `List<BlockerRule>?` | Replace rule; `null` if id absent |
+| `deleteRuleById(id)` | `List<BlockerRule>` | Delete + restore that rule's snoozed ongoing notifications |
+| `addRules(rules)` | `List<BlockerRule>` | Append |
+| `setEnabledByIds(ids, enabled)` | `List<BlockerRule>` | Toggle a set |
+| `setAllEnabled(enabled)` | `List<BlockerRule>` | Toggle all |
+| `resetHitCounts()` / `resetHitCounts(ids)` | `Unit` | Reset hit counts |
+| `invalidateCache()` | `Unit` | Drop cached rules |
 
 ### `NotificationHistoryStorage` (`NotificationHistoryStorage.kt`)
 
-JSON file-based storage for non-blocked notification history.
+File: `{filesDir}/notification_history.json` via `AtomicFile`; process-level cache; retention `historyDays` (default 5).
 
-| Property | Value |
-|---|---|
-| File path | `{filesDir}/notification_history.json` |
-| Retention | `historyDays` from SharedPreferences (default: 5) |
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `getHistory()` | - | `List<SimpleNotification>` | Returns all stored notifications. Empty list if file missing. |
-| `saveNotification(notification)` | `SimpleNotification` | `Unit` | Deduplicates by content fields (appLabel, packageName, title, text), prepends to list, prunes entries older than retention period. |
-| `deleteNotification(notification)` | `SimpleNotification` | `Unit` | Removes a specific notification by equality. |
-| `deleteNotificationsFromPackage(packageName)` | `String` | `Unit` | Removes all notifications from a package. |
-| `updateAppLabelForPackage(packageName, newAppLabel)` | `String`, `String` | `Unit` | Updates the `appLabel` on all notifications from a given package. |
-| `clearHistory()` | - | `Unit` | Deletes the history file. |
-
----
+| Method | Returns | Description |
+|---|---|---|
+| `getEntries()` | `List<NotificationHistoryEntry>` | Aggregated entries, reverse-chronological |
+| `getHistory()` | `List<SimpleNotification>` | Latest per group (legacy-compatible) |
+| `saveNotification(notification, blocked = false)` | `Boolean` | Same-entry dedup (sbnKey+postTime) + head aggregation; true = new group |
+| `mergeBlockedNotifications(list)` | `Unit` | Merge legacy blocked history (idempotent) |
+| `clearBlockedHistory()` | `Unit` | Remove blocked groups |
+| `deleteNotification(notification)` | `Unit` | Remove group with same pkg+title |
+| `deleteNotificationsFromPackage(packageName)` | `Unit` | Remove all for a package |
+| `updateAppLabelForPackage(packageName, newAppLabel)` | `Unit` | Rename group + changes |
+| `clearHistory()` | `Unit` | Delete file + reset cache |
+| `clearHistoryBetween(startTime, endTime)` | `Unit` | Prune time range |
+| `clearHistoryByPackages(packages)` | `Unit` | Remove listed packages |
 
 ### `BlockedNotificationHistoryStorage` (`BlockedNotificationHistoryStorage.kt`)
 
-JSON file-based storage for blocked notification history.
+File: `{filesDir}/blocked_notification_history.json` — **migration-only** (merged at launch, then unused).
 
-| Property | Value |
-|---|---|
-| File path | `{filesDir}/blocked_notification_history.json` |
-| Max entries | 100 |
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `getHistory()` | - | `List<SimpleNotification>` | Returns blocked notification history. |
-| `saveNotification(notification)` | `SimpleNotification` | `Boolean` | Deduplicates by content, prepends, trims to 100. Returns `true` if notification was new (not duplicate). |
-| `deleteNotification(notification)` | `SimpleNotification` | `Unit` | Removes specific notification. |
-| `clearHistory()` | - | `Unit` | Deletes the history file. |
-
----
+| Method | Returns | Description |
+|---|---|---|
+| `getHistory()` | `List<SimpleNotification>` | Read + prune by `historyDays` |
+| `saveNotification(notification)` | `Boolean` | Dedup by content; trim; true if new |
+| `deleteNotification(notification)` | `Unit` | Remove entry |
+| `clearHistory()` | `Unit` | Delete file |
 
 ### `AppInfoStorage` / `AppInfoDatabaseHelper` (`AppInfoStorage.kt`)
 
-SQLite-based cache for app icons and display names.
+SQLite `app_info.db`, table `app_info(package_name TEXT PK, app_name TEXT, app_icon BLOB)`.
 
-#### `AppInfoDatabaseHelper`
-
-| Property | Value |
-|---|---|
-| Database name | `app_info.db` |
-| Version | 1 |
-| Table | `app_info (package_name TEXT PK, app_name TEXT, app_icon BLOB)` |
-
-#### `AppInfoStorage`
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `isAppInfoSaved(packageName)` | `String` | `String?` | Returns cached app name, or `null` if not stored. |
-| `saveAppInfo(packageName, appName, icon)` | `String`, `String`, `Drawable` | `Unit` | Stores app info. Converts Drawable to PNG BLOB. Uses `CONFLICT_REPLACE`. |
-| `getAppIcon(packageName)` | `String` | `Bitmap?` | Returns decoded icon bitmap, or `null`. |
-| `getAppName(packageName)` | `String` | `String?` | Returns cached display name. |
-| `deleteAppInfo(packageName)` | `String` | `Unit` | Removes entry for package. |
-| `clearAllAppInfo()` | - | `Unit` | Truncates the table. |
-
-**Private helper:** `drawableToBitmap(drawable: Drawable): Bitmap` - Converts any Drawable to Bitmap. Handles BitmapDrawable directly; creates Canvas-rendered bitmap for others.
-
----
+| Method | Returns | Description |
+|---|---|---|
+| `isAppInfoSaved(packageName)` | `String?` | Cached app name or null |
+| `saveAppInfo(packageName, appName, icon: Drawable)` | `Unit` | Store/replace (PNG BLOB, `CONFLICT_REPLACE`) |
+| `getAppIcon(packageName)` | `Bitmap?` | Decoded icon or null |
+| `getAppName(packageName)` | `String?` | Cached name |
+| `getAllApps()` | `List<Pair<String, String?>>` | All (package, name) rows |
+| `deleteAppInfo(packageName)` | `Unit` | Remove row |
+| `clearAllAppInfo()` | `Unit` | Truncate |
 
 ### `UnmonitoredAppsStorage` (`UnmonitoredAppsStorage.kt`)
 
-SharedPreferences-based storage for packages excluded from monitoring.
+Prefs `unmonitored_apps_prefs`, key `unmonitored_apps` (Gson `Set<String>`), with cache + lock.
 
-| Property | Value |
-|---|---|
-| Preferences file | `unmonitored_apps_prefs` |
-| Key | `unmonitored_apps` (Gson-serialized `Set<String>`) |
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `getUnmonitoredApps()` | - | `Set<String>` | Returns set of excluded package names. |
-| `addApp(packageName)` | `String` | `Unit` | Adds package to exclusion set. |
-| `removeApp(packageName)` | `String` | `Unit` | Removes package from exclusion set. |
-| `isAppUnmonitored(packageName)` | `String` | `Boolean` | Checks if package is excluded. |
-
----
+| Method | Returns | Description |
+|---|---|---|
+| `getUnmonitoredApps()` | `Set<String>` | Excluded packages |
+| `addApp(packageName)` | `Unit` | Add |
+| `removeApp(packageName)` | `Unit` | Remove |
+| `isAppUnmonitored(packageName)` | `Boolean` | Contains check |
 
 ### `StatsStorage` (`StatsStorage.kt`)
 
-SharedPreferences-based counter for blocked notifications.
+Prefs `stats`.
 
-| Property | Value |
-|---|---|
-| Preferences file | `stats` |
-| Key | `blocked_count` |
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `getBlockedNotificationsCount()` | - | `Int` | Returns total blocked count. |
-| `incrementBlockedNotificationsCount()` | - | `Unit` | Increments counter by 1. |
-
----
+| Method | Returns | Description |
+|---|---|---|
+| `getBlockedNotificationsCount()` | `Int` | Total blocked |
+| `incrementBlockedNotificationsCount()` | `Unit` | Bump (locked read-modify-write) |
+| `recordNotification(timestamp)` | `Unit` | Per-day count (key `day_yyyy-MM-dd`), trims >400 days |
+| `getCountForDay(date: LocalDate)` | `Int` | Day count |
+| `getWeekCounts(weekStart: LocalDate)` | `List<Pair<LocalDate, Int>>` | 7 daily counts for a week |
+| `clearDay(date: LocalDate)` | `Unit` | Remove a day key |
 
 ### `NotificationActionRepository` (`NotificationActionRepository.kt`)
 
-In-memory cache for notification PendingIntents.
+Singleton `object` with `ConcurrentHashMap<String, PendingIntent>` — `saveAction(id, action)`, `getAction(id): PendingIntent?`, `clear()`. In-memory only.
 
-**Type:** Singleton `object` with `ConcurrentHashMap<String, PendingIntent>`
+### `CrashLogManager` (`CrashLogManager.kt`)
 
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `saveAction(id, action)` | `String`, `PendingIntent` | `Unit` | Caches a PendingIntent by notification UUID. |
-| `getAction(id)` | `String` | `PendingIntent?` | Retrieves cached PendingIntent. |
-| `clear()` | - | `Unit` | Clears all cached intents. |
+Singleton `object` — crash log at `{getExternalFilesDir(null) ?: filesDir}/crash_logs.txt`, max 20 entries.
+
+| Method | Returns | Description |
+|---|---|---|
+| `install(context)` | `Unit` | Install uncaught-exception handler |
+| `isEnabled(context)` / `setEnabled(context, enabled)` | `Boolean` / `Unit` | Toggle (pref `crash_log_enabled`) |
+| `hasCrashes(context)` | `Boolean` | Log non-empty |
+| `readLogs(context)` | `String` | Full log text |
+| `clearLogs(context)` | `Unit` | Clear |
+| `logFile(context)` | `File` | Current log file |
+| `migrateLegacyLog(context)` | `Unit` | Migrate from filesDir |
 
 ---
 
-### `PrebuiltRulesRepository` (`PrebuiltRulesRepository.kt`)
+## Supporting Subsystems
 
-Read-only repository loading rules from bundled assets.
+### `TtsSpeaker` (`TtsSpeaker.kt`)
 
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `getPrebuiltRules()` | - | `List<BlockerRule>` | Reads and deserializes `assets/prebuilt_rules.json`. |
+Singleton `object` — `speak(context, text, onDone: ((Boolean) -> Unit)? = null)`, `shutdown()`. Queue (max 20 pending), concurrent callback registry, main-thread handler, simplified-Chinese-preferred locale selection.
+
+### `RemoteViewsTextExtractor` (`RemoteViewsTextExtractor.kt`)
+
+Singleton `object` — `extract(notification: Notification): String?`. Reflection into `RemoteViews.mActions` collecting `setText`/`setContentDescription` values + notification action titles. **Off by default** (privacy).
+
+### `NotificationColorEngine` (`NotificationColorEngine.kt`)
+
+`object NotificationColorEngine` — `getNotificationColors(context, packageName?): NotificationColors`, `clearCache()`, `chooseTextColor(bg): Int`, `contrastRatio(fg, bg): Float`. `data class NotificationColors(backgroundColor, primaryColor, secondaryColor?, primaryTextColor, secondaryTextColor, accentColor, contrastRatio)`. Uses icon sampling with hash fallback (v8.15.2); cache max 256 keyed by package+lastUpdateTime.
+
+### `RuleIds` (`RuleIds.kt`)
+
+Singleton `object` — `isValid(id): Boolean`, `normalizeIds(rules): List<BlockerRule>`, `rulesJsonHasAllIds(json): Boolean`, `needsNormalizing(rules): Boolean`, `newId(): String`.
+
+### `RuleMutations` (`RuleMutations.kt`)
+
+Singleton `object` (pure) — `applyHitCounts`, `applyUpdate`, `applyDelete`, `applyAdd`, `applySetEnabled`, `applySetAllEnabled`, `applyResetHitCounts` (×2). All preserve `id` (never re-key).
+
+### `RuleImport` / `RuleExport` (`RuleImport.kt`)
+
+`const val RULE_EXPORT_VERSION = 4`. `data class RuleExport(version, locale?, rules)`; `object RuleExportSerializer.toJson(export): String`. `object RuleImport.parse(json): ImportResult` — `ImportResult` = `Success(rules, locale, droppedCount)` | `Error(reason: ImportError)` where `ImportError = TooLarge | Malformed | SchemaMismatch | Empty`. Sanitizes and normalizes on import.
+
+### `RuleWizardSupport` (`RuleWizardSupport.kt`)
+
+Singleton `object` (pure) — `data class KnownApp(packageName, appName?, isQueryableInstalled)`. Helpers: `mergeKnownApps(...)`, `isDuplicate(...)`, `actionFlowEquals(a, b)`, `looksLikePackageName(input)`, action-flow list ops (`actionFlowAdd/RemoveAt/MoveUp/MoveDown/Update/Move`), `canMoveUp/canMoveDown`, `canSaveFlow(actions)`, `hasActionParams(type)`, `defaultParamsFor(type)`, per-action `*Spec(...)` builders, `actionFlowSummary(spec)`, `actionFlowSummaryFlow(actions, maxShown = 3)`, `formatSnoozeDuration(ms)`.
+
+### `health/HealthCheckWorker` (`HealthCheckWorker.kt`)
+
+`class HealthCheckWorker` (Worker) — `companion object`: `CHANNEL_ID = "health"`, `EXTRA_OPEN_WIZARD`, `enqueue(context)` (periodic 6 h, unique work `health-check`). Flags a high-importance notification when the listener hasn't connected in 24 h (throttle 24 h).
+
+### `setup/SetupState` (`SetupState.kt`)
+
+Singleton `object` — `CURRENT_SETUP_VERSION = 1`; `isNotificationListenerEnabled(ctx)`, `isPostNotificationsGranted(ctx)`, `needsPostNotificationsStep(ctx)`, `isIgnoringBatteryOptimizations(ctx)`, `hasSeenOemAutostart/markOemAutostartSeen`, `lastSeenSetupVersion/setLastSeenSetupVersion`, `shouldShowSetupWizard(ctx)`, `lastListenerConnectedMs(ctx)`, `recordListenerConnected(ctx)`. Keys: `last_listener_connected_ms`, `last_unhealthy_notif_ms`, etc.
+
+### `setup/OemAutostart` (`OemAutostart.kt`)
+
+Singleton `object` — `enum Vendor { XIAOMI, HUAWEI, OPPO, ONEPLUS, VIVO, SAMSUNG, ASUS, LETV, MEIZU, NOKIA }`; `currentVendor(): Vendor?`, `applies(): Boolean`, `tryLaunchAutostart(context): Boolean`.
+
+### `ExternalLinks` (`ExternalLinks.kt`)
+
+`object ExternalLinks.open(context, url): Boolean`.
 
 ---
 
 ## UI - Screens
 
-### `HistoryScreen` (`ui/screens/HistoryScreen.kt`)
+All in `ui/screens/`, Compose `@Composable` functions.
 
-```kotlin
-@Composable
-fun HistoryScreen(
-    notifications: List<SimpleNotification>,
-    unmonitoredApps: Set<String>,
-    onNotificationClick: (SimpleNotification) -> Unit,
-    onClearHistory: () -> Unit,
-    onDeleteNotification: (SimpleNotification) -> Unit,
-    onStopMonitoring: (String, String) -> Unit,    // (packageName, appName)
-    onResumeMonitoring: (String) -> Unit            // (packageName)
-)
-```
-
-Displays notification history grouped by app with expand/collapse, app icons, delete, stop monitoring, and clear history.
-
----
-
-### `RulesScreen` (`ui/screens/RulesScreen.kt`)
-
-```kotlin
-@Composable
-fun RulesScreen(
-    rules: List<BlockerRule>,
-    onRuleClick: (BlockerRule) -> Unit,
-    onDeleteRuleClick: (BlockerRule) -> Unit,
-    onBrowsePrebuiltRulesClick: () -> Unit
-)
-```
-
-Lists all rules with type icons, hit counts, time indicators, and disabled state.
-
----
-
-### `BlockedScreen` (`ui/screens/BlockedScreen.kt`)
-
-```kotlin
-@Composable
-fun BlockedScreen(
-    notifications: List<SimpleNotification>,
-    onClearBlockedHistory: () -> Unit,
-    onNotificationClick: (SimpleNotification) -> Unit,
-    onDeleteNotificationClick: (SimpleNotification) -> Unit
-)
-```
-
-Shows blocked notification list with details, delete, and clear history.
-
----
-
-### `SettingsScreen` (`ui/screens/SettingsScreen.kt`)
-
-```kotlin
-@Composable
-fun SettingsScreen(onClose: () -> Unit)
-```
-
-Settings page with history retention, export/import rules (using SAF file pickers), external links, and version display.
-
----
-
-### `PrebuiltRulesScreen` (`ui/screens/PrebuiltRulesScreen.kt`)
-
-```kotlin
-@Composable
-fun PrebuiltRulesScreen(
-    userRules: List<BlockerRule>,
-    onClose: () -> Unit,
-    onAddRule: (BlockerRule) -> Unit
-)
-```
-
-Shows prebuilt rules filtered to installed-but-uncovered apps with add buttons.
-
----
-
-### `UnmonitoredAppsScreen` (`ui/screens/UnmonitoredAppsScreen.kt`)
-
-```kotlin
-@Composable
-fun UnmonitoredAppsScreen(
-    unmonitoredApps: Set<String>,
-    onClose: () -> Unit,
-    onResumeMonitoring: (String) -> Unit
-)
-```
-
-Lists unmonitored apps with resume buttons.
-
----
-
-### `EnableNotificationListenerScreen` (`ui/screens/EnableNotificationListenerScreen.kt`)
-
-```kotlin
-@Composable
-fun EnableNotificationListenerScreen(onEnableClick: () -> Unit)
-```
-
-Permission request screen with informational card and settings button.
+| Screen | Signature (params) | Purpose |
+|---|---|---|
+| `HistoryScreen` | `(notifications, unmonitoredApps, onNotificationClick, onClearHistory, ...)`, plus tab/selection/search state | History tab: aggregated cards, chart panel, sub-tabs (time/app/rule), search, fold segments |
+| `RulesScreen` | `(rules, onRuleClick, onCreateRuleClick, onToggleAllRules, onDeleteRule, onToggleRule, onResetHitCount, onRescanRule)` | Rules tab: rule cards |
+| `RuleWizardScreen` | `(existingRules, pastNotifications, onClose, onCreateRule, editingRule?, onUpdateRule?, onDeleteRule?, prefillNotification?)` | Rule wizard (app → condition → state → action flow) |
+| `SettingsScreen` | `(onBack, ...)` | Settings |
+| `SetupWizardScreen` | `(onComplete, onOpenNotificationSettings, ...)` | Onboarding wizard |
+| `StorageUsageScreen` | — | Storage usage + cleanup |
 
 ---
 
 ## UI - Components
 
-### `AddRuleDialog` (`ui/components/Dialogs.kt`)
+`ui/components/` — reusable composables:
 
-```kotlin
-@Composable
-fun AddRuleDialog(
-    notification: SimpleNotification,
-    onDismiss: () -> Unit,
-    onAddRule: (BlockerRule) -> Unit
-)
-```
-
-Pre-populates a rule dialog from a notification for creating new rules.
-
----
-
-### `EditRuleDialog` (`ui/components/Dialogs.kt`)
-
-```kotlin
-@Composable
-fun EditRuleDialog(
-    rule: BlockerRule,
-    onDismiss: () -> Unit,
-    onUpdateRule: (BlockerRule, BlockerRule) -> Unit,  // (oldRule, newRule)
-    onDeleteRule: (BlockerRule) -> Unit
-)
-```
-
-Edits an existing rule with update and delete capabilities.
-
----
-
-### `AdvancedRuleConfigDialog` (`ui/components/Dialogs.kt`)
-
-```kotlin
-@Composable
-fun AdvancedRuleConfigDialog(
-    initialConfig: AdvancedRuleConfig,
-    initialIsEnabled: Boolean,
-    onDismiss: () -> Unit,
-    onSave: (AdvancedRuleConfig, Boolean) -> Unit
-)
-```
-
-Configures rule enable/disable state and time-window scheduling.
-
----
-
-### `TimeSelector` (`ui/components/Dialogs.kt`)
-
-```kotlin
-@Composable
-fun TimeSelector(
-    label: String,
-    hour: Int,
-    minute: Int,
-    onTimeSelected: (Int, Int) -> Unit
-)
-```
-
-Reusable time picker row with label and native `TimePickerDialog`.
-
----
-
-### `HistoryNotificationDetailsDialog` (`ui/components/HistoryNotificationDetailsDialog.kt`)
-
-```kotlin
-@Composable
-fun HistoryNotificationDetailsDialog(
-    notification: SimpleNotification,
-    isActionAvailable: Boolean,
-    onDismiss: () -> Unit,
-    onTriggerAction: () -> Unit,
-    onCreateRule: () -> Unit
-)
-```
-
-Shows notification details with "Open" (trigger PendingIntent) and "Create Rule" actions. Long-press on values copies to clipboard.
-
----
-
-### `NotificationDetailsDialog` (`ui/components/NotificationDetailsDialog.kt`)
-
-```kotlin
-@Composable
-fun NotificationDetailsDialog(
-    notification: SimpleNotification,
-    onDismiss: () -> Unit,
-    onViewRule: (() -> Unit)? = null
-)
-```
-
-Shows blocked notification details with optional "View Rule" button.
-
----
-
-### `AutoAddedRulesDialog` (`ui/components/AutoAddedRulesDialog.kt`)
-
-```kotlin
-@Composable
-fun AutoAddedRulesDialog(
-    addedApps: List<String>,
-    onDismiss: () -> Unit,
-    onDoNotShowAgain: () -> Unit
-)
-```
-
-Informs user about auto-installed prebuilt rules.
-
----
-
-### `DeleteConfirmationDialog` (`ui/components/DeleteConfirmationDialog.kt`)
-
-```kotlin
-@Composable
-fun DeleteConfirmationDialog(
-    itemName: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-)
-```
-
-Generic deletion confirmation with Cancel/Delete buttons.
-
----
-
-### `AboutDialog` (`ui/components/AboutDialog.kt`)
-
-```kotlin
-@Composable
-fun AboutDialog(onDismiss: () -> Unit)
-```
-
-Shows app name, version, and developer contact.
+- `NotixDialog` / `NotixConfirmDialog` — unified dialog system
+- `NotificationCard` / `RuleCard` / `SettingRow` / `SectionHeader` / `EmptyState` / `SearchField` / `Chip` / `Buttons` / `RealAppIcon`
+- `HistoryNotificationDetailsDialog` — history details (Open / Create Rule / copy on long-press)
+- `NotificationDetailDialog` — notification details
+- `CrashLogDialog` — crash log viewer
+- `DesignSystemPreview` — design-system preview
 
 ---
 
 ## UI - Theme
 
-### `NotixTheme` (`ui/theme/Theme.kt`)
+`ui/theme/`:
 
-```kotlin
-@Composable
-fun NotixTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
-    content: @Composable () -> Unit
-)
-```
-
-Root theme composable. Dynamic color (Material You) is disabled by default. Uses custom light/dark color schemes with blue primary palette.
-
-### Color Palette (`ui/theme/Color.kt`)
-
-Defines 34 color values each for light and dark themes following Material 3 color roles (primary, secondary, tertiary, error, background, surface, etc.).
-
-| Role | Light | Dark |
-|---|---|---|
-| Primary | `#00639A` | `#92CCFF` |
-| Background | `#FDFCFF` | `#2B2D30` |
-| Error | `#BA1A1A` | `#FFB4AB` |
-
-### Typography (`ui/theme/Type.kt`)
-
-Custom `bodyLarge` style: Default font family, normal weight, 16sp, 24sp line height, 0.5sp letter spacing. All other styles use Material 3 defaults.
-
----
-
-## MainActivity
-
-### `MainActivity` (`MainActivity.kt`)
-
-**Extends:** `ComponentActivity`
-
-Root activity and state coordinator.
-
-#### Lifecycle Methods
-
-| Method | Description |
-|---|---|
-| `onCreate(savedInstanceState)` | Enables edge-to-edge, initializes storage, checks for new prebuilt rules, sets Compose content with theme |
-| `onResume()` | Refreshes service status, notification lists, rules, and unmonitored apps |
-
-#### Private Methods
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `checkForNewRules()` | - | `List<String>` | Scans installed apps against prebuilt rules, auto-installs new ones, returns list of newly added app names |
-| `openNotificationListenerSettings()` | - | `Unit` | Launches `ACTION_NOTIFICATION_LISTENER_SETTINGS` intent |
-| `isNotificationServiceEnabled()` | - | `Boolean` | Checks if app is in enabled notification listeners |
-
-#### Composable Methods
-
-| Method | Description |
-|---|---|
-| `MainScreen()` | Root composable managing navigation, broadcast receiver, and all dialog states |
-| `TabbedScreen(...)` | Three-tab layout with History, Rules, and Blocked screens |
-| `PagerScreenContent(...)` | Renders the appropriate screen for each pager page |
-
-#### Extension Functions
-
-| Function | Signature | Description |
-|---|---|---|
-| `Color.luminance()` | `fun Color.luminance(): Float` | Calculates relative luminance using standard coefficients (0.2126R + 0.7152G + 0.0722B) |
+- `NotixTheme(darkTheme = isSystemInDarkTheme(), dynamicColor = false, content)` — Material 3 theme; provides semantic tokens via `CompositionLocal`: `notixColors / notixType / notixSpacing / notixLayout / notixElevation`, read through `MaterialTheme.notix*`.
+- `Color.kt` / `NotixColorScheme.kt` — Light/Dark color schemes + token definitions.
+- `Type.kt` — typography tokens. `Spacing.kt` / `Layout.kt` / `Shape.kt` / `Elevation.kt` — token sets.
