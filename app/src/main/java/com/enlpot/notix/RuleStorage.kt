@@ -154,6 +154,8 @@ class RuleStorage(private val context: Context) {
      */
     fun saveRules(rules: List<BlockerRule>) {
         synchronized(lock) { writeLocked(RuleIds.normalizeIds(rules)) }
+        // v8.26：规则保存后，将规则应用到当前通知栏中已有的通知
+        NotificationBlockerService.instance?.applyRulesToActiveNotifications()
     }
 
     /**
@@ -187,8 +189,12 @@ class RuleStorage(private val context: Context) {
      * [RuleMutations.applyUpdate].
      * @return the committed list, or null if no rule with [id] exists.
      */
-    fun updateRuleById(id: String, newRule: BlockerRule): List<BlockerRule>? =
-        mutate { RuleMutations.applyUpdate(it, id, newRule) }
+    fun updateRuleById(id: String, newRule: BlockerRule): List<BlockerRule>? {
+        val result = mutate { RuleMutations.applyUpdate(it, id, newRule) }
+        // v8.26：规则更新后，将规则应用到当前通知栏中已有的通知
+        if (result != null) NotificationBlockerService.instance?.applyRulesToActiveNotifications()
+        return result
+    }
 
     fun deleteRuleById(id: String): List<BlockerRule> {
         val result = mutate { RuleMutations.applyDelete(it, id) }!!
@@ -199,14 +205,26 @@ class RuleStorage(private val context: Context) {
         return result
     }
 
-    fun addRules(rules: List<BlockerRule>): List<BlockerRule> =
-        mutate { RuleMutations.applyAdd(it, rules) }!!
+    fun addRules(rules: List<BlockerRule>): List<BlockerRule> {
+        val result = mutate { RuleMutations.applyAdd(it, rules) }!!
+        // v8.26：规则添加后，将规则应用到当前通知栏中已有的通知
+        NotificationBlockerService.instance?.applyRulesToActiveNotifications()
+        return result
+    }
 
-    fun setEnabledByIds(ruleIds: Set<String>, enabled: Boolean): List<BlockerRule> =
-        mutate { RuleMutations.applySetEnabled(it, ruleIds, enabled) }!!
+    fun setEnabledByIds(ruleIds: Set<String>, enabled: Boolean): List<BlockerRule> {
+        val result = mutate { RuleMutations.applySetEnabled(it, ruleIds, enabled) }!!
+        // v8.26：规则启用/禁用后，将规则应用到当前通知栏中已有的通知
+        if (enabled) NotificationBlockerService.instance?.applyRulesToActiveNotifications()
+        return result
+    }
 
-    fun setAllEnabled(enabled: Boolean): List<BlockerRule> =
-        mutate { RuleMutations.applySetAllEnabled(it, enabled) }!!
+    fun setAllEnabled(enabled: Boolean): List<BlockerRule> {
+        val result = mutate { RuleMutations.applySetAllEnabled(it, enabled) }!!
+        // v8.26：规则全部启用/禁用后，将规则应用到当前通知栏中已有的通知
+        if (enabled) NotificationBlockerService.instance?.applyRulesToActiveNotifications()
+        return result
+    }
 
     fun resetHitCounts() {
         mutate { RuleMutations.applyResetHitCounts(it) }

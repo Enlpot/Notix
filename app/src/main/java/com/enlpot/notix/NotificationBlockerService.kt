@@ -1000,9 +1000,49 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                         Log.w(TAG, "Sync notification failed for key=", e)
                     }
                 }
-                Log.i(TAG, "Sync active notifications complete: synced=, skipped=, total=")
+                Log.i(TAG, "Sync active notifications complete: synced=$synced, skipped=$skipped, total=${active.size}")
             } catch (e: Exception) {
                 Log.e(TAG, "Sync active notifications failed", e)
+            }
+        }.start()
+    }
+
+    /**
+     * v8.26：规则创建/更新后，将规则应用到当前通知栏中已有的通知。
+     *
+     * 背景：规则只在 onNotificationPosted（新通知到达）时匹配执行，规则创建前已存在的通知
+     * 不会自动触发规则，导致用户创建规则后还需手动清理现有通知。这里主动拉取当前通知栏
+     * 通知，逐条匹配规则并执行动作（如 DISMISS 移除）。
+     *
+     * 实现：复用 onNotificationPosted 处理链路；全局去重（同 sbnKey+postTime）保证不会重复写入历史。
+     * 后台线程执行，避免阻塞 binder/主线程。
+     */
+    fun applyRulesToActiveNotifications() {
+        if (isDestroyed) return
+        Thread {
+            try {
+                val active = getActiveNotifications()
+                if (active.isNullOrEmpty()) {
+                    Log.i(TAG, "Apply rules to active: none in shade")
+                    return@Thread
+                }
+                Log.i(TAG, "Apply rules to active: found ${active.size} in shade, starting matching")
+                var matched = 0
+                for (sbn in active) {
+                    try {
+                        // 跳过本 app 自己的通知（防递归）
+                        if (sbn.packageName == BuildConfig.APPLICATION_ID) continue
+                        // 复用 onNotificationPosted 处理链路（含规则匹配+执行+历史写入）
+                        // 全局去重保证已存在历史的通知不会重复写入
+                        onNotificationPosted(sbn)
+                        matched++
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Apply rule to notification failed for key=${sbn.key}", e)
+                    }
+                }
+                Log.i(TAG, "Apply rules to active complete: processed=$matched, total=${active.size}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Apply rules to active notifications failed", e)
             }
         }.start()
     }
