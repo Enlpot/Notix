@@ -110,12 +110,12 @@ class NotificationHistoryRepository(context: Context) {
         val head = groupDao.getPaged(1, 0).firstOrNull()
         val blockedInt = if (blocked) 1 else 0
 
-        // 同条去重：同一 sbnKey 同一 postTime 视为同一条通知的重复回调，忽略
-        if (head != null && notification.sbnKey != null && notification.postTime != null) {
-            val headChanges = changeDao.getChangesByGroupId(head.id)
-            val headLatest = headChanges.firstOrNull()
-            if (headLatest?.sbn_key == notification.sbnKey && headLatest.post_time == notification.postTime) {
-                Log.d(TAG, "Duplicate notification ignored: sbnKey=${notification.sbnKey}")
+        // v8.25：全局去重——同一 sbnKey 同一 postTime 视为同一条通知的重复回调，忽略。
+        // 原只检查头部，若相同通知不在头部则会重复入库（BUG-001），改为全局查找。
+        if (notification.sbnKey != null && notification.postTime != null) {
+            val exists = changeDao.countBySbnKeyAndPostTime(notification.sbnKey, notification.postTime) > 0
+            if (exists) {
+                Log.d(TAG, "Duplicate notification ignored (global): sbnKey=${notification.sbnKey}")
                 return false
             }
         }

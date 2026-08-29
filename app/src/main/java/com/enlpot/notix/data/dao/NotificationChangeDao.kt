@@ -47,4 +47,12 @@ interface NotificationChangeDao {
         """
     )
     suspend fun searchCount(keyword: String): Int
+
+    /**
+     * v8.25：全局按 sbnKey + postTime 查找是否存在相同的通知变更记录（防重复入库）。
+     * 系统可能对同一条通知多次触发 onNotificationPosted，全局查找避免只检查头部导致的重复。
+     * @return 匹配的记录数（>0 表示已存在）
+     */
+    @Query("SELECT COUNT(*) FROM notification_change WHERE sbn_key = :sbnKey AND post_time = :postTime")
+    suspend fun countBySbnKeyAndPostTime(sbnKey: String, postTime: Long): Int
 }
