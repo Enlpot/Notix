@@ -54,7 +54,9 @@
     <string name="reset_hit_counters_confirm">确定要将所有规则的命中计数重置为零吗？</string>
     <string name="toast_hit_counters_reset">命中计数已重置</string>
     <string name="stop_monitoring_title">停止监控？</string>
-    <string name="stop_monitoring_confirm">确定要停止监控 %s 吗？您稍后可在“未监控应用”部分恢复监控。</string>
+    <string name="resume_monitoring_title">恢复监控？</string>
+    <string name="resume_monitoring_confirm">确定要恢复监控 %s 吗？</string>
+    <string name="stop_monitoring_confirm">确定要停止监控 %s 吗？可在设置页的未监控应用中恢复监控。</string>
     <string name="stop_monitoring_app">停止监控 %s</string>
     <string name="stop_monitoring_short">停止监控</string>
     <string name="unmonitored_apps">未监控应用 (%d)</string>
@@ -168,6 +170,12 @@
     <string name="settings_extract_remoteviews_desc">开启后，无标题无正文的通知会尝试提取按钮文字参与规则匹配（默认关）</string>
     <string name="settings_dynamic_color_title">动态取色</string>
     <string name="settings_dynamic_color_desc">根据应用图标自动生成通知卡片背景色（默认开）</string>
+    <string name="settings_unmonitored_apps_title">未监控应用</string>
+    <string name="settings_unmonitored_apps_desc">管理已停止监控的应用，可恢复监控</string>
+    <string name="unmonitored_apps_dialog_hint">勾选要恢复监控的应用（多选）</string>
+    <string name="resume_selected_apps">恢复所选应用监控</string>
+    <string name="no_unmonitored_apps">没有未监控的应用</string>
+    <string name="toast_monitoring_resumed">已恢复监控</string>
     <string name="settings_section_rules">规则与数据</string>
     <string name="settings_restore_snoozed">恢复常驻通知</string>
     <string name="settings_restore_snoozed_desc">把被规则冻结（移除）的常驻通知恢复到通知栏</string>

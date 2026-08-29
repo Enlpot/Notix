@@ -100,7 +100,9 @@
     <string name="reset_hit_counters_confirm">Are you sure you want to reset the hit count for all rules to zero?</string>
     <string name="toast_hit_counters_reset">Hit counters reset</string>
     <string name="stop_monitoring_title">Stop Monitoring?</string>
-    <string name="stop_monitoring_confirm">Are you sure you want to stop monitoring %s? You can resume monitoring later from the Unmonitored Apps section.</string>
+    <string name="resume_monitoring_title">Resume monitoring?</string>
+    <string name="resume_monitoring_confirm">Resume monitoring %s?</string>
+    <string name="stop_monitoring_confirm">Are you sure you want to stop monitoring %s? You can resume it from Settings > Unmonitored apps.</string>
     <string name="stop_monitoring_app">Stop monitoring %s</string>
     <string name="stop_monitoring_short">Stop monitoring</string>
     <string name="unmonitored_apps">Unmonitored Apps (%d)</string>
@@ -212,6 +214,12 @@
     <string name="settings_extract_remoteviews_desc">When enabled, notifications without title/text will try to extract button text for rule matching (off by default)</string>
     <string name="settings_dynamic_color_title">Dynamic color theming</string>
     <string name="settings_dynamic_color_desc">Generate notification card background colors from app icons (on by default)</string>
+    <string name="settings_unmonitored_apps_title">Unmonitored apps</string>
+    <string name="settings_unmonitored_apps_desc">Manage apps you stopped monitoring; resume monitoring</string>
+    <string name="unmonitored_apps_dialog_hint">Select apps to resume monitoring (multi-select)</string>
+    <string name="resume_selected_apps">Resume selected apps</string>
+    <string name="no_unmonitored_apps">No unmonitored apps</string>
+    <string name="toast_monitoring_resumed">Monitoring resumed</string>
     <string name="settings_section_rules">Rules &amp; Data</string>
     <string name="settings_restore_snoozed">Restore ongoing notifications</string>
     <string name="settings_restore_snoozed_desc">Bring back ongoing notifications that were frozen by rules</string>

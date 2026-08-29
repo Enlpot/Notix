@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
@@ -112,6 +113,7 @@ import com.enlpot.notix.RuleExport
 import com.enlpot.notix.RuleExportSerializer
 import com.enlpot.notix.RuleImport
 import com.enlpot.notix.RuleStorage
+import com.enlpot.notix.UnmonitoredAppsStorage
 import com.enlpot.notix.RuleWizardSupport
 import com.enlpot.notix.setup.SetupState
 import com.enlpot.notix.SimpleNotification
@@ -166,6 +168,27 @@ fun SettingsScreen(
     // v8.20：动态取色开关（默认开）
     var dynamicColorEnabled by remember {
         mutableStateOf(NotificationColorEngine.isDynamicColorEnabled(context))
+    }
+
+    // v8.21：未监控应用管理
+    val unmonitoredStorage = remember { UnmonitoredAppsStorage(context) }
+    var unmonitoredRefreshTick by remember { mutableStateOf(0) }
+    val unmonitoredApps = remember(unmonitoredRefreshTick) { unmonitoredStorage.getUnmonitoredApps() }
+    var showUnmonitoredAppsDialog by remember { mutableStateOf(false) }
+    var unmonitoredSearchQuery by remember { mutableStateOf("") }
+    var selectedUnmonitoredPackages by remember { mutableStateOf(setOf<String>()) }
+    val unmonitoredAppList = remember(unmonitoredApps, unmonitoredRefreshTick) {
+        val pm = context.packageManager
+        unmonitoredApps.map { pkg ->
+            val label = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { pkg }
+            pkg to label
+        }.sortedBy { it.second.lowercase() }
+    }
+    val filteredUnmonitoredApps = remember(unmonitoredAppList, unmonitoredSearchQuery) {
+        if (unmonitoredSearchQuery.isBlank()) unmonitoredAppList
+        else unmonitoredAppList.filter { (pkg, label) ->
+            pkg.contains(unmonitoredSearchQuery, ignoreCase = true) || label.contains(unmonitoredSearchQuery, ignoreCase = true)
+        }
     }
 
     // Clear history — two-phase: pick mode → detail dialog
@@ -733,6 +756,134 @@ fun SettingsScreen(
         }
     }
 
+    // v8.21：未监控应用管理弹窗（多选+搜索，恢复监控）
+    if (showUnmonitoredAppsDialog) {
+        NotixDialog(
+            onDismiss = {
+                showUnmonitoredAppsDialog = false
+                unmonitoredSearchQuery = ""
+                selectedUnmonitoredPackages = setOf()
+            },
+            title = stringResource(R.string.settings_unmonitored_apps_title),
+            content = {
+                Text(
+                    text = stringResource(R.string.unmonitored_apps_dialog_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(16.dp))
+                if (unmonitoredAppList.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.no_unmonitored_apps),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = unmonitoredSearchQuery,
+                            onValueChange = { unmonitoredSearchQuery = it },
+                            label = { Text(stringResource(R.string.search_apps)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        NotixDialogButton(
+                            onClick = {
+                                val filteredPkgs = filteredUnmonitoredApps.map { it.first }.toSet()
+                                selectedUnmonitoredPackages = if (filteredPkgs.all { it in selectedUnmonitoredPackages }) {
+                                    selectedUnmonitoredPackages - filteredPkgs
+                                } else {
+                                    selectedUnmonitoredPackages + filteredPkgs
+                                }
+                            },
+                            text = stringResource(R.string.select_all),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    if (filteredUnmonitoredApps.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.no_results_found),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                            items(filteredUnmonitoredApps) { (pkg, label) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            selectedUnmonitoredPackages = if (pkg in selectedUnmonitoredPackages) selectedUnmonitoredPackages - pkg
+                                            else selectedUnmonitoredPackages + pkg
+                                        }
+                                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RealAppIcon(
+                                        packageName = pkg,
+                                        appName = label,
+                                        size = 32.dp
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        text = label,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Checkbox(
+                                        checked = pkg in selectedUnmonitoredPackages,
+                                        onCheckedChange = { checked ->
+                                            selectedUnmonitoredPackages = if (checked) selectedUnmonitoredPackages + pkg
+                                            else selectedUnmonitoredPackages - pkg
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            },
+            buttons = {
+                NotixDialogButton(
+                    onClick = {
+                        selectedUnmonitoredPackages.forEach { pkg ->
+                            unmonitoredStorage.removeApp(pkg)
+                        }
+                        unmonitoredRefreshTick++
+                        showUnmonitoredAppsDialog = false
+                        unmonitoredSearchQuery = ""
+                        selectedUnmonitoredPackages = setOf()
+                        showMessage(context.getString(R.string.toast_monitoring_resumed))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.resume_selected_apps)
+                )
+                Spacer(Modifier.height(8.dp))
+                NotixDialogButton(
+                    onClick = {
+                        showUnmonitoredAppsDialog = false
+                        unmonitoredSearchQuery = ""
+                        selectedUnmonitoredPackages = setOf()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.cancel),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        )
+    }
+
+
     // v7.14：修复崩溃日志入口点击无反应——showCrashLogDialog 已声明但从未挂载 CrashLogDialog 渲染
     if (showCrashLogDialog) {
         CrashLogDialog(
@@ -872,6 +1023,13 @@ fun SettingsScreen(
                             }
                         )
                     }
+                )
+                // v8.21：未监控应用管理入口
+                SettingsRow(
+                    icon = Icons.Filled.NotificationsOff,
+                    title = stringResource(R.string.settings_unmonitored_apps_title),
+                    subtitle = if (unmonitoredApps.isNotEmpty()) stringResource(R.string.unmonitored_apps, unmonitoredApps.size) else stringResource(R.string.settings_unmonitored_apps_desc),
+                    onClick = { showUnmonitoredAppsDialog = true },
                 )
                 SettingsRow(
                     icon = Icons.Filled.History,

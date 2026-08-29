@@ -99,7 +99,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -1269,11 +1271,15 @@ private fun LazyListScope.byAppItems(
                     count = appEntries.sumOf { it.count },
                     packageName = packageName,
                     isExpanded = isExpanded,
+                    isUnmonitored = unmonitoredApps.contains(packageName),
                     onClick = {
                         expandedApps.value = if (isExpanded) expandedApps.value - appName else expandedApps.value + appName
                     },
                     onStopMonitoringClick = {
                         if (packageName != null) onShowStopMonitoringDialog(packageName to appName)
+                    },
+                    onResumeMonitoringClick = {
+                        if (packageName != null) onResumeMonitoring(packageName)
                     }
                 )
             }
@@ -1297,40 +1303,6 @@ private fun LazyListScope.byAppItems(
         }
     }
 
-    // Unmonitored apps section
-    if (unmonitoredApps.isNotEmpty()) {
-        itemIndex[0]++
-        item(key = "unmonitored_header") {
-            var isUnmonitoredExpanded by remember { mutableStateOf(false) }
-            Column {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { isUnmonitoredExpanded = !isUnmonitoredExpanded }.padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(stringResource(R.string.unmonitored_apps, unmonitoredApps.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { isUnmonitoredExpanded = !isUnmonitoredExpanded }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = if (isUnmonitoredExpanded) stringResource(R.string.collapse) else stringResource(R.string.expand)
-                        )
-                    }
-                }
-                if (isUnmonitoredExpanded) {
-                    val packageManager = context.packageManager
-                    unmonitoredApps.forEach { pkg ->
-                        val label = remember(pkg) {
-                            try { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { pkg }
-                        }
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = { onResumeMonitoring(pkg) }) { Text(stringResource(R.string.resume)) }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -1339,8 +1311,10 @@ private fun AppGroupHeader(
     count: Int,
     packageName: String?,
     isExpanded: Boolean,
+    isUnmonitored: Boolean,
     onClick: () -> Unit,
     onStopMonitoringClick: () -> Unit,
+    onResumeMonitoringClick: () -> Unit,
 ) {
     val sp = MaterialTheme.notixSpacing
     val context = LocalContext.current
@@ -1355,11 +1329,13 @@ private fun AppGroupHeader(
     val headerFg = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurface
     // v8.18 优化：左侧色条改用 accentColor（品牌色明亮版），形成暗背景+亮装饰层次
     val accent = colors?.accentColor?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+    var showResumeConfirmDialog by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp)
-            .clickable { onClick() },
+            .clickable { onClick() }
+            .then(if (isUnmonitored) Modifier.alpha(0.6f) else Modifier),
         shape = NotixCorner.ListItem,
         colors = CardDefaults.cardColors(
             containerColor = headerBg
@@ -1382,6 +1358,15 @@ private fun AppGroupHeader(
                 packageName = packageName,
                 appName = appName,
                 size = 28.dp,
+                modifier = if (isUnmonitored) Modifier.drawWithContent {
+                    drawContent()
+                    drawLine(
+                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
+                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                        strokeWidth = 3.dp.toPx()
+                    )
+                } else Modifier,
                 shape = NotixCorner.Sm,
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -1423,14 +1408,26 @@ private fun AppGroupHeader(
             Spacer(modifier = Modifier.width(sp.xs))
 
             // 监控按钮：放到分组卡片右侧（标题行右侧）
-            IconButton(onClick = onStopMonitoringClick) {
+            IconButton(onClick = { if (isUnmonitored) showResumeConfirmDialog = true else onStopMonitoringClick() }) {
                 Icon(
-                    imageVector = Icons.Default.NotificationsOff,
-                    contentDescription = stringResource(R.string.stop_monitoring_short),
+                    imageVector = if (isUnmonitored) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
+                    contentDescription = stringResource(if (isUnmonitored) R.string.resume else R.string.stop_monitoring_short),
                     tint = headerFg.copy(alpha = 0.8f)
                 )
             }
         }
+    }
+    if (showResumeConfirmDialog) {
+        NotixConfirmDialog(
+            onDismiss = { showResumeConfirmDialog = false },
+            onConfirm = {
+                onResumeMonitoringClick()
+                showResumeConfirmDialog = false
+            },
+            title = stringResource(R.string.resume_monitoring_title),
+            body = stringResource(R.string.resume_monitoring_confirm, appName),
+            confirmText = stringResource(R.string.resume)
+        )
     }
 }
 

@@ -1,4 +1,4 @@
-﻿package com.enlpot.notix
+package com.enlpot.notix
 
 import android.app.Activity
 import android.app.NotificationChannel
@@ -408,7 +408,12 @@ class MainActivity : ComponentActivity() {
                 onResumeMonitoring = { packageName ->
                     unmonitoredAppsStorage.removeApp(packageName)
                     unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
-                    showMessage(context.getString(R.string.toast_resumed_monitoring, packageName))
+                    val appName = try {
+                        packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+                    } catch (_: Exception) {
+                        packageName
+                    }
+                    showMessage(context.getString(R.string.toast_resumed_monitoring, appName))
                 },
                 onDeleteRule = { rule ->
                     rules = ruleStorage.deleteRuleById(rule.id)
