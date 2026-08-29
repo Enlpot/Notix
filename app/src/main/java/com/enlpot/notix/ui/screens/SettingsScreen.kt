@@ -987,7 +987,11 @@ private fun SettingsSection(
     // Stage 8：替换为 SectionHeader + Card 薄包装，保留原 SectionSection 的卡片化分组结构
     val sp = MaterialTheme.notixSpacing
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionHeader(title = title)
+        // v8.16：分栏标题加水平边距，与下方卡片左边缘对齐
+        SectionHeader(
+            title = title,
+            modifier = Modifier.padding(horizontal = sp.lg)
+        )
         Card(
             modifier = Modifier
                 .fillMaxWidth()
