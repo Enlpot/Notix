@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.screens
+﻿package com.enlpot.notix.ui.screens
 
 import android.content.ComponentName
 import android.content.Context
@@ -173,9 +173,10 @@ fun HistoryScreen(
     rules: List<BlockerRule> = emptyList(),
     // v7.41：横屏通用图表面板——selectedDay 状态提升至 TabbedScreen 层，竖屏/横屏共用
     selectedDay: LocalDate? = null,
-    onSelectedDayChange: (LocalDate?) -> Unit = {}
+    onSelectedDayChange: (LocalDate?) -> Unit = {},
+    // v8.22：全量搜索回调——接入 Repository 层搜索，覆盖所有历史数据
+    onSearch: (suspend (String) -> List<SimpleNotification>)? = null
 ) {
-    // v8.18：深浅主题适配——同步当前主题到取色引擎
     NotificationColorEngine.isDarkTheme = isSystemInDarkTheme()
     // v7.40：旋转恢复——三 tab 及弹窗/搜索/展开等 UI 状态
     var selectedTab by rememberSaveable { mutableStateOf(HistoryTab.BY_TIME) }
@@ -333,6 +334,32 @@ fun HistoryScreen(
     // v7.47：三 tab 共用同一套数据缓存——删除 activeEntries（原依赖 selectedTab，切 tab 会导致 remember 缓存 key 失效、全量重算卡顿约 1s）
     // 日期过滤统一基于 entries；FILTERED 的 blocked 过滤在渲染分组时由 filteredBlocked 派生，不再影响本缓存
     // v7.15：日期详情按组内任一 change 时间戳归属日过滤（避免跨天聚合组导致某日详情"未找到结果"）
+    // v8.22：全量搜索结果状态——接入 Repository 层搜索，覆盖所有历史数据
+    val searchResults by produceState(initialValue = emptyList<NotificationHistoryEntry>(), searchQuery, onSearch) {
+        if (onSearch != null && searchQuery.isNotBlank()) {
+            try {
+                val results = onSearch(searchQuery)
+                value = results.map { notification ->
+                    NotificationHistoryEntry(
+                        id = notification.id ?: java.util.UUID.randomUUID().toString(),
+                        packageName = notification.packageName,
+                        appLabel = notification.appLabel,
+                        title = notification.title,
+                        count = 1,
+                        firstTimestamp = notification.timestamp,
+                        lastTimestamp = notification.timestamp,
+                        blocked = false,
+                        changes = listOf(notification)
+                    )
+                }
+            } catch (e: Exception) {
+                value = emptyList()
+            }
+        } else {
+            value = emptyList()
+        }
+    }
+
     val dayFilteredEntries = remember(entries, selectedDay) {
         val day = selectedDay
         if (day == null) entries
