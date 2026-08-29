@@ -1,4 +1,4 @@
-package com.enlpot.notix.data.database
+﻿package com.enlpot.notix.data.database
 
 import androidx.room.Database
 import androidx.room.Room
@@ -11,7 +11,7 @@ import com.enlpot.notix.data.entity.NotificationGroupEntity
 
 @Database(
     entities = [NotificationGroupEntity::class, NotificationChangeEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,7 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
                 context,
                 AppDatabase::class.java,
                 "notix.db"
-            ).build()
+            ).fallbackToDestructiveMigration().build()
         }
     }
 }
