@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.screens
+﻿package com.enlpot.notix.ui.screens
 
 import android.content.Context
 import androidx.compose.foundation.layout.Column
@@ -67,11 +67,20 @@ private fun isRuleFile(name: String): Boolean = name.startsWith("rules")
 private fun isTempBackupFile(name: String): Boolean =
     name.endsWith(".bak") || name.endsWith(".corrupt") || name.endsWith(".tmp")
 
-/** filesDir 下全部文件大小之和（总占用） */
+/** filesDir + databases 目录下全部文件大小之和（总占用，v8.23 包含 Room 数据库） */
 internal fun computeStorageUsageBytes(context: Context): Long {
+    var total = 0L
+    // filesDir 下的文件
     val dir = context.filesDir
-    if (!dir.exists() || !dir.isDirectory) return 0L
-    return dir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
+    if (dir.exists() && dir.isDirectory) {
+        total += dir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
+    }
+    // databases 目录下的 Room 数据库文件
+    val dbDir = context.getDatabasePath("notix.db").parentFile
+    if (dbDir != null && dbDir.exists() && dbDir.isDirectory) {
+        total += dbDir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
+    }
+    return total
 }
 
 /** 格式化为 B/KB/MB（一位小数） */

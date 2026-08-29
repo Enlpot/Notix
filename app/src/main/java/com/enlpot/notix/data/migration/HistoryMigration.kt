@@ -1,4 +1,4 @@
-package com.enlpot.notix.data.migration
+﻿package com.enlpot.notix.data.migration
 
 import android.content.Context
 import android.util.Log
@@ -21,7 +21,7 @@ import java.util.UUID
  * 2. 读取并解析为 List<NotificationHistoryEntry>
  * 3. 转换为 Entity 写入 Room（group + changes）
  * 4. 验证写入数量
- * 5. 迁移成功后将旧文件重命名为 .bak（不直接删除，留备份）
+ * 5. 迁移成功后直接删除旧文件（Room 已有完整数据）
  */
 class HistoryMigration(
     private val context: Context,
@@ -65,8 +65,8 @@ class HistoryMigration(
             }
 
             if (oldEntries.isEmpty()) {
-                Log.i(TAG, "Old history is empty, just renaming file")
-                oldFile.renameTo(backupFile)
+                Log.i(TAG, "Old history is empty, just deleting file")
+                oldFile.delete()
                 return MigrationResult.SUCCESS
             }
 
@@ -111,7 +111,7 @@ class HistoryMigration(
                 Log.w(TAG, "Migration count mismatch! Expected groups=$groupCount changes=$changeCount, actual groups=$dbGroupCount changes=$dbChangeCount")
             }
 
-            // 4. 备份旧文件（不删除）
+            // 4. 删除旧文件（Room 已有完整数据）
             if (backupFile.exists()) {
                 backupFile.delete()
             }
@@ -151,9 +151,8 @@ class HistoryMigration(
                 changeDao.insert(notification.toChangeEntity(groupId))
             }
 
-            if (backupFile.exists()) backupFile.delete()
-            oldFile.renameTo(backupFile)
-            Log.i(TAG, "Legacy migration complete")
+            oldFile.delete()
+            Log.i(TAG, "Legacy migration complete, old file deleted")
         } catch (e: Exception) {
             Log.e(TAG, "Legacy migration failed", e)
             throw e
