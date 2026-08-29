@@ -116,6 +116,12 @@ class NotificationHistoryRepository(context: Context) {
             val exists = changeDao.countBySbnKeyAndPostTime(notification.sbnKey, notification.postTime) > 0
             if (exists) {
                 Log.d(TAG, "Duplicate notification ignored (global): sbnKey=${notification.sbnKey}")
+                // v8.27：如果是被规则处理的通知（blocked=true），且现有记录未标记 blocked，
+                // 则更新现有记录的 blocked 状态（修复 applyRulesToActiveNotifications 不更新 blocked 的 bug）
+                if (blocked) {
+                    groupDao.markBlockedBySbnKeyAndPostTime(notification.sbnKey, notification.postTime)
+                    Log.d(TAG, "Updated existing notification to blocked: sbnKey=${notification.sbnKey}")
+                }
                 return false
             }
         }

@@ -46,4 +46,18 @@ interface NotificationGroupDao {
 
     @Query("SELECT * FROM notification_group WHERE id = :id LIMIT 1")
     suspend fun findById(id: String): NotificationGroupEntity?
+
+    /**
+     * v8.27：通过 sbnKey + postTime 将对应聚合组标记为已过滤（blocked=1）。
+     * 用于 applyRulesToActiveNotifications 处理已存在通知时更新 blocked 状态，
+     * 修复全局去重跳过导致 blocked 不更新的 bug。
+     */
+    @Query(
+        """
+        UPDATE notification_group SET blocked = 1 
+        WHERE id IN (SELECT group_id FROM notification_change WHERE sbn_key = :sbnKey AND post_time = :postTime)
+        AND blocked = 0
+        """
+    )
+    suspend fun markBlockedBySbnKeyAndPostTime(sbnKey: String, postTime: Long)
 }
