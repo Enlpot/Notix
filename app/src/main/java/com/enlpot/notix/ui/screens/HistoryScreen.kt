@@ -175,7 +175,11 @@ fun HistoryScreen(
     selectedDay: LocalDate? = null,
     onSelectedDayChange: (LocalDate?) -> Unit = {},
     // v8.22：全量搜索回调——接入 Repository 层搜索，覆盖所有历史数据
-    onSearch: (suspend (String) -> List<SimpleNotification>)? = null
+    onSearch: (suspend (String) -> List<SimpleNotification>)? = null,
+    // v8.22：分页加载
+    onLoadMore: () -> Unit = {},
+    hasMore: Boolean = false,
+    loadingMore: Boolean = false
 ) {
     NotificationColorEngine.isDarkTheme = isSystemInDarkTheme()
     // v7.40：旋转恢复——三 tab 及弹窗/搜索/展开等 UI 状态
@@ -562,7 +566,10 @@ fun HistoryScreen(
                                 context = context,
                                 itemIndex = IntArray(1),
                                 listState = tabListStates[page],
-                                scope = listScope
+                                scope = listScope,
+                                hasMore = hasMore,
+                                loadingMore = loadingMore,
+                                onLoadMore = onLoadMore
                             )
                         }
                     } else {
@@ -615,7 +622,10 @@ fun HistoryScreen(
                                 context = context,
                                 itemIndex = IntArray(1),
                                 listState = tabListStates[page],
-                                scope = listScope
+                                scope = listScope,
+                                hasMore = hasMore,
+                                loadingMore = loadingMore,
+                                onLoadMore = onLoadMore
                             )
                         }
                     }
@@ -655,7 +665,11 @@ private fun LazyListScope.historyListItems(
     context: android.content.Context,
     itemIndex: IntArray,
     listState: LazyListState,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    // v8.22：分页加载
+    hasMore: Boolean = false,
+    loadingMore: Boolean = false,
+    onLoadMore: () -> Unit = {}
 ) {
     when (tab) {
         HistoryTab.BY_TIME -> {
