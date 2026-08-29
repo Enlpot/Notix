@@ -38,8 +38,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.TextFields
@@ -961,48 +961,16 @@ fun SettingsScreen(
 
             // v8.17：关于分组改为弹窗形式（点击卡片打开 NotixDialog，与其他弹窗风格一致）
             SettingsSection(title = stringResource(R.string.about)) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showAboutFeaturesDialog = true },
-                    shape = NotixCorner.Card,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.about_features_title),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.notix.contentPrimary
-                        )
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showAboutPrivacyDialog = true },
-                    shape = NotixCorner.Card,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_privacy_security_title),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.notix.contentPrimary
-                        )
-                    }
-                }
+                SettingsRow(
+                    icon = Icons.Filled.Info,
+                    title = stringResource(R.string.about_features_title),
+                    onClick = { showAboutFeaturesDialog = true }
+                )
+                SettingsRow(
+                    icon = Icons.Filled.Lock,
+                    title = stringResource(R.string.settings_privacy_security_title),
+                    onClick = { showAboutPrivacyDialog = true }
+                )
             }
 
             val packageInfo = try {
