@@ -945,7 +945,7 @@ private fun StatsBarChart(
                             "${day.monthValue}.${day.dayOfMonth}"
                         },
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) MaterialTheme.notix.primary else MaterialTheme.notix.contentSecondary
+                        color = if (isSelected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.notix.contentSecondary
                     )
                 }
             }
@@ -963,7 +963,7 @@ private fun FilteredDayRow(day: LocalDate, onClear: () -> Unit) {
         Text(
             text = stringResource(R.string.history_filtered_day, day.toString()),
             style = MaterialTheme.notixType.button,
-            color = MaterialTheme.notix.primary,
+            color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.weight(1f)
         )
         IconButton(onClick = onClear) {
@@ -1160,7 +1160,7 @@ private fun HistorySubTabs(
                     shape = NotixCorner.Card,
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.notix.outlineVariant),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) MaterialTheme.notix.primary.copy(alpha = 0.15f)
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
                         else Color.Transparent
                     )
                 ) {
@@ -1190,7 +1190,7 @@ private fun SearchButton(onClick: () -> Unit, onLongClick: () -> Unit = {}) {
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = stringResource(R.string.search),
-                tint = MaterialTheme.notix.primary
+                tint = MaterialTheme.colorScheme.surfaceVariant
             )
     }
 }
@@ -1343,7 +1343,7 @@ private fun AppGroupHeader(
     val sp = MaterialTheme.notixSpacing
     val context = LocalContext.current
     // v7.9：NotificationColorEngine 动态配色（Icon→主色提取→HSL 背景→WCAG 文字），后台线程分析 + 缓存
-    val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName) {
+    val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName to NotificationColorEngine.colorVersion) {
         value = withContext(Dispatchers.Default) {
             NotificationColorEngine.getNotificationColors(context, packageName)
         }
@@ -1536,7 +1536,7 @@ private fun RuleGroupHeader(
     val sp = MaterialTheme.notixSpacing
     val context = LocalContext.current
     // 未知规则组固定默认灰色配色；其余复用 NotificationColorEngine 动态配色（与按应用一致）
-    val colors by produceState<NotificationColors?>(initialValue = null, key1 = if (isUnknown) null else packageName) {
+    val colors by produceState<NotificationColors?>(initialValue = null, key1 = (if (isUnknown) null else packageName) to NotificationColorEngine.colorVersion) {
         value = withContext(Dispatchers.Default) {
             if (isUnknown) null
             else NotificationColorEngine.getNotificationColors(context, packageName)
@@ -1635,15 +1635,15 @@ private fun HistoryNotificationCard(
     var menuExpanded by remember { mutableStateOf(false) }
 
     // accent 整卡底色：经 NotificationColorEngine 取色（与 RulesScreen 一致）
-    val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName) {
+    val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName to NotificationColorEngine.colorVersion) {
         value = withContext(Dispatchers.Default) {
             NotificationColorEngine.getNotificationColors(context, packageName)
         }
     }
-    val accent = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.notix.primary
-    val onAccent = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.notix.onPrimary
+    val accent = colors?.backgroundColor?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
+    val onAccent = colors?.primaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant
 
-    val onAccentTertiary = colors?.tertiaryTextColor?.let { Color(it) } ?: onAccent.copy(alpha = 0.8f)
+    val onAccentTertiary = colors?.tertiaryTextColor?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
     val displayAppName = notification.appLabel ?: packageName.orEmpty()
     val title = notification.title.orEmpty()
     val text = notification.text.orEmpty()
@@ -1757,7 +1757,7 @@ private fun FoldToggleCard(
     val sp = MaterialTheme.notixSpacing
     val context = LocalContext.current
     // v8.18 优化：折叠提示卡改用同应用动态取色（品牌色半透明），与整体风格连贯
-    val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName) {
+    val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName to NotificationColorEngine.colorVersion) {
         value = withContext(Dispatchers.Default) {
             NotificationColorEngine.getNotificationColors(context, packageName)
         }

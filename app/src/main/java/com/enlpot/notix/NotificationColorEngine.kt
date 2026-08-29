@@ -1,6 +1,7 @@
 package com.enlpot.notix
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -47,6 +48,29 @@ object NotificationColorEngine {
 
     private const val TAG = "NotificationColorEngine"
 
+    // v8.20：动态取色开关（SharedPreferences 持久化，默认开启）
+    private const val PREFS = "color_engine_prefs"
+    private const val KEY_DYNAMIC_ENABLED = "dynamic_color_enabled"
+
+    // v8.20：取色版本号，开关切换时递增，触发 UI 层 produceState 重新取色
+    @Volatile
+    var colorVersion: Int = 0
+        private set
+
+    private fun prefs(context: Context): SharedPreferences =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /** 动态取色开关，默认开启。关闭时 getNotificationColors 返回 null，UI 层用主题默认色。 */
+    fun isDynamicColorEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_DYNAMIC_ENABLED, true)
+
+    /** 设置动态取色开关，同时清除缓存并递增版本号触发 UI 刷新。 */
+    fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_DYNAMIC_ENABLED, enabled).apply()
+        clearCache()
+        colorVersion++
+    }
+
     // 主色提取采样尺寸（小图分析，降低计算成本）
     private const val SAMPLE_SIZE = 24
 
@@ -59,8 +83,13 @@ object NotificationColorEngine {
      * 主入口：根据 App 图标生成整套通知卡片配色。
      * 内部自动加载图标并按 packageName + lastUpdateTime 缓存。
      * 可在后台协程中调用；线程安全（缓存为 ConcurrentHashMap）。
+     *
+     * v8.20：动态取色开关关闭时返回 null，调用方应回退到主题默认色。
      */
-    fun getNotificationColors(context: Context, packageName: String?): NotificationColors {
+    fun getNotificationColors(context: Context, packageName: String?): NotificationColors? {
+        // v8.20：动态取色开关关闭时直接返回 null，不做任何图标分析
+        if (!isDynamicColorEnabled(context)) return null
+
         // v8.18 低优先级：取色耗时监控（仅 debug），用于评估是否需要切换到 Palette API
         val startTime = if (BuildConfig.DEBUG) System.currentTimeMillis() else 0L
         if (packageName == null) {

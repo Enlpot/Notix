@@ -153,7 +153,7 @@ fun RulesScreen(
                     }
                     // v7.12：与「按应用」tab 一致，NotificationColorEngine 按 App 图标动态取色
                     val context = LocalContext.current
-                    val colors by produceState<NotificationColors?>(initialValue = null, key1 = primary?.packageName) {
+                    val colors by produceState<NotificationColors?>(initialValue = null, key1 = primary?.packageName to NotificationColorEngine.colorVersion) {
                         value = NotificationColorEngine.getNotificationColors(context, primary?.packageName.orEmpty())
                     }
                     val accent = colors?.backgroundColor?.let { Color(it) }

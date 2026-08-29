@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -105,6 +106,7 @@ import com.enlpot.notix.CrashLogManager
 import com.enlpot.notix.ImportError
 import com.enlpot.notix.ImportResult
 import com.enlpot.notix.NotificationBlockerService
+import com.enlpot.notix.NotificationColorEngine
 import com.enlpot.notix.R
 import com.enlpot.notix.RuleExport
 import com.enlpot.notix.RuleExportSerializer
@@ -159,6 +161,11 @@ fun SettingsScreen(
     // v7.45：无文本通知文字提取开关（默认关）
     var extractRemoteViewsEnabled by remember {
         mutableStateOf(NotificationBlockerService.isRemoteViewsTextExtractionEnabled(context))
+    }
+
+    // v8.20：动态取色开关（默认开）
+    var dynamicColorEnabled by remember {
+        mutableStateOf(NotificationColorEngine.isDynamicColorEnabled(context))
     }
 
     // Clear history — two-phase: pick mode → detail dialog
@@ -846,6 +853,22 @@ fun SettingsScreen(
                             onCheckedChange = { enabled ->
                                 extractRemoteViewsEnabled = enabled
                                 NotificationBlockerService.setRemoteViewsTextExtractionEnabled(context, enabled)
+                            }
+                        )
+                    }
+                )
+                // v8.20：动态取色开关（默认开）
+                SettingsRow(
+                    icon = Icons.Filled.Palette,
+                    title = stringResource(R.string.settings_dynamic_color_title),
+                    subtitle = stringResource(R.string.settings_dynamic_color_desc),
+                    onClick = null,
+                    trailing = {
+                        Switch(
+                            checked = dynamicColorEnabled,
+                            onCheckedChange = { enabled ->
+                                dynamicColorEnabled = enabled
+                                NotificationColorEngine.setDynamicColorEnabled(context, enabled)
                             }
                         )
                     }
