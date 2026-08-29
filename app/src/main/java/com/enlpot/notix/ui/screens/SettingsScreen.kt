@@ -170,9 +170,9 @@ fun SettingsScreen(
     // v8.14：恢复常驻通知——确认弹窗状态
     var showRestoreSnoozedDialog by remember { mutableStateOf(false) }
 
-    // v7.18：关于分组展开折叠状态
-    var aboutFeaturesExpanded by remember { mutableStateOf(false) }
-    var aboutPrivacyExpanded by remember { mutableStateOf(false) }
+    // v8.17：关于分组改为弹窗形式（功能介绍 / 隐私与安全）
+    var showAboutFeaturesDialog by remember { mutableStateOf(false) }
+    var showAboutPrivacyDialog by remember { mutableStateOf(false) }
 
     // v8.6：权限管理二级界面路由 + 主界面聚合状态（进入前台/返回时刷新）
     var showPermissionScreen by remember { mutableStateOf(false) }
@@ -753,6 +753,64 @@ fun SettingsScreen(
         )
     }
 
+    // v8.17：关于——功能介绍弹窗
+    if (showAboutFeaturesDialog) {
+        NotixDialog(
+            onDismiss = { showAboutFeaturesDialog = false },
+            title = stringResource(R.string.about_features_title),
+            content = {
+                Text(
+                    text = stringResource(R.string.about_features_body),
+                    style = MaterialTheme.notixType.bodySecondary,
+                    color = MaterialTheme.notix.contentSecondary
+                )
+            },
+            buttons = {
+                NotixDialogButton(
+                    onClick = { showAboutFeaturesDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.close),
+                    containerColor = MaterialTheme.notix.primary,
+                    contentColor = MaterialTheme.notix.onPrimary
+                )
+            }
+        )
+    }
+
+    // v8.17：关于——隐私与安全弹窗
+    if (showAboutPrivacyDialog) {
+        NotixDialog(
+            onDismiss = { showAboutPrivacyDialog = false },
+            title = stringResource(R.string.settings_privacy_security_title),
+            content = {
+                val privacyItems = listOf(
+                    R.string.settings_privacy_item_1,
+                    R.string.settings_privacy_item_2,
+                    R.string.settings_privacy_item_3,
+                    R.string.settings_privacy_item_4,
+                    R.string.settings_privacy_item_5
+                )
+                privacyItems.forEach { resId ->
+                    Text(
+                        text = "\u2022 ${stringResource(resId)}",
+                        style = MaterialTheme.notixType.bodySecondary,
+                        color = MaterialTheme.notix.contentSecondary,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+            },
+            buttons = {
+                NotixDialogButton(
+                    onClick = { showAboutPrivacyDialog = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.close),
+                    containerColor = MaterialTheme.notix.primary,
+                    contentColor = MaterialTheme.notix.onPrimary
+                )
+            }
+        )
+    }
+
     // v8.16：吸顶标题——左上角"设置"随内容自然上滑，到达状态栏下沿后吸顶固定
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
@@ -901,39 +959,47 @@ fun SettingsScreen(
                 }
             }
 
-            // v7.18：关于分组（功能介绍 / 隐私与安全，页面内展开折叠，默认收起）
+            // v8.17：关于分组改为弹窗形式（点击卡片打开 NotixDialog，与其他弹窗风格一致）
             SettingsSection(title = stringResource(R.string.about)) {
-                ExpandableSection(
-                    title = stringResource(R.string.about_features_title),
-                    expanded = aboutFeaturesExpanded,
-                    onToggle = { aboutFeaturesExpanded = !aboutFeaturesExpanded },
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAboutFeaturesDialog = true },
+                    shape = NotixCorner.Card,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant)
                 ) {
-                    // Stage 8：Token 化内容文字色
-                    Text(
-                        text = stringResource(R.string.about_features_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        lineHeight = 18.sp,
-                        color = MaterialTheme.notix.contentSecondary,
-                    )
-                }
-                ExpandableSection(
-                    title = stringResource(R.string.settings_privacy_security_title),
-                    expanded = aboutPrivacyExpanded,
-                    onToggle = { aboutPrivacyExpanded = !aboutPrivacyExpanded },
-                ) {
-                    val privacyItems = listOf(
-                        R.string.settings_privacy_item_1,
-                        R.string.settings_privacy_item_2,
-                        R.string.settings_privacy_item_3,
-                        R.string.settings_privacy_item_4,
-                        R.string.settings_privacy_item_5
-                    )
-                    privacyItems.forEach { resId ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "\u2022 ${stringResource(resId)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.notix.contentSecondary,
-                            modifier = Modifier.padding(vertical = 2.dp)
+                            text = stringResource(R.string.about_features_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.notix.contentPrimary
+                        )
+                    }
+                }
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAboutPrivacyDialog = true },
+                    shape = NotixCorner.Card,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_privacy_security_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.notix.contentPrimary
                         )
                     }
                 }
