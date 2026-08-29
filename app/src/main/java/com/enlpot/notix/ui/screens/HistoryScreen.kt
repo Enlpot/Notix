@@ -165,7 +165,7 @@ fun HistoryScreen(
     onDeleteNotification: (SimpleNotification) -> Unit,
     onClearHistory: () -> Unit,
     onStopMonitoring: (String, String) -> Unit,
-    onResumeMonitoring: (String) -> Unit,
+    onResumeMonitoring: (String, String) -> Unit,
     onToggleListenerPaused: (Boolean) -> Unit,
     listenerPaused: Boolean,
     onClearBlockedHistory: () -> Unit = {},
@@ -623,7 +623,7 @@ private fun LazyListScope.historyListItems(
     onRestoreNotification: (SimpleNotification) -> Unit,
     onCreateRuleFromNotification: (SimpleNotification) -> Unit,
     onDeleteNotification: (SimpleNotification) -> Unit,
-    onResumeMonitoring: (String) -> Unit,
+    onResumeMonitoring: (String, String) -> Unit,
     onShowStopMonitoringDialog: (Pair<String, String>?) -> Unit,
     context: android.content.Context,
     itemIndex: IntArray,
@@ -1245,7 +1245,7 @@ private fun LazyListScope.byAppItems(
     onRestoreNotification: (SimpleNotification) -> Unit,
     onCreateRuleFromNotification: (SimpleNotification) -> Unit,
     onDeleteNotification: (SimpleNotification) -> Unit,
-    onResumeMonitoring: (String) -> Unit,
+    onResumeMonitoring: (String, String) -> Unit,
     onShowStopMonitoringDialog: (Pair<String, String>?) -> Unit,
     context: android.content.Context,
     itemIndex: IntArray,
@@ -1279,7 +1279,7 @@ private fun LazyListScope.byAppItems(
                         if (packageName != null) onShowStopMonitoringDialog(packageName to appName)
                     },
                     onResumeMonitoringClick = {
-                        if (packageName != null) onResumeMonitoring(packageName)
+                        if (packageName != null) onResumeMonitoring(packageName, appName)
                     }
                 )
             }

@@ -405,14 +405,9 @@ class MainActivity : ComponentActivity() {
                     unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
                     showMessage(context.getString(R.string.toast_stopped_monitoring, appName))
                 },
-                onResumeMonitoring = { packageName ->
+                                onResumeMonitoring = { packageName, appName ->
                     unmonitoredAppsStorage.removeApp(packageName)
                     unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
-                    val appName = try {
-                        packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
-                    } catch (_: Exception) {
-                        packageName
-                    }
                     showMessage(context.getString(R.string.toast_resumed_monitoring, appName))
                 },
                 onDeleteRule = { rule ->
@@ -559,7 +554,7 @@ class MainActivity : ComponentActivity() {
         onClearHistoryByPackages: (Set<String>) -> Unit,
         onToggleAllRules: (Boolean) -> Unit,
         onStopMonitoring: (String, String) -> Unit,
-        onResumeMonitoring: (String) -> Unit,
+        onResumeMonitoring: (String, String) -> Unit,
         onDeleteRule: (BlockerRule) -> Unit,
         onToggleRule: (BlockerRule, Boolean) -> Unit,
         onResetHitCount: (BlockerRule) -> Unit,
@@ -1023,7 +1018,7 @@ class MainActivity : ComponentActivity() {
         onToggleListenerPaused: (Boolean) -> Unit,
         onToggleAllRules: (Boolean) -> Unit,
         onStopMonitoring: (String, String) -> Unit,
-        onResumeMonitoring: (String) -> Unit,
+        onResumeMonitoring: (String, String) -> Unit,
         onDeleteRule: (BlockerRule) -> Unit,
         onToggleRule: (BlockerRule, Boolean) -> Unit,
         onResetHitCount: (BlockerRule) -> Unit,
