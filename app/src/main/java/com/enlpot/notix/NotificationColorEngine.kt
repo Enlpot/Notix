@@ -20,6 +20,12 @@ import java.util.concurrent.ConcurrentHashMap
  * - 禁止 RGB 全量平均；渐变/多色图标选视觉权重高的主色；
  * - 颜色缓存以 packageName + 图标版本(lastUpdateTime) 为 Key，避免每次刷新重复分析；
  * - 分析在调用方（后台协程）执行，禁止主线程做大量 Bitmap 分析。
+ *
+ * v8.18 低优先级评估：Android 原生 Palette API（androidx.palette）对比
+ * - 当前手写 64 桶聚类：24x24 采样，视觉权重优先，经过多轮调优，单次分析通常 <10ms；
+ * - Palette API：支持 Vibrant/Muted/DarkVibrant/LightVibrant 多色板，代码量更少，
+ *   但取色策略偏向"有活力"颜色，与当前"视觉权重最高"策略不同，替换需重新调优；
+ * - 决策：保留手写实现，通过 debug 耗时日志监控性能；若单次分析 >50ms 或需要多色板时再迁移。
  */
 data class NotificationColors(
     val backgroundColor: Int,
@@ -55,8 +61,10 @@ object NotificationColorEngine {
      * 可在后台协程中调用；线程安全（缓存为 ConcurrentHashMap）。
      */
     fun getNotificationColors(context: Context, packageName: String?): NotificationColors {
+        // v8.18 低优先级：取色耗时监控（仅 debug），用于评估是否需要切换到 Palette API
+        val startTime = if (BuildConfig.DEBUG) System.currentTimeMillis() else 0L
         if (packageName == null) {
-            Log.w(TAG, "Neutral fallback: packageName is null")
+            if (BuildConfig.DEBUG) Log.w(TAG, "Neutral fallback: packageName is null")
             return hashFallbackColors(null)
         }
         val key = buildCacheKey(context, packageName)
@@ -64,6 +72,10 @@ object NotificationColorEngine {
         val icon = loadAppIcon(context, packageName)
         if (icon == null) return hashFallbackColors(packageName)
         val colors = compute(icon, packageName)
+        if (BuildConfig.DEBUG) {
+            val elapsed = System.currentTimeMillis() - startTime
+            Log.d(TAG, "Color analysis for $packageName took ${elapsed}ms (cache miss)")
+        }
         // v8.18 优化：满时分批淘汰最旧的 1/4，避免全清导致的集中性能抖动
         if (cache.size >= MAX_CACHE_SIZE) {
             val target = MAX_CACHE_SIZE / 4
@@ -125,7 +137,7 @@ object NotificationColorEngine {
                 bmp
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Neutral fallback: icon not found for $packageName: ${e.message}")
+            if (BuildConfig.DEBUG) Log.w(TAG, "Neutral fallback: icon not found for $packageName: ${e.message}")
             null
         }
     }
@@ -141,7 +153,7 @@ object NotificationColorEngine {
         // 无主色（单色/纯黑白图标，聚类失败）→ 哈希兜底色（取代中性灰）
         if (primary == null) {
             if (icon != null) {
-                Log.w(TAG, "Neutral fallback: no dominant color for $packageName (monochrome icon?)")
+                if (BuildConfig.DEBUG) Log.w(TAG, "Neutral fallback: no dominant color for $packageName (monochrome icon?)")
             }
             return hashFallbackColors(packageName)
         }
@@ -152,7 +164,7 @@ object NotificationColorEngine {
             if (secondary != null && !isGrayish(secondary)) {
                 return buildColors(secondary, primary)
             }
-            Log.w(TAG, "Neutral fallback: no dominant color for $packageName (monochrome icon?)")
+            if (BuildConfig.DEBUG) Log.w(TAG, "Neutral fallback: no dominant color for $packageName (monochrome icon?)")
             return hashFallbackColors(packageName)
         }
 
