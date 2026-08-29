@@ -141,14 +141,6 @@ fun NotificationCard(
                     style = t.caption,
                     color = onAccent.copy(alpha = 0.8f),
                 )
-                if (variant == NotificationCardVariant.Multiple) {
-                    Spacer(Modifier.height(sp.xs))
-                    Text(
-                        text = stringResource(R.string.notification_more_count, data.count - 1),
-                        style = t.label,
-                        color = onAccent,
-                    )
-                }
             }
         }
         if (blocked) {

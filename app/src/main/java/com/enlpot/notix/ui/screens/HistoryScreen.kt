@@ -497,7 +497,8 @@ fun HistoryScreen(
                         LazyColumn(
                             state = tabListStates[page],
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                            // v8.16：移除额外底部滚动余量，仅保留导航条高度
+                            contentPadding = PaddingValues(bottom = navBottomPadding)
                         ) {
                             historyListItems(
                                 tab = tab,
@@ -539,8 +540,8 @@ fun HistoryScreen(
                         LazyColumn(
                             state = tabListStates[page],
                             modifier = Modifier.fillMaxSize(),
-                            // v7.37：底部叠加 240dp 滚动余量，内容不足时也能上滑将图表滑出界面
-                            contentPadding = PaddingValues(bottom = navBottomPadding + 240.dp)
+                            // v8.16：移除额外底部滚动余量，仅保留导航条高度
+                            contentPadding = PaddingValues(bottom = navBottomPadding)
                         ) {
                             // v7.51：标题行作为普通 item 随滚动滑出
                             item(key = "history_title") {
@@ -1659,6 +1660,8 @@ private fun HistoryNotificationCard(
             timestamp = timeStr,
             count = entry.count,
         ),
+        // v8.16：卡片间垂直空隙与应用分组头（AppGroupHeader）一致（上下各 2dp）
+        modifier = Modifier.padding(vertical = 2.dp),
         accent = accent,
         onAccent = onAccent,
         packageName = packageName,
@@ -1876,7 +1879,7 @@ private fun LazyListScope.foldSegments(
                         )
                     }
                 }
-                // 其余 n 条：普通卡片但宽度略缩（水平缩进）
+                // 其余 n 条：普通卡片但宽度略缩（水平缩进）；v8.16 起显示标题（不再 compact 隐藏）
                 seg.entries.drop(1).forEachIndexed { idx, entry ->
                     itemIndex[0]++
                     item(key = "${entry.id}_fold_body_$idx") {
@@ -1889,7 +1892,6 @@ private fun LazyListScope.foldSegments(
                             onDelete = { entry.latest?.let { onDeleteNotification(it) } },
                             showRestore = entry.blocked,
                             context = context,
-                            compact = true,
                             indent = FoldCardIndent
                         )
                     }
