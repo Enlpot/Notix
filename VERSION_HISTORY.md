@@ -1,8 +1,123 @@
 # Notix Version History
 
 > This file is the local cumulative version history, ordered newest-first.
-> At each release, that version's notes are posted **alone** as the GitHub Release body (see `RELEASE_NOTES.md`).
-> This file only retains the full history and is not used for publishing.
+> Release notes are now auto-generated from git log by the GitHub Actions workflow (see .github/workflows/release.yml).
+> This file retains the full curated history and is not used directly for publishing.
+
+---
+
+## 8.28.0 (2026-08-29)
+
+**Fixed**
+- **Rules applied to active notifications now correctly mark history as blocked.** When a newly enabled rule dismissed notifications already in the shade, the global dedup path skipped updating the locked flag on existing history rows, so the '已过滤' tab stayed empty even though notifications were removed. Existing rows with matching sbnKey + postTime now get their locked flag updated to 1.
+
+---
+
+## 8.27.0 (2026-08-29)
+
+**New**
+- **Rules automatically apply to notifications already in the shade.** Creating, updating, or enabling a rule now triggers a one-time pass over all currently active notifications, matching and executing rule actions (dismiss, etc.) without waiting for new posts. Previously only newly posted notifications were evaluated.
+
+---
+
+## 8.26.0 (2026-08-29)
+
+**Fixed**
+- **Duplicate notification groups (BUG-001).** Global dedup now keys on sbnKey + postTime instead of sbnKey alone, so updated notifications with the same key but different post time are recorded as separate history entries instead of being silently dropped.
+
+---
+
+## 8.25.0 (2026-08-29)
+
+**New**
+- **Sync active notifications on listener reconnect.** When the notification listener service reconnects (after process death, permission toggle, etc.), it now pulls the current active notification list and backfills any missed entries into history.
+
+**Fixed**
+- **Removed 3-second debounce on same-key notifications.** The debounce was intended to reduce duplicate writes but caused rapid chat messages (same conversation key) to be dropped from history. It has been removed; each post is now recorded.
+
+---
+
+## 8.24.0 (2026-08-29)
+
+**Maintenance**
+- Version bump following the Room migration and search improvements in 8.23.0.
+
+---
+
+## 8.23.0 (2026-08-29)
+
+**New**
+- **Full-text search across all notification history.** Search now queries the entire Room database, not just the loaded page, so notifications from months ago are findable.
+- **Paginated history list loading.** The history list now loads pages of 100 records on demand, keeping scroll smooth even with tens of thousands of stored notifications.
+- **Search result limit raised to 500.** Auto-cleanup of legacy JSON files and storage stats now include the Room database size.
+
+**Performance**
+- **Composite database indexes** added for the most common query patterns (by time, by package, by blocked status).
+
+**Fixed**
+- **Database version upgraded to 2** with destructive migration to apply the new schema and indexes cleanly.
+
+---
+
+## 8.22.0 (2026-08-29)
+
+**New**
+- **Notification history migrated to Room database.** The legacy JSON-file storage (
+otification_history.json) has been replaced with a Room/SQLite database, enabling fast queries, pagination, and full-text search at scale.
+- **Ongoing notification aggregation.** Ongoing (foreground) notifications from the same app are now aggregated into a single card with a change-count badge, consistent with normal notification aggregation.
+
+---
+
+## 8.21.0 (2026-08-29)
+
+**New**
+- **Unmonitored app management.** Apps whose notification monitoring has been stopped are now visually distinguished in the by-app group view (diagonal strike-through), with a one-tap resume button directly on the card. A dedicated settings card lets users multi-select and search apps to resume monitoring.
+- **Resume monitoring confirmation dialog.** Resuming monitoring for a stopped app now shows a confirmation dialog, and the success toast displays the app name instead of the raw package name.
+
+---
+
+## 8.20.0 (2026-08-29)
+
+**New**
+- **Dynamic color toggle in Settings.** Users can now enable or disable per-app dynamic accent color extraction. When disabled, all cards use the default neutral background.
+- **Aggregation window card colors now match the main card.** The change-count aggregation dialog previously showed uncolored cards; it now uses the same dynamic accent as the history list.
+
+**UI**
+- **Reduced chart top spacing** in the history header.
+- **Replaced the bell icon** in the history header with a play/pause-style icon that better reflects its function.
+
+---
+
+## 8.19.0 (2026-08-29)
+
+**Improved**
+- **Low-priority optimizations (items 7-8).** Minor performance and polish improvements across the notification color engine and history rendering pipeline.
+
+---
+
+## 8.18.0 (2026-08-29)
+
+**New**
+- **Notification color engine optimizations (8 items, high + medium priority).** The NotificationColorEngine was refactored for faster color extraction, better caching, and more consistent fallback behavior across app icons.
+
+**UI**
+- **Settings: independent cards with 4dp gap**, removing dividers and navigation chevrons for a cleaner card-based layout.
+- **Settings: About section changed from expandable to dialog style**, consistent with other dialogs in the app.
+- **Removed dialog X (close) buttons** app-wide - tapping outside or pressing back already closes dialogs.
+- **Permission monitoring status pill moved to the title line** in the monitoring dialog, so it stays visible while scrolling.
+- **About section cards now use SettingsRow with icons** (Info + Lock), matching other settings items.
+
+---
+
+## 8.17.0 (2026-08-29)
+
+**UI**
+- **Unified page title styling** across Notification History, Rules, and Settings screens - same font, size, and subtitle layout.
+- **Settings sticky header.** The '设置' title now scrolls naturally and pins to the top when scrolling up, unpinning on scroll down.
+- **Rules page title position** aligned with the Settings page for visual consistency.
+
+**Fixed**
+- **Settings section headers now align with card left edge** (16dp horizontal padding), instead of being flush against the screen edge.
 
 ---
 
