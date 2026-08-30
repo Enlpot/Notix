@@ -1019,7 +1019,7 @@ fun SettingsScreen(
     // v8.33：底部设置tab单击回到顶部
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > 0) {
-            scrollState.scrollTo(0)
+            scrollState.animateScrollTo(0)
         }
     }
     val density = LocalDensity.current
@@ -1770,6 +1770,7 @@ private fun isKeepaliveServiceRunning(context: Context): Boolean {
         it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }
+
 
 
 

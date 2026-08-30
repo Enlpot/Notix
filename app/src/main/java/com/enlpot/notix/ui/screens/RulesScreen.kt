@@ -67,7 +67,7 @@ fun RulesScreen(
     // v8.33：底部规则tab单击回到顶部
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > 0) {
-            listState.scrollToItem(0)
+            listState.animateScrollToItem(0)
         }
     }
 
@@ -297,6 +297,7 @@ private fun buildTimeDescription(rule: BlockerRule): String {
     }
     return "${time.startHour.toString().padStart(2, '0')}:${time.startMinute.toString().padStart(2, '0')}-${time.endHour.toString().padStart(2, '0')}:${time.endMinute.toString().padStart(2, '0')} · $weekText"
 }
+
 
 
 
