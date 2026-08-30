@@ -128,9 +128,10 @@ class MainActivity : ComponentActivity() {
     private var unmonitoredApps by mutableStateOf<Set<String>>(emptySet())
     private var listenerPaused by mutableStateOf(false)
     // v8.31：通知历史分页加载——每页 100 条，滚动到底部加载更多，搜索走全量
-    private val HISTORY_PAGE_SIZE = 100
+    private val HISTORY_PAGE_SIZE = 30
     private var hasMoreHistory by mutableStateOf(false)
     private var loadingMoreHistory by mutableStateOf(false)
+    private var totalHistoryCount by mutableStateOf(0)
     private var showRuleWizard by mutableStateOf(false)
     private var editingRule by mutableStateOf<BlockerRule?>(null)
     // v7.39：从成员级提升，随 savedInstanceState 保存恢复（旋转后保留通知预填）
@@ -167,6 +168,9 @@ class MainActivity : ComponentActivity() {
             historyEntries = entries
             pastNotifications = entries.flatMap { it.changes }
             hasMoreHistory = entries.size >= HISTORY_PAGE_SIZE && total > entries.size
+            totalHistoryCount = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getChangeCount() }
+            }
             rules = ruleStorage.getRules().filter { it.isValid }
             unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
             listenerPaused = NotificationBlockerService.isListenerPaused(this@MainActivity)
@@ -281,6 +285,9 @@ class MainActivity : ComponentActivity() {
             historyEntries = entries
             pastNotifications = entries.flatMap { it.changes }
             hasMoreHistory = entries.size >= HISTORY_PAGE_SIZE && total > entries.size
+            totalHistoryCount = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getChangeCount() }
+            }
             rules = ruleStorage.getRules().filter { it.isValid }
             unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
             listenerPaused = NotificationBlockerService.isListenerPaused(this@MainActivity)
@@ -1113,7 +1120,8 @@ class MainActivity : ComponentActivity() {
                 onSearch = { keyword -> searchHistory(keyword) },
                 onLoadMore = { loadMoreHistory() },
                 hasMore = hasMoreHistory,
-                loadingMore = loadingMoreHistory
+                loadingMore = loadingMoreHistory,
+                totalHistoryCount = totalHistoryCount
             )
 
             1 -> RulesScreen(rules, onRuleClick, onCreateRuleClick, onToggleAllRules,

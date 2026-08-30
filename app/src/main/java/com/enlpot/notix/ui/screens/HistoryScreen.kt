@@ -76,6 +76,7 @@ import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -181,7 +182,8 @@ fun HistoryScreen(
     // v8.22：分页加载
     onLoadMore: () -> Unit = {},
     hasMore: Boolean = false,
-    loadingMore: Boolean = false
+    loadingMore: Boolean = false,
+    totalHistoryCount: Int = 0
 ) {
     NotificationColorEngine.isDarkTheme = isSystemInDarkTheme()
     // v7.40：旋转恢复——三 tab 及弹窗/搜索/展开等 UI 状态
@@ -539,7 +541,7 @@ fun HistoryScreen(
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = lay.screenHorizontal)) {
         // v7.50：标题行 + 总记录/今日统计（移入 LazyColumn 顶部 item，随滚动滚出）
         val headerNowDate = LocalDate.now()
-        val headerTotalCount = remember(entries) { entries.sumOf { it.count } }
+        val headerTotalCount = if (totalHistoryCount > 0) totalHistoryCount else entries.sumOf { it.count }
         val headerTodayCount = remember(entries, headerNowDate) {
             entries.sumOf { e -> e.changes.count { isSameDay(it.timestamp, headerNowDate) } }
         }
@@ -658,7 +660,8 @@ fun HistoryScreen(
                                 scope = listScope,
                                 hasMore = hasMore,
                                 loadingMore = loadingMore,
-                                onLoadMore = onLoadMore
+                                onLoadMore = onLoadMore,
+                                totalHistoryCount = totalHistoryCount
                             )
                         }
                     } else {
@@ -714,7 +717,8 @@ fun HistoryScreen(
                                 scope = listScope,
                                 hasMore = hasMore,
                                 loadingMore = loadingMore,
-                                onLoadMore = onLoadMore
+                                onLoadMore = onLoadMore,
+                                totalHistoryCount = totalHistoryCount
                             )
                         }
                     }
@@ -758,7 +762,8 @@ private fun LazyListScope.historyListItems(
     // v8.22：分页加载
     hasMore: Boolean = false,
     loadingMore: Boolean = false,
-    onLoadMore: () -> Unit = {}
+    onLoadMore: () -> Unit = {},
+    totalHistoryCount: Int = 0
 ) {
     when (tab) {
         HistoryTab.BY_TIME -> {
@@ -781,6 +786,8 @@ private fun LazyListScope.historyListItems(
                     listState = listState,
                     scope = scope,
                 )
+                // 加载更多指示器
+                loadMoreFooter(hasMore, loadingMore)
             }
         }
         HistoryTab.BY_APP -> {
@@ -808,6 +815,7 @@ private fun LazyListScope.historyListItems(
                     listState = listState,
                     scope = scope,
                 )
+                loadMoreFooter(hasMore, loadingMore)
             }
         }
         HistoryTab.FILTERED -> {
@@ -832,6 +840,7 @@ private fun LazyListScope.historyListItems(
                     listState = listState,
                     scope = scope,
                 )
+                loadMoreFooter(hasMore, loadingMore)
             }
         }
     }
@@ -1326,6 +1335,49 @@ private fun SearchButton(onClick: () -> Unit, onLongClick: () -> Unit = {}) {
                 contentDescription = stringResource(R.string.search),
                 tint = MaterialTheme.colorScheme.surfaceVariant
             )
+    }
+}
+
+// --- 加载更多底部指示器 ---
+private fun LazyListScope.loadMoreFooter(hasMore: Boolean, loadingMore: Boolean) {
+    item {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                loadingMore -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "加载中...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                hasMore -> {
+                    Text(
+                        text = "上滑加载更多",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                else -> {
+                    Text(
+                        text = "没有更多了",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
     }
 }
 
