@@ -480,6 +480,23 @@ fun HistoryScreen(
     // v7.41：totalCount/todayCount 计算已移至 ChartPanel（通用图表面板）
     // v7.36：未知规则组名（在 composable 上下文解析，供 LazyListScope 扩展使用）
     val unknownRuleLabel = stringResource(R.string.unknown_rule_group)
+
+    // v8.35：未命名规则按创建顺序编号，显示为「未命名规则N」
+    val ruleDisplayNames = remember(rules) {
+        val nameMap = mutableMapOf<String, String>()
+        var unnamedIndex = 1
+        rules.sortedBy { it.createdAt }.forEach { rule ->
+            val explicitName = rule.name?.takeIf { it.isNotBlank() }
+                ?: rule.description?.takeIf { it.isNotBlank() }
+            if (explicitName != null) {
+                nameMap[rule.id] = explicitName
+            } else {
+                nameMap[rule.id] = "未命名规则$unnamedIndex"
+                unnamedIndex++
+            }
+        }
+        nameMap
+    }
     val lay = MaterialTheme.notixLayout
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = lay.screenHorizontal)) {
@@ -587,6 +604,7 @@ fun HistoryScreen(
                                 appFoldSegments = appFoldSegments,
                                 ruleFoldSegments = ruleFoldSegments,
                                 rules = rules,
+                                ruleDisplayNames = ruleDisplayNames,
                                 appGrouped = appGrouped,
                                 ruleById = ruleById,
                                 ruleGrouped = ruleGrouped,
@@ -686,6 +704,7 @@ private fun LazyListScope.historyListItems(
     appFoldSegments: List<List<FoldSegment>>,
     ruleFoldSegments: List<List<FoldSegment>>,
     rules: List<BlockerRule>,
+    ruleDisplayNames: Map<String, String> = emptyMap(),
     appGrouped: List<Map.Entry<String, List<NotificationHistoryEntry>>>,
     ruleById: Map<String, BlockerRule>,
     ruleGrouped: List<Map.Entry<String?, List<NotificationHistoryEntry>>>,
@@ -768,6 +787,7 @@ private fun LazyListScope.historyListItems(
                     expandedFoldPackages = expandedFoldPackages,
                     onToggleFold = onToggleFold,
                     unknownGroupLabel = unknownRuleLabel,
+                    ruleDisplayNames = ruleDisplayNames,
                     onEntryHistoryClick = onEntryHistoryClick,
                     onOpenNotification = onOpenNotification,
                     onRestoreNotification = onRestoreNotification,
@@ -1516,6 +1536,7 @@ private fun LazyListScope.byRuleItems(
     expandedFoldPackages: MutableState<Set<String>>,
     onToggleFold: (String) -> Unit,
     unknownGroupLabel: String,
+    ruleDisplayNames: Map<String, String> = emptyMap(),
     onEntryHistoryClick: (NotificationHistoryEntry) -> Unit,
     onOpenNotification: (SimpleNotification) -> Unit,
     onRestoreNotification: (SimpleNotification) -> Unit,
@@ -1538,7 +1559,14 @@ private fun LazyListScope.byRuleItems(
             ?: first?.packageName
         val packageName = sourceApp?.packageName ?: first?.packageName
         val groupKey = ruleId ?: "unknown"
-        val title = if (rule != null) buildRuleGroupTitle(rule, appName) else unknownGroupLabel
+        val title = if (rule != null) {
+            rule.name?.takeIf { it.isNotBlank() }
+                ?: rule.description?.takeIf { it.isNotBlank() }
+                ?: ruleDisplayNames[rule.id]
+                ?: buildRuleGroupTitle(rule, appName)
+        } else {
+            unknownGroupLabel
+        }
         val isExpanded = expandedRuleIds.value.contains(groupKey)
 
         itemIndex[0]++
@@ -1999,4 +2027,5 @@ private fun LazyListScope.foldSegments(
         }
     }
 }
+
 

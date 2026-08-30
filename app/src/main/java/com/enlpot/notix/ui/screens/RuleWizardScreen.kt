@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.screens
+﻿package com.enlpot.notix.ui.screens
 
 import android.content.Context
 import android.media.AudioDeviceInfo
@@ -280,7 +280,7 @@ fun RuleWizardScreen(
     var editingActionIndex by rememberSaveable { mutableIntStateOf(-1) }
 
     // ===== 0. 规则名称（可选，复用 BlockerRule.description） =====
-    var ruleName by rememberSaveable { mutableStateOf(editingRule?.description.orEmpty()) }
+    var ruleName by rememberSaveable { mutableStateOf(editingRule?.name ?: editingRule?.description.orEmpty()) }
 
     // ===== 2b. 条件配置弹窗 =====
     var showConditionDialog by rememberSaveable { mutableStateOf(false) }
@@ -331,7 +331,7 @@ fun RuleWizardScreen(
         val finalName = if (ruleName.isBlank()) {
             var n = 1
             val existing = (existingRules ?: emptyList())
-                .let { list -> if (editingRule != null) (list - editingRule).map { r -> r.description } else list.map { r -> r.description } }
+                .let { list -> if (editingRule != null) (list - editingRule).map { r -> r.name ?: r.description } else list.map { r -> r.name ?: r.description } }
             var name = "$unnamedPrefix$n"
             while (existing.contains(name)) {
                 n++
@@ -343,7 +343,7 @@ fun RuleWizardScreen(
         }
         val rule = buildNewRule(
             editingRule = editingRule,
-            description = finalName,
+            name = finalName,
             selectedPackages = effectivePackages,
             appNameOf = ::appDisplayName,
             matchMode = matchMode,
@@ -633,7 +633,7 @@ fun RuleWizardScreen(
 /** 从当前 UI 状态构建新模型规则 */
 private fun buildNewRule(
     editingRule: BlockerRule?,
-    description: String,
+    name: String,
     selectedPackages: List<String>,
     appNameOf: (String) -> String,
     matchMode: MatchMode,
@@ -682,7 +682,7 @@ private fun buildNewRule(
         ),
         // 阶段3A：直接保存 UI 唯一状态 actionFlow（顺序 == actions 顺序）
         actions = actions,
-        description = description,
+        name = name,
         createdAt = editingRule?.createdAt ?: now,
     )
 }
@@ -2690,3 +2690,4 @@ private fun actionDescription(action: RuleAction): String = when (action) {
     RuleAction.DELAY -> stringResource(R.string.rule_action_desc_wait)
     RuleAction.POSTPONE -> stringResource(R.string.rule_action_desc_postpone)
 }
+

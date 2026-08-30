@@ -61,6 +61,7 @@ fun RulesScreen(
     scrollToTopTrigger: Int = 0
 ) {
     var ruleToDelete by remember { mutableStateOf<BlockerRule?>(null) }
+    var ruleToReset by remember { mutableStateOf<BlockerRule?>(null) }
     val listState = rememberLazyListState()
 
     // v8.33：底部规则tab单击回到顶部
@@ -68,6 +69,23 @@ fun RulesScreen(
         if (scrollToTopTrigger > 0) {
             listState.scrollToItem(0)
         }
+    }
+
+    // v8.35：未命名规则按创建顺序编号，显示为「未命名规则N」
+    val ruleDisplayNames = remember(rules) {
+        val nameMap = mutableMapOf<String, String>()
+        var unnamedIndex = 1
+        rules.sortedBy { it.createdAt }.forEach { rule ->
+            val explicitName = rule.name?.takeIf { it.isNotBlank() }
+                ?: rule.description?.takeIf { it.isNotBlank() }
+            if (explicitName != null) {
+                nameMap[rule.id] = explicitName
+            } else {
+                nameMap[rule.id] = "未命名规则$unnamedIndex"
+                unnamedIndex++
+            }
+        }
+        nameMap
     }
 
     val c = MaterialTheme.notix
@@ -179,6 +197,7 @@ fun RulesScreen(
                         baseFlow
                     }
                     RuleCard(
+                        ruleName = ruleDisplayNames[rule.id] ?: rule.name ?: "未命名规则",
                         appName = appName,
                         packageName = primary?.packageName ?: "",
                         conditionText = buildConditionDescription(rule),
@@ -191,8 +210,7 @@ fun RulesScreen(
                         onClick = { onRuleClick(rule) },
                         onLongClick = { ruleToDelete = rule },
                         onToggle = { enabled -> onToggleRule(rule, enabled) },
-                        onRescan = onRescanRule,
-                        onResetHitCount = { onResetHitCount(rule) },
+                        onResetHitCount = { ruleToReset = rule },
                     )
                 }
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -211,6 +229,20 @@ fun RulesScreen(
             title = stringResource(R.string.confirm_delete_rule_title),
             body = stringResource(R.string.confirm_delete_rule_message),
             confirmText = stringResource(R.string.confirm_delete),
+        )
+    }
+
+    // Reset hit count confirmation dialog
+    ruleToReset?.let { rule ->
+        NotixConfirmDialog(
+            onDismiss = { ruleToReset = null },
+            onConfirm = {
+                onResetHitCount(rule)
+                ruleToReset = null
+            },
+            title = "重置命中次数",
+            body = "确定要重置规则「${ruleDisplayNames[rule.id] ?: rule.name}」的命中次数吗？此操作不可撤销。",
+            confirmText = "重置",
         )
     }
 }
@@ -258,5 +290,6 @@ private fun buildExtraDescription(rule: BlockerRule): String {
     }
     return parts.joinToString("，")
 }
+
 
 

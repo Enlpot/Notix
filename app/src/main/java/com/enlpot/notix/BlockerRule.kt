@@ -1,4 +1,4 @@
-package com.enlpot.notix
+﻿package com.enlpot.notix
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
@@ -247,6 +247,8 @@ inline fun <reified T> JsonObject?.asParams(): T =
  */
 data class BlockerRule(
     val id: String = "",
+    /** 规则名称（可选，为空则显示未命名规则N） */
+    val name: String? = null,
     val description: String? = null,
     val isEnabled: Boolean = true,
     val hitCount: Int = 0,

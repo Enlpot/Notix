@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">Notix</string>
 
     <!-- Tabs -->
@@ -487,9 +487,9 @@
     <string name="storage_usage_title">存储占用</string>
     <string name="storage_usage_total">共占用 %s</string>
     <string name="storage_usage_history">通知历史</string>
-    <string name="storage_usage_history_desc">notification_history.json 等文件。清除将清空全部通知历史。</string>
+    <string name="storage_usage_history_desc">通知历史数据库与应用信息缓存。清除将清空全部通知历史。</string>
     <string name="storage_usage_rules">规则</string>
-    <string name="storage_usage_rules_desc">rules.json 等文件。清除将清空所有规则。</string>
+    <string name="storage_usage_rules_desc">过滤规则与配置。清除将清空所有规则。</string>
     <string name="storage_usage_other">其他</string>
     <string name="storage_usage_other_desc">崩溃日志与 .bak/.corrupt/.tmp 等临时文件。不影响设置与统计。</string>
     <string name="storage_clear">清除</string>
@@ -530,3 +530,4 @@
     <string name="rule_wizard_action_delete_message">确定要删除该动作吗？</string>
     <string name="rule_wizard_action_drag_hint">拖动调整顺序</string>
 </resources>
+

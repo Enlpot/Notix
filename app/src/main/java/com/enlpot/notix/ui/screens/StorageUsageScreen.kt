@@ -54,7 +54,16 @@ import java.util.Locale
 // v7.50：存储占用计算与格式化（供设置主页 + 二级界面共用）
 
 /** 通知历史相关文件（与 NotificationHistoryStorage / BlockedNotificationHistoryStorage 保持一致） */
+/** 通知历史相关文件（Room 数据库 + 应用信息库 + 旧版 JSON 兼容） */
 private val HISTORY_FILE_NAMES = setOf(
+    // Room 通知历史数据库（v8.23+ 主存储）
+    "notix.db",
+    "notix.db-wal",
+    "notix.db-shm",
+    // 应用信息库（图标、名称缓存）
+    "app_info.db",
+    "app_info.db-journal",
+    // 旧版 JSON 文件（迁移后可能残留）
     "notification_history.json",
     "notification_history.json.tmp",
     "blocked_notification_history.json",
@@ -94,9 +103,19 @@ internal fun formatStorageBytes(bytes: Long): String = when {
 private fun filesDirFiles(context: Context): List<File> =
     context.filesDir.listFiles()?.filter { it.isFile } ?: emptyList()
 
-/** 通知历史分类占用 */
-private fun historyBytes(context: Context): Long =
-    filesDirFiles(context).filter { it.name in HISTORY_FILE_NAMES }.sumOf { it.length() }
+/** 通知历史分类占用（Room 数据库 + 旧版 JSON 兼容） */
+private fun historyBytes(context: Context): Long {
+    // filesDir 下的旧版 JSON 文件
+    val filesDirSize = filesDirFiles(context)
+        .filter { it.name in HISTORY_FILE_NAMES }
+        .sumOf { it.length() }
+    // databases 目录下的 Room 数据库文件
+    val dbDir = context.getDatabasePath("notix.db").parentFile
+    val dbSize = if (dbDir != null && dbDir.exists() && dbDir.isDirectory) {
+        dbDir.listFiles()?.filter { it.name in HISTORY_FILE_NAMES }?.sumOf { it.length() } ?: 0L
+    } else 0L
+    return filesDirSize + dbSize
+}
 
 /** 规则分类占用 */
 private fun rulesBytes(context: Context): Long =

@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.components
+﻿package com.enlpot.notix.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -342,6 +342,7 @@ fun ComponentShowcaseContent() {
 
         DsSection("Rule Card — 视觉层级") {
             RuleCard(
+                ruleName = "未命名规则1",
                 appName = "Shell",
                 packageName = null,
                 conditionText = "匹配：包含任一关键字 “天气预警”",
@@ -351,6 +352,7 @@ fun ComponentShowcaseContent() {
             )
             Spacer(Modifier.height(sp.md))
             RuleCard(
+                ruleName = "广告过滤",
                 appName = "微博",
                 packageName = null,
                 conditionText = "匹配：来自指定频道",
@@ -362,6 +364,7 @@ fun ComponentShowcaseContent() {
 
         DsSection("Rule Card — 动态底色（accent 注入）") {
             RuleCard(
+                ruleName = "天气预警",
                 appName = "天气",
                 packageName = null,
                 conditionText = "匹配：包含任一关键字 “雷阵雨”",
@@ -371,7 +374,6 @@ fun ComponentShowcaseContent() {
                 enabled = true,
                 accent = c.primary,
                 onAccent = c.onPrimary,
-                onRescan = {},
                 onResetHitCount = {},
             )
         }
@@ -452,3 +454,4 @@ fun ComponentPreview_Dark() {
         }
     }
 }
+
