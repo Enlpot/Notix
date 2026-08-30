@@ -46,6 +46,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -109,6 +110,7 @@ import com.enlpot.notix.ui.screens.ChartPanel
 import com.enlpot.notix.ui.screens.RulesScreen
 import com.enlpot.notix.ui.screens.RuleWizardScreen
 import com.enlpot.notix.ui.screens.SettingsScreen
+import com.enlpot.notix.ui.screens.StatisticsScreen
 import com.enlpot.notix.ui.screens.SetupWizardScreen
 import com.enlpot.notix.ui.theme.NotixTheme
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
@@ -266,6 +268,7 @@ class MainActivity : ComponentActivity() {
         // v8.33：规则/设置页回到顶部trigger
         var rulesScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
         var settingsScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
+        var statsScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
         // v7.13：上次崩溃弹窗状态（检测到日志非空时下次启动提示）
         var showCrashReportDialog by rememberSaveable { mutableStateOf(CrashLogManager.hasCrashes(context)) }
         var showCrashLogDialog by rememberSaveable { mutableStateOf(false) }
@@ -573,7 +576,8 @@ class MainActivity : ComponentActivity() {
         onRulesTabClick: () -> Unit = {},
         onSettingsTabClick: () -> Unit = {},
         rulesScrollToTopTrigger: Int = 0,
-        settingsScrollToTopTrigger: Int = 0
+        settingsScrollToTopTrigger: Int = 0,
+        statsScrollToTopTrigger: Int = 0
     ) {
         val context = LocalContext.current // Get context inside Composable
         val c = MaterialTheme.notix
@@ -584,11 +588,13 @@ class MainActivity : ComponentActivity() {
         val tabTitles = listOf(
             stringResource(R.string.tab_history),
             stringResource(R.string.tab_rules),
+            "统计",
             stringResource(R.string.settings)
         )
         val tabIcons = listOf(
             Icons.Default.History,
             Icons.Default.Rule,
+            Icons.Default.BarChart,
             Icons.Default.Settings
         )
 
@@ -706,6 +712,7 @@ class MainActivity : ComponentActivity() {
             val alpha0 by animateFloatAsState(if (currentTab == 0) 1f else 0f, tween(200), label = "tab0Alpha")
             val alpha1 by animateFloatAsState(if (currentTab == 1) 1f else 0f, tween(200), label = "tab1Alpha")
             val alpha2 by animateFloatAsState(if (currentTab == 2) 1f else 0f, tween(200), label = "tab2Alpha")
+            val alpha3 by animateFloatAsState(if (currentTab == 3) 1f else 0f, tween(200), label = "tab3Alpha")
             Box(modifier = Modifier.fillMaxSize()) {
                 // 通知历史（常驻）
                 Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 0) 1f else 0f).graphicsLayer { alpha = alpha0 }) {
@@ -786,9 +793,9 @@ class MainActivity : ComponentActivity() {
                 )
                 }
                 // 设置（常驻）
-                Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 2) 1f else 0f).graphicsLayer { alpha = alpha2 }) {
+                Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 3) 1f else 0f).graphicsLayer { alpha = alpha3 }) {
                 PagerScreenContent(
-                    page = 2,
+                    page = 3,
                     historyEntries = historyEntries,
                     pastNotifications = pastNotifications,
                     rules = rules,
@@ -909,6 +916,7 @@ class MainActivity : ComponentActivity() {
                     val alpha0 by animateFloatAsState(if (currentTab == 0) 1f else 0f, tween(200), label = "vTab0Alpha")
                     val alpha1 by animateFloatAsState(if (currentTab == 1) 1f else 0f, tween(200), label = "vTab1Alpha")
                     val alpha2 by animateFloatAsState(if (currentTab == 2) 1f else 0f, tween(200), label = "vTab2Alpha")
+                    val alpha3 by animateFloatAsState(if (currentTab == 3) 1f else 0f, tween(200), label = "vTab3Alpha")
                     Box(modifier = Modifier.fillMaxSize()) {
                         // 通知历史（常驻）
                         Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 0) 1f else 0f).graphicsLayer { alpha = alpha0 }) {
@@ -989,9 +997,9 @@ class MainActivity : ComponentActivity() {
                         )
                         }
                         // 设置（常驻）
-                        Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 2) 1f else 0f).graphicsLayer { alpha = alpha2 }) {
+                        Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 3) 1f else 0f).graphicsLayer { alpha = alpha3 }) {
                         PagerScreenContent(
-                            page = 2,
+                            page = 3,
                             historyEntries = historyEntries,
                             pastNotifications = pastNotifications,
                             rules = rules,
@@ -1071,7 +1079,8 @@ class MainActivity : ComponentActivity() {
         onSelectedDayChange: (LocalDate?) -> Unit = {},
         // v8.33：规则/设置页回到顶部trigger
         rulesScrollToTopTrigger: Int = 0,
-        settingsScrollToTopTrigger: Int = 0
+        settingsScrollToTopTrigger: Int = 0,
+        statsScrollToTopTrigger: Int = 0
     ) {
         when (page) {
             0 -> HistoryScreen(
@@ -1204,6 +1213,11 @@ class MainActivity : ComponentActivity() {
 fun Color.luminance(): Float {
     return (this.red * 0.2126f + this.green * 0.7152f + this.blue * 0.0722f)
 }
+
+
+
+
+
 
 
 
