@@ -263,6 +263,9 @@ class MainActivity : ComponentActivity() {
         val coroutineScope = rememberCoroutineScope()
         var backToCurrentWeekTrigger by rememberSaveable { mutableIntStateOf(0) }
         var scrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
+        // v8.33：规则/设置页回到顶部trigger
+        var rulesScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
+        var settingsScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
         // v7.13：上次崩溃弹窗状态（检测到日志非空时下次启动提示）
         var showCrashReportDialog by rememberSaveable { mutableStateOf(CrashLogManager.hasCrashes(context)) }
         var showCrashLogDialog by rememberSaveable { mutableStateOf(false) }
@@ -348,6 +351,10 @@ class MainActivity : ComponentActivity() {
                 onBackToCurrentWeek = { backToCurrentWeekTrigger++ },
                 scrollToTopTrigger = scrollToTopTrigger,
                 onHistoryTabClick = { scrollToTopTrigger++ },
+                onRulesTabClick = { rulesScrollToTopTrigger++ },
+                onSettingsTabClick = { settingsScrollToTopTrigger++ },
+                rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                settingsScrollToTopTrigger = settingsScrollToTopTrigger,
                 onRefreshHistory = {
                     historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
@@ -562,7 +569,11 @@ class MainActivity : ComponentActivity() {
         onToggleRule: (BlockerRule, Boolean) -> Unit,
         onResetHitCount: (BlockerRule) -> Unit,
         onRescanRule: () -> Unit,
-        onHistoryTabClick: () -> Unit
+        onHistoryTabClick: () -> Unit,
+        onRulesTabClick: () -> Unit = {},
+        onSettingsTabClick: () -> Unit = {},
+        rulesScrollToTopTrigger: Int = 0,
+        settingsScrollToTopTrigger: Int = 0
     ) {
         val context = LocalContext.current // Get context inside Composable
         val c = MaterialTheme.notix
@@ -625,6 +636,12 @@ class MainActivity : ComponentActivity() {
                                             lastHistoryTabClickTime = now
                                             onHistoryTabClick()
                                         }
+                                    } else if (index == 1 && currentTab == 1) {
+                                        // v8.33：已在规则页时再次点击底部规则tab则回到顶部
+                                        onRulesTabClick()
+                                    } else if (index == 2 && currentTab == 2) {
+                                        // v8.33：已在设置页时再次点击底部设置tab则回到顶部
+                                        onSettingsTabClick()
                                     } else {
                                         onTabSelected(index)
                                     }
@@ -724,7 +741,9 @@ class MainActivity : ComponentActivity() {
                     onSettingsClose = { onTabSelected(0) },
                     onBackToCurrentWeek = onBackToCurrentWeek,
                     selectedDay = selectedDay,
-                    onSelectedDayChange = { selectedDay = it }
+                    onSelectedDayChange = { selectedDay = it },
+                    rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                    settingsScrollToTopTrigger = settingsScrollToTopTrigger
                 )
                 }
                 // 规则（常驻）
@@ -761,7 +780,9 @@ class MainActivity : ComponentActivity() {
                     onSettingsClose = { onTabSelected(0) },
                     onBackToCurrentWeek = onBackToCurrentWeek,
                     selectedDay = selectedDay,
-                    onSelectedDayChange = { selectedDay = it }
+                    onSelectedDayChange = { selectedDay = it },
+                    rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                    settingsScrollToTopTrigger = settingsScrollToTopTrigger
                 )
                 }
                 // 设置（常驻）
@@ -798,7 +819,9 @@ class MainActivity : ComponentActivity() {
                     onSettingsClose = { onTabSelected(0) },
                     onBackToCurrentWeek = onBackToCurrentWeek,
                     selectedDay = selectedDay,
-                    onSelectedDayChange = { selectedDay = it }
+                    onSelectedDayChange = { selectedDay = it },
+                    rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                    settingsScrollToTopTrigger = settingsScrollToTopTrigger
                 )
                 }
             }
@@ -921,7 +944,9 @@ class MainActivity : ComponentActivity() {
                             onSettingsClose = { onTabSelected(0) },
                             onBackToCurrentWeek = onBackToCurrentWeek,
                             selectedDay = selectedDay,
-                            onSelectedDayChange = { selectedDay = it }
+                            onSelectedDayChange = { selectedDay = it },
+                    rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                            settingsScrollToTopTrigger = settingsScrollToTopTrigger
                         )
                         }
                         // 规则（常驻）
@@ -958,7 +983,9 @@ class MainActivity : ComponentActivity() {
                             onSettingsClose = { onTabSelected(0) },
                             onBackToCurrentWeek = onBackToCurrentWeek,
                             selectedDay = selectedDay,
-                            onSelectedDayChange = { selectedDay = it }
+                            onSelectedDayChange = { selectedDay = it },
+                    rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                            settingsScrollToTopTrigger = settingsScrollToTopTrigger
                         )
                         }
                         // 设置（常驻）
@@ -995,7 +1022,9 @@ class MainActivity : ComponentActivity() {
                             onSettingsClose = { onTabSelected(0) },
                             onBackToCurrentWeek = onBackToCurrentWeek,
                             selectedDay = selectedDay,
-                            onSelectedDayChange = { selectedDay = it }
+                            onSelectedDayChange = { selectedDay = it },
+                    rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                            settingsScrollToTopTrigger = settingsScrollToTopTrigger
                         )
                         }
                     }
@@ -1039,7 +1068,10 @@ class MainActivity : ComponentActivity() {
         onBackToCurrentWeek: () -> Unit,
         // v7.41：横屏通用图表面板——选中日状态透传 HistoryScreen
         selectedDay: LocalDate? = null,
-        onSelectedDayChange: (LocalDate?) -> Unit = {}
+        onSelectedDayChange: (LocalDate?) -> Unit = {},
+        // v8.33：规则/设置页回到顶部trigger
+        rulesScrollToTopTrigger: Int = 0,
+        settingsScrollToTopTrigger: Int = 0
     ) {
         when (page) {
             0 -> HistoryScreen(
@@ -1069,7 +1101,8 @@ class MainActivity : ComponentActivity() {
                 onDeleteRule = onDeleteRule,
                 onToggleRule = onToggleRule,
                 onResetHitCount = onResetHitCount,
-                onRescanRule = onRescanRule
+                onRescanRule = onRescanRule,
+                scrollToTopTrigger = rulesScrollToTopTrigger
             )
             2 -> SettingsScreen(
                 onClose = onSettingsClose,
@@ -1082,6 +1115,7 @@ class MainActivity : ComponentActivity() {
                 // v8.31：未监控应用状态由 MainActivity 统一管理，确保历史页和设置页同步刷新
                 unmonitoredApps = unmonitoredApps,
                 onUnmonitoredAppsChanged = { this@MainActivity.unmonitoredApps = it },
+                scrollToTopTrigger = settingsScrollToTopTrigger
             )
         }
     }
@@ -1170,4 +1204,16 @@ class MainActivity : ComponentActivity() {
 fun Color.luminance(): Float {
     return (this.red * 0.2126f + this.green * 0.7152f + this.blue * 0.0722f)
 }
+
+
+
+
+
+
+
+
+
+
+
+
 

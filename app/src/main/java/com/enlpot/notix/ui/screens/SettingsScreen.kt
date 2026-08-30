@@ -78,6 +78,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -147,6 +148,7 @@ fun SettingsScreen(
     // v8.31：未监控应用状态由 MainActivity 统一管理，确保历史页和设置页同步刷新
     unmonitoredApps: Set<String> = emptySet(),
     onUnmonitoredAppsChanged: (Set<String>) -> Unit = {},
+    scrollToTopTrigger: Int = 0
 ) {
     val context = LocalContext.current
     val ruleStorage = remember { RuleStorage(context) }
@@ -1013,6 +1015,13 @@ fun SettingsScreen(
 
     // v8.16：吸顶标题——左上角"设置"随内容自然上滑，到达状态栏下沿后吸顶固定
     val scrollState = rememberScrollState()
+
+    // v8.33：底部设置tab单击回到顶部
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) {
+            scrollState.scrollTo(0)
+        }
+    }
     val density = LocalDensity.current
 
     Scaffold(
@@ -1761,5 +1770,7 @@ private fun isKeepaliveServiceRunning(context: Context): Boolean {
         it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }
+
+
 
 

@@ -1059,7 +1059,7 @@ private fun androidx.compose.foundation.lazy.LazyItemScope.EmptyStateBox(
     title: String,
     description: String
 ) {
-    Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         EmptyState(icon = icon, title = title, description = description)
     }
 }
@@ -1999,3 +1999,4 @@ private fun LazyListScope.foldSegments(
         }
     }
 }
+

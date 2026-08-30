@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.screens
+﻿package com.enlpot.notix.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.filled.Add
@@ -24,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -55,9 +57,18 @@ fun RulesScreen(
     onDeleteRule: (BlockerRule) -> Unit = {},
     onToggleRule: (BlockerRule, Boolean) -> Unit = { _, _ -> },
     onResetHitCount: (BlockerRule) -> Unit = {},
-    onRescanRule: () -> Unit = {}
+    onRescanRule: () -> Unit = {},
+    scrollToTopTrigger: Int = 0
 ) {
     var ruleToDelete by remember { mutableStateOf<BlockerRule?>(null) }
+    val listState = rememberLazyListState()
+
+    // v8.33：底部规则tab单击回到顶部
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > 0) {
+            listState.scrollToItem(0)
+        }
+    }
 
     val c = MaterialTheme.notix
     val t = MaterialTheme.notixType
@@ -130,6 +141,7 @@ fun RulesScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -246,3 +258,5 @@ private fun buildExtraDescription(rule: BlockerRule): String {
     }
     return parts.joinToString("，")
 }
+
+
