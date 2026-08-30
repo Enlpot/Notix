@@ -645,7 +645,7 @@ class MainActivity : ComponentActivity() {
                                     } else if (index == 1 && currentTab == 1) {
                                         // v8.33：已在规则页时再次点击底部规则tab则回到顶部
                                         onRulesTabClick()
-                                    } else if (index == 2 && currentTab == 2) {
+                                    } else if (index == 3 && currentTab == 3) {
                                         // v8.33：已在设置页时再次点击底部设置tab则回到顶部
                                         onSettingsTabClick()
                                     } else {
