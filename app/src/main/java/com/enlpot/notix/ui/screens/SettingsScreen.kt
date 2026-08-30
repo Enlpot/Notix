@@ -927,12 +927,27 @@ fun SettingsScreen(
             onDismiss = { showRefreshAppInfoDialog = false },
             onConfirm = {
                 val storage = AppInfoStorage(context)
-                storage.clearAllAppInfo()
+                val pm = context.packageManager
+                val flags = android.content.pm.PackageManager.GET_UNINSTALLED_PACKAGES or
+                        android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+                val allApps = storage.getAllApps()
+                var refreshedCount = 0
+                allApps.forEach { (packageName, _) ->
+                    try {
+                        val appInfo = pm.getApplicationInfo(packageName, flags)
+                        val appName = pm.getApplicationLabel(appInfo).toString()
+                        val icon = appInfo.loadIcon(pm)
+                        storage.saveAppInfo(packageName, appName, icon)
+                        refreshedCount++
+                    } catch (_: Exception) {
+                        // 获取失败的 app 保留原有缓存
+                    }
+                }
                 showRefreshAppInfoDialog = false
-                showMessage("应用信息已刷新，下次通知到达时将重新获取名称和图标")
+                showMessage("已重新获取 $refreshedCount 个应用的名称和图标")
             },
             title = "刷新应用信息",
-            body = "将清除所有已缓存的应用名称和图标。下次通知到达时会重新从系统获取应用信息，此操作不会删除通知历史。",
+            body = "将立即根据包名从系统重新获取所有已缓存应用的名称和图标，覆盖现有缓存。此操作不会删除通知历史。",
             confirmText = stringResource(R.string.confirm),
             danger = false,
         )
@@ -1075,7 +1090,7 @@ fun SettingsScreen(
                 SettingsRow(
                     icon = Icons.Filled.Refresh,
                     title = "刷新应用信息",
-                    subtitle = "清除缓存的应用名称和图标，下次通知到达时重新获取",
+                    subtitle = "立即根据包名重新获取所有应用的名称和图标",
                     onClick = { showRefreshAppInfoDialog = true },
                 )
             }
@@ -1746,4 +1761,5 @@ private fun isKeepaliveServiceRunning(context: Context): Boolean {
         it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }
+
 
