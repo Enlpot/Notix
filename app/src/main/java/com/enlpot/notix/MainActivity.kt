@@ -792,6 +792,86 @@ class MainActivity : ComponentActivity() {
                     settingsScrollToTopTrigger = settingsScrollToTopTrigger
                 )
                 }
+                // 统计（常驻）
+                Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 2) 1f else 0f).graphicsLayer { alpha = alpha2 }) {
+                PagerScreenContent(
+                    page = 2,
+                    historyEntries = historyEntries,
+                    pastNotifications = pastNotifications,
+                    rules = rules,
+                    unmonitoredApps = unmonitoredApps,
+                    listenerPaused = listenerPaused,
+                    backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                    scrollToTopTrigger = scrollToTopTrigger,
+                    onRefreshHistory = onRefreshHistory,
+                    onEntryHistoryClick = onEntryHistoryClick,
+                    onOpenNotification = onOpenNotification,
+                    onRestoreNotification = onRestoreNotification,
+                    onCreateRuleFromNotification = onCreateRuleFromNotification,
+                    onClearHistory = onClearHistory,
+                    onClearBlockedHistory = onClearBlockedHistory,
+                    onRuleClick = onRuleClick,
+                    onCreateRuleClick = onCreateRuleClick,
+                    onDeleteHistoryNotificationClick = onDeleteHistoryNotificationClick,
+                    onToggleListenerPaused = onToggleListenerPaused,
+                    onToggleAllRules = onToggleAllRules,
+                    onStopMonitoring = onStopMonitoring,
+                    onResumeMonitoring = onResumeMonitoring,
+                    onDeleteRule = onDeleteRule,
+                    onToggleRule = onToggleRule,
+                    onResetHitCount = onResetHitCount,
+                    onRescanRule = onRescanRule,
+                    onClearHistoryByDate = onClearHistoryByDate,
+                    onClearHistoryByPackages = onClearHistoryByPackages,
+                    onSettingsClose = { onTabSelected(0) },
+                    onBackToCurrentWeek = onBackToCurrentWeek,
+                    selectedDay = selectedDay,
+                    onSelectedDayChange = { selectedDay = it },
+                    rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                    settingsScrollToTopTrigger = settingsScrollToTopTrigger,
+                    statsScrollToTopTrigger = statsScrollToTopTrigger
+                )
+                }
+                        // 统计（常驻）
+                        Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 2) 1f else 0f).graphicsLayer { alpha = alpha2 }) {
+                        PagerScreenContent(
+                            page = 2,
+                            historyEntries = historyEntries,
+                            pastNotifications = pastNotifications,
+                            rules = rules,
+                            unmonitoredApps = unmonitoredApps,
+                            listenerPaused = listenerPaused,
+                            backToCurrentWeekTrigger = backToCurrentWeekTrigger,
+                            scrollToTopTrigger = scrollToTopTrigger,
+                            onRefreshHistory = onRefreshHistory,
+                            onEntryHistoryClick = onEntryHistoryClick,
+                            onOpenNotification = onOpenNotification,
+                            onRestoreNotification = onRestoreNotification,
+                            onCreateRuleFromNotification = onCreateRuleFromNotification,
+                            onClearHistory = onClearHistory,
+                            onClearBlockedHistory = onClearBlockedHistory,
+                            onRuleClick = onRuleClick,
+                            onCreateRuleClick = onCreateRuleClick,
+                            onDeleteHistoryNotificationClick = onDeleteHistoryNotificationClick,
+                            onToggleListenerPaused = onToggleListenerPaused,
+                            onToggleAllRules = onToggleAllRules,
+                            onStopMonitoring = onStopMonitoring,
+                            onResumeMonitoring = onResumeMonitoring,
+                            onDeleteRule = onDeleteRule,
+                            onToggleRule = onToggleRule,
+                            onResetHitCount = onResetHitCount,
+                            onRescanRule = onRescanRule,
+                            onClearHistoryByDate = onClearHistoryByDate,
+                            onClearHistoryByPackages = onClearHistoryByPackages,
+                            onSettingsClose = { onTabSelected(0) },
+                            onBackToCurrentWeek = onBackToCurrentWeek,
+                            selectedDay = selectedDay,
+                            onSelectedDayChange = { selectedDay = it },
+                            rulesScrollToTopTrigger = rulesScrollToTopTrigger,
+                            settingsScrollToTopTrigger = settingsScrollToTopTrigger,
+                            statsScrollToTopTrigger = statsScrollToTopTrigger
+                        )
+                        }
                 // 设置（常驻）
                 Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 3) 1f else 0f).graphicsLayer { alpha = alpha3 }) {
                 PagerScreenContent(
