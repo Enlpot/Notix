@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -58,7 +59,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.DragHandle
@@ -1143,7 +1143,6 @@ private fun ConditionConfigDialog(
                                 stringResource(R.string.rule_wizard_keyword_include)
                             },
                             keywords = includeKeywords,
-                            // 点击 chip 主体进入编辑：先把原词从列表移除并回填到弹窗输入框
                             onEditKeyword = { kw ->
                                 onRemoveIncludeKeyword(kw)
                                 includeInitial = kw
@@ -1160,7 +1159,6 @@ private fun ConditionConfigDialog(
                             KeywordChipRow(
                                 label = stringResource(R.string.rule_wizard_keyword_not_contains_b),
                                 keywords = excludeKeywords,
-                                // 点击 chip 主体进入编辑：先把原词从列表移除并回填到弹窗输入框
                                 onEditKeyword = { kw ->
                                     onRemoveExcludeKeyword(kw)
                                     excludeInitial = kw
@@ -1171,7 +1169,7 @@ private fun ConditionConfigDialog(
                                     excludeInitial = ""
                                     showExcludeDialog = true
                                 },
-                            )
+                        )
                         }
                         if (showIncludeDialog) {
                             KeywordInputDialog(
@@ -1363,30 +1361,51 @@ private fun KeywordChipRow(
     onRemoveKeyword: (String) -> Unit,
     onAddClick: () -> Unit,
 ) {
+    val desc = if (keywords.isNotEmpty()) {
+        "已设置 ${keywords.size} 个关键字"
+    } else {
+        stringResource(R.string.rule_wizard_keyword_placeholder)
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onAddClick() },
+            shape = NotixCorner.Card,
+            color = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f),
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.notixType.bodySecondary,
-                fontWeight = FontWeight.Medium,
-            )
-            IconButton(
-                onClick = onAddClick,
-                modifier = Modifier.size(32.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(MaterialTheme.notixSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.notixType.body,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = desc,
+                        style = MaterialTheme.notixType.caption,
+                        color = if (keywords.isNotEmpty()) MaterialTheme.notix.primary else MaterialTheme.notix.contentSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.rule_wizard_add_keyword),
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
                     modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.notix.contentSecondary,
                 )
             }
         }
-        Spacer(Modifier.height(MaterialTheme.notixSpacing.xs))
         if (keywords.isNotEmpty()) {
+            Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.xs),
@@ -1414,12 +1433,6 @@ private fun KeywordChipRow(
                     )
                 }
             }
-        } else {
-            Text(
-                text = stringResource(R.string.rule_wizard_keyword_placeholder),
-                style = MaterialTheme.notixType.caption,
-                color = MaterialTheme.notix.contentSecondary,
-            )
         }
     }
 }
@@ -2690,4 +2703,8 @@ private fun actionDescription(action: RuleAction): String = when (action) {
     RuleAction.DELAY -> stringResource(R.string.rule_action_desc_wait)
     RuleAction.POSTPONE -> stringResource(R.string.rule_action_desc_postpone)
 }
+
+
+
+
 
