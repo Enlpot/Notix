@@ -27,6 +27,10 @@ import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.TipsAndUpdates
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -120,6 +124,19 @@ fun StatisticsScreen(
         }
         .sortedByDescending { it.third }
         .take(5)
+
+    // 通知健康度评分
+    val healthScore = remember(historyEntries) {
+        calculateHealthScore(historyEntries)
+    }
+    val healthStats = remember(historyEntries) {
+        calculateHealthStats(historyEntries)
+    }
+
+    // 改进建议
+    val suggestions = remember(historyEntries, rules) {
+        generateSuggestions(historyEntries, rules)
+    }
 
     // App环形图数据（前6个app，其余归为"其他"）
     val pieData = remember(historyEntries) {
@@ -217,6 +234,171 @@ fun StatisticsScreen(
                     items = listOf("总次数" to totalHits.toString()),
                     modifier = Modifier.weight(1f),
                 )
+            }
+        }
+
+        // 通知健康度评分
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = NotixCorner.Card,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceElevated),
+            ) {
+                Column(modifier = Modifier.padding(MaterialTheme.notixSpacing.md)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = healthScoreColor(healthScore),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "通知健康度",
+                            style = MaterialTheme.notixType.body,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.notix.contentPrimary,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = healthScoreLabel(healthScore),
+                            style = MaterialTheme.notixType.caption,
+                            fontWeight = FontWeight.Bold,
+                            color = healthScoreColor(healthScore),
+                        )
+                    }
+                    Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
+                        val ringBgColor = MaterialTheme.notix.surfaceVariant
+                        val ringFgColor = healthScoreColor(healthScore)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // 环形进度条
+                        Box(
+                            modifier = Modifier.size(100.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val strokeWidth = 10f
+                                val radius = (size.minDimension - strokeWidth) / 2f
+                                val center = Offset(size.width / 2f, size.height / 2f)
+                                // 背景环
+                                drawCircle(
+                                    color = ringBgColor,
+                                    radius = radius,
+                                    center = center,
+                                    style = Stroke(width = strokeWidth),
+                                )
+                                // 进度环
+                                drawArc(
+                                    color = ringFgColor,
+                                    startAngle = -90f,
+                                    sweepAngle = (healthScore / 100f) * 360f,
+                                    useCenter = false,
+                                    topLeft = Offset(center.x - radius, center.y - radius),
+                                    size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                                    style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = healthScore.toString(),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = healthScoreColor(healthScore),
+                                )
+                                Text(
+                                    text = "分",
+                                    style = MaterialTheme.notixType.caption,
+                                    color = MaterialTheme.notix.contentSecondary,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(MaterialTheme.notixSpacing.md))
+                        // 评分详情
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            HealthDetailRow(
+                                label = "7日平均通知量",
+                                value = "${healthStats.avgDailyCount}条",
+                                score = healthStats.dailyCountScore,
+                            )
+                            HealthDetailRow(
+                                label = "通知来源分散度",
+                                value = "${healthStats.appCount}个app",
+                                score = healthStats.diversityScore,
+                            )
+                            HealthDetailRow(
+                                label = "规则过滤效率",
+                                value = "${healthStats.filterRate}%",
+                                score = healthStats.filterScore,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 改进建议
+        if (suggestions.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = NotixCorner.Card,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceElevated),
+                ) {
+                    Column(modifier = Modifier.padding(MaterialTheme.notixSpacing.md)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.TipsAndUpdates,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.notix.primary,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "改进建议",
+                                style = MaterialTheme.notixType.body,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.notix.contentPrimary,
+                            )
+                        }
+                        Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
+                        suggestions.forEach { suggestion ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Icon(
+                                    imageVector = suggestion.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .padding(top = 2.dp),
+                                    tint = suggestion.color,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = suggestion.text,
+                                    style = MaterialTheme.notixType.caption,
+                                    color = MaterialTheme.notix.contentSecondary,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -972,6 +1154,276 @@ private fun DonutChart(
     }
 }
 
+
+/**
+ * 健康度统计数据。
+ */
+private data class HealthStats(
+    val avgDailyCount: Int,
+    val appCount: Int,
+    val filterRate: Int,
+    val dailyCountScore: Int,
+    val diversityScore: Int,
+    val filterScore: Int,
+)
+
+/**
+ * 改进建议。
+ */
+private data class Suggestion(
+    val text: String,
+    val icon: ImageVector,
+    val color: Color,
+)
+
+/**
+ * 计算通知健康度评分（0-100）。
+ */
+private fun calculateHealthScore(entries: List<NotificationHistoryEntry>): Int {
+    if (entries.isEmpty()) return 85  // 无数据时默认良好
+
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+
+    // 7日平均通知量
+    val last7Days = entries.filter { entry ->
+        entry.lastTimestamp?.let {
+            val date = LocalDate.ofInstant(Instant.ofEpochMilli(it), zone)
+            !date.isBefore(today.minusDays(6))
+        } ?: false
+    }
+    val avgDailyCount = last7Days.size / 7
+
+    // 通知来源数量
+    val appCount = entries.mapNotNull { it.packageName }.distinct().size
+
+    // 过滤比例
+    val filteredCount = entries.count { it.blocked }
+    val filterRate = if (entries.isNotEmpty()) (filteredCount * 100 / entries.size) else 0
+
+    // 评分计算
+    // 通知量分（40分）：日均<=10得满分，每多5条扣5分，最低0分
+    val dailyCountScore = (40 - ((avgDailyCount - 10) / 5) * 5).coerceIn(0, 40)
+    // 分散度分（30分）：app>=10得满分，每少1个扣3分
+    val diversityScore = (30 - (10 - appCount) * 3).coerceIn(0, 30)
+    // 过滤效率分（30分）：过滤率在10%-40%得满分，过高或过低扣分
+    val filterScore = when {
+        filterRate in 10..40 -> 30
+        filterRate < 10 -> 30 - (10 - filterRate) * 2
+        else -> 30 - (filterRate - 40) / 2
+    }.coerceIn(0, 30)
+
+    return dailyCountScore + diversityScore + filterScore
+}
+
+/**
+ * 计算健康度统计详情。
+ */
+private fun calculateHealthStats(entries: List<NotificationHistoryEntry>): HealthStats {
+    if (entries.isEmpty()) return HealthStats(0, 0, 0, 0, 0, 0)
+
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+
+    val last7Days = entries.filter { entry ->
+        entry.lastTimestamp?.let {
+            val date = LocalDate.ofInstant(Instant.ofEpochMilli(it), zone)
+            !date.isBefore(today.minusDays(6))
+        } ?: false
+    }
+    val avgDailyCount = last7Days.size / 7
+    val appCount = entries.mapNotNull { it.packageName }.distinct().size
+    val filteredCount = entries.count { it.blocked }
+    val filterRate = if (entries.isNotEmpty()) (filteredCount * 100 / entries.size) else 0
+
+    val dailyCountScore = (40 - ((avgDailyCount - 10) / 5) * 5).coerceIn(0, 40)
+    val diversityScore = (30 - (10 - appCount) * 3).coerceIn(0, 30)
+    val filterScore = when {
+        filterRate in 10..40 -> 30
+        filterRate < 10 -> 30 - (10 - filterRate) * 2
+        else -> 30 - (filterRate - 40) / 2
+    }.coerceIn(0, 30)
+
+    return HealthStats(avgDailyCount, appCount, filterRate, dailyCountScore, diversityScore, filterScore)
+}
+
+/**
+ * 健康度评分颜色。
+ */
+private fun healthScoreColor(score: Int): Color = when {
+    score >= 80 -> Color(0xFF10B981)  // 绿色-优秀
+    score >= 60 -> Color(0xFFF59E0B)  // 黄色-良好
+    score >= 40 -> Color(0xFFF97316)  // 橙色-一般
+    else -> Color(0xFFEF4444)  // 红色-较差
+}
+
+/**
+ * 健康度评分标签。
+ */
+private fun healthScoreLabel(score: Int): String = when {
+    score >= 80 -> "优秀"
+    score >= 60 -> "良好"
+    score >= 40 -> "一般"
+    else -> "较差"
+}
+
+/**
+ * 生成改进建议。
+ */
+private fun generateSuggestions(
+    entries: List<NotificationHistoryEntry>,
+    rules: List<BlockerRule>,
+): List<Suggestion> {
+    val suggestions = mutableListOf<Suggestion>()
+    if (entries.isEmpty()) return suggestions
+
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+
+    // 7日平均通知量
+    val last7Days = entries.filter { entry ->
+        entry.lastTimestamp?.let {
+            val date = LocalDate.ofInstant(Instant.ofEpochMilli(it), zone)
+            !date.isBefore(today.minusDays(6))
+        } ?: false
+    }
+    val avgDailyCount = last7Days.size / 7
+
+    // 通知最多的app
+    val topApp = entries
+        .filter { it.packageName != null }
+        .groupBy { it.packageName!! }
+        .mapValues { it.value.size }
+        .maxByOrNull { it.value }
+
+    // 常驻通知数量
+    val ongoingCount = 0
+
+    // 建议1：通知量过高
+    if (avgDailyCount > 20) {
+        suggestions.add(
+            Suggestion(
+                text = "近7日日均通知${avgDailyCount}条，通知量偏多，建议检查是否有app频繁发送无用通知",
+                icon = Icons.Default.Warning,
+                color = Color(0xFFF59E0B),
+            )
+        )
+    }
+
+    // 建议2：某个app通知占比过高
+    if (topApp != null && entries.isNotEmpty()) {
+        val topRatio = topApp.value * 100 / entries.size
+        if (topRatio > 50) {
+            val appName = entries.firstOrNull { it.packageName == topApp.key }?.appLabel ?: topApp.key
+            suggestions.add(
+                Suggestion(
+                    text = "$appName 通知占比${topRatio}%，过于集中，建议为该app创建过滤规则",
+                    icon = Icons.Default.Warning,
+                    color = Color(0xFFF97316),
+                )
+            )
+        }
+    }
+
+    // 建议3：规则较少或命中率低
+    val activeRules = rules.count { it.isEnabled }
+    val totalHits = rules.sumOf { it.hitCount }
+    if (activeRules == 0) {
+        suggestions.add(
+            Suggestion(
+                text = "尚未创建任何过滤规则，建议创建规则自动过滤无用通知",
+                icon = Icons.Default.TipsAndUpdates,
+                color = Color(0xFF3B82F6),
+            )
+        )
+    } else if (totalHits < 5 && entries.size > 20) {
+        suggestions.add(
+            Suggestion(
+                text = "规则命中率较低，建议优化规则条件或增加更多规则",
+                icon = Icons.Default.TipsAndUpdates,
+                color = Color(0xFF3B82F6),
+            )
+        )
+    }
+
+    // 建议4：常驻通知较多
+    if (false) {
+        suggestions.add(
+            Suggestion(
+                text = "常驻通知有${ongoingCount}条，建议清理不需要的常驻通知",
+                icon = Icons.Default.Warning,
+                color = Color(0xFFF59E0B),
+            )
+        )
+    }
+
+    // 建议5：通知管理良好
+    if (suggestions.isEmpty() && avgDailyCount in 5..20 && activeRules > 0) {
+        suggestions.add(
+            Suggestion(
+                text = "通知管理良好，继续保持！",
+                icon = Icons.Default.CheckCircle,
+                color = Color(0xFF10B981),
+            )
+        )
+    }
+
+    return suggestions.take(4)
+}
+
+/**
+ * 健康度详情行组件。
+ */
+@Composable
+private fun HealthDetailRow(
+    label: String,
+    value: String,
+    score: Int,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.notixType.caption,
+            color = MaterialTheme.notix.contentSecondary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.notixType.caption,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.notix.contentPrimary,
+        )
+        Spacer(Modifier.width(8.dp))
+        // 小进度条
+        Box(
+            modifier = Modifier
+                .width(40.dp)
+                .height(4.dp)
+                .background(
+                    color = MaterialTheme.notix.surfaceVariant,
+                    shape = RoundedCornerShape(2.dp),
+                ),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(score / 40f)
+                    .height(4.dp)
+                    .background(
+                        color = when {
+                            score >= 30 -> Color(0xFF10B981)
+                            score >= 20 -> Color(0xFFF59E0B)
+                            else -> Color(0xFFEF4444)
+                        },
+                        shape = RoundedCornerShape(2.dp),
+                    ),
+            )
+        }
+    }
+}
+
 /**
  * 统计卡片组件。
  */
@@ -1030,6 +1482,9 @@ private fun StatCard(
         }
     }
 }
+
+
+
 
 
 
