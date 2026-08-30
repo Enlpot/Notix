@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -57,13 +60,14 @@ import com.enlpot.notix.ui.theme.*
 fun RuleCard(
     ruleName: String,
     appName: String,
-    conditionText: String,
+    keywordSummary: String,
+    phoneStateSummary: String,
+    timeSummary: String,
     actionText: String,
     hitCount: Int,
     modifier: Modifier = Modifier,
     packageName: String? = null,
     enabled: Boolean = true,
-    extraConditionText: String = "",
     accent: Color? = null,
     onAccent: Color? = null,
     onLongClick: () -> Unit = {},
@@ -172,20 +176,88 @@ fun RuleCard(
                     .background(sepFg),
             )
 
-            // 第三行：规则内容（匹配条件 + 附加条件，可换行）
-            val fullConditionText = buildString {
-                append(conditionText)
-                if (extraConditionText.isNotBlank()) {
-                    if (isNotEmpty()) append("；")
-                    append(extraConditionText)
+            // 第三行：条件区（三行：关键字、状态、时间，不限则不显示）
+            if (keywordSummary.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Label,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp).padding(top = 2.dp),
+                        tint = actionFg,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "关键字",
+                        style = t.caption,
+                        color = weakFg,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.width(42.dp),
+                    )
+                    Text(
+                        text = keywordSummary,
+                        style = t.caption,
+                        color = actionFg,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
-            if (fullConditionText.isNotBlank()) {
-                Text(
-                    text = fullConditionText,
-                    style = t.bodySecondary,
-                    color = weakFg,
-                )
+            if (phoneStateSummary.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp).padding(top = 2.dp),
+                        tint = weakFg,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "状态",
+                        style = t.caption,
+                        color = weakFg,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.width(42.dp),
+                    )
+                    Text(
+                        text = phoneStateSummary,
+                        style = t.caption,
+                        color = weakFg,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            if (timeSummary.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp).padding(top = 2.dp),
+                        tint = weakFg,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "时间",
+                        style = t.caption,
+                        color = weakFg,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.width(42.dp),
+                    )
+                    Text(
+                        text = timeSummary,
+                        style = t.caption,
+                        color = weakFg,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
             // 第四行：动作流（可换行）
@@ -210,3 +282,4 @@ fun RuleCard(
         }
     }
 }
+

@@ -345,7 +345,9 @@ fun ComponentShowcaseContent() {
                 ruleName = "未命名规则1",
                 appName = "Shell",
                 packageName = null,
-                conditionText = "匹配：包含任一关键字 “天气预警”",
+                keywordSummary = "包含任一：天气预警",
+                phoneStateSummary = "",
+                timeSummary = "",
                 actionText = "动作：移除通知（含常驻冻结 7 天）",
                 hitCount = 12,
                 enabled = true,
@@ -355,7 +357,9 @@ fun ComponentShowcaseContent() {
                 ruleName = "广告过滤",
                 appName = "微博",
                 packageName = null,
-                conditionText = "匹配：来自指定频道",
+                keywordSummary = "包含任一：广告, 推广",
+                phoneStateSummary = "亮屏",
+                timeSummary = "09:00-18:00 · 工作日",
                 actionText = "动作：静音 30 分钟",
                 hitCount = 3,
                 enabled = false,
@@ -367,8 +371,9 @@ fun ComponentShowcaseContent() {
                 ruleName = "天气预警",
                 appName = "天气",
                 packageName = null,
-                conditionText = "匹配：包含任一关键字 “雷阵雨”",
-                extraConditionText = "亮屏时",
+                keywordSummary = "包含任一：雷阵雨, 暴雨",
+                phoneStateSummary = "亮屏 · 充电中",
+                timeSummary = "06:00-22:00 · 每天",
                 actionText = "动作：移除通知（含常驻冻结 7 天）",
                 hitCount = 28,
                 enabled = true,
@@ -454,4 +459,5 @@ fun ComponentPreview_Dark() {
         }
     }
 }
+
 

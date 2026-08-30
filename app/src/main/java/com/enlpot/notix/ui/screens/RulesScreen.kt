@@ -200,8 +200,9 @@ fun RulesScreen(
                         ruleName = ruleDisplayNames[rule.id] ?: rule.name ?: "未命名规则",
                         appName = appName,
                         packageName = primary?.packageName ?: "",
-                        conditionText = buildConditionDescription(rule),
-                        extraConditionText = buildExtraDescription(rule),
+                        keywordSummary = buildConditionDescription(rule),
+                        phoneStateSummary = buildPhoneStateDescription(rule),
+                        timeSummary = buildTimeDescription(rule),
                         actionText = actionText,
                         hitCount = rule.hitCount,
                         enabled = rule.isEnabled,
@@ -262,34 +263,43 @@ private fun buildConditionDescription(rule: BlockerRule): String {
         com.enlpot.notix.MatchMode.ADVANCED -> "高级匹配"
     }
     return when (cond.mode) {
-        com.enlpot.notix.MatchMode.MIXED -> "${a.joinToString("」") { "「$it」" }}，且不包含${b.joinToString("」") { "「$it」" }}"
+        com.enlpot.notix.MatchMode.MIXED -> "${a.joinToString("、") { "「$it」" }}，且不包含${b.joinToString("、") { "「$it」" }}"
         com.enlpot.notix.MatchMode.NOT_CONTAINS_ANY, com.enlpot.notix.MatchMode.NOT_CONTAINS_ALL ->
-            "${modeText}：${a.joinToString("」") { "「$it」" }}"
-        else -> "${modeText}：${a.joinToString("」") { "「$it」" }}"
+            "${modeText}：${a.joinToString("、") { "「$it」" }}"
+        else -> "${modeText}：${a.joinToString("、") { "「$it」" }}"
     }
 }
 
-private fun buildExtraDescription(rule: BlockerRule): String {
+private fun buildPhoneStateDescription(rule: BlockerRule): String {
     val parts = mutableListOf<String>()
     val extra = rule.extraCondition
     when (extra.screenState) {
-        com.enlpot.notix.ScreenState.SCREEN_ON -> parts.add("亮屏时")
-        com.enlpot.notix.ScreenState.SCREEN_OFF -> parts.add("熄屏时")
+        com.enlpot.notix.ScreenState.SCREEN_ON -> parts.add("亮屏")
+        com.enlpot.notix.ScreenState.SCREEN_OFF -> parts.add("熄屏")
         else -> {}
     }
     when (extra.chargingState) {
-        com.enlpot.notix.ChargingState.WIRED -> parts.add("有线充电时")
-        com.enlpot.notix.ChargingState.WIRELESS -> parts.add("无线充电时")
-        com.enlpot.notix.ChargingState.BATTERY -> parts.add("电池供电时")
+        com.enlpot.notix.ChargingState.WIRED -> parts.add("有线充电")
+        com.enlpot.notix.ChargingState.WIRELESS -> parts.add("无线充电")
+        com.enlpot.notix.ChargingState.BATTERY -> parts.add("电池供电")
         else -> {}
     }
-    if (extra.time.enabled) {
-        val time = extra.time
-        val weekText = if (time.weekdays.isEmpty()) "每天" else time.weekdays.sorted().joinToString(",") { "$it" }
-        parts.add("${time.startHour.toString().padStart(2, '0')}:${time.startMinute.toString().padStart(2, '0')}-${time.endHour.toString().padStart(2, '0')}:${time.endMinute.toString().padStart(2, '0')} $weekText")
-    }
-    return parts.joinToString("，")
+    return parts.joinToString(" · ")
 }
+
+private fun buildTimeDescription(rule: BlockerRule): String {
+    val extra = rule.extraCondition
+    if (!extra.time.enabled) return ""
+    val time = extra.time
+    val weekText = if (time.weekdays.isEmpty()) "每天" else {
+        val weekNames = listOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
+        time.weekdays.sorted().joinToString("、") { weekNames.getOrElse(it) { "周$it" } }
+    }
+    return "${time.startHour.toString().padStart(2, '0')}:${time.startMinute.toString().padStart(2, '0')}-${time.endHour.toString().padStart(2, '0')}:${time.endMinute.toString().padStart(2, '0')} · $weekText"
+}
+
+
+
 
 
 
