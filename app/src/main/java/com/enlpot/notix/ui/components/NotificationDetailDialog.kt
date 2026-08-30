@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.components
+﻿package com.enlpot.notix.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -74,6 +74,7 @@ fun NotificationDetailDialog(
     val text = notification.text.orEmpty()
     val sdf = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
     val timeStr = sdf.format(Date(notification.timestamp))
+    val isOngoing = notification.wasOngoing
 
     // v7.14：已过滤标签使用 error 实底 + 对比度文字色（与变更计数角标一致）
     val errorColor = c.error
@@ -147,6 +148,30 @@ fun NotificationDetailDialog(
                                 style = MaterialTheme.notixType.caption,
                                 color = c.contentSecondary
                             )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (isOngoing) "常驻通知" else "普通通知",
+                                    style = MaterialTheme.notixType.caption,
+                                    color = c.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (blocked) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.NotificationsOff,
+                                        contentDescription = null,
+                                        tint = errorColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(sp.xs))
+                                    Text(
+                                        text = stringResource(R.string.history_blocked_badge),
+                                        style = MaterialTheme.notixType.caption,
+                                        fontWeight = FontWeight.Bold,
+                                        color = errorColor
+                                    )
+                                }
+                            }
                         }
                     }
                     HorizontalDivider(color = c.outlineVariant)
@@ -176,24 +201,6 @@ fun NotificationDetailDialog(
                                         color = c.contentSecondary
                                     )
                                 }
-                            }
-                        }
-                        if (blocked) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.NotificationsOff,
-                                    contentDescription = null,
-                                    tint = errorColor,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(sp.xs))
-                                Text(
-                                    text = stringResource(R.string.history_blocked_badge),
-                                    style = MaterialTheme.notixType.caption,
-                                    fontWeight = FontWeight.Bold,
-                                    color = errorColor
-                                )
                             }
                         }
                     }
@@ -275,3 +282,5 @@ fun NotificationDetailDialog(
         )
     }
 }
+
+
