@@ -1,4 +1,4 @@
-﻿package com.enlpot.notix
+package com.enlpot.notix
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -448,17 +448,13 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         if (savedAppName == null || savedAppName == packageName) {
             try {
                 val appName = appLabel
-                val iconDrawable = notification.smallIcon?.loadDrawable(this)
-                if (iconDrawable != null) {
-                    appInfoStorage.saveAppInfo(packageName, appName, iconDrawable)
-                } else {
-                    Log.w(TAG, "Could not load icon for $packageName")
-                }
-                if (savedAppName == packageName) {
-                    historyExecutor.execute {
-                        kotlinx.coroutines.runBlocking {
-                            notificationHistoryRepository.updateAppLabelForPackage(packageName, appLabel)
-                        }
+                // v8.31：图标多级容错——getApplicationIcon → ApplicationInfo.loadIcon(多flag) → 通知smallIcon → 默认图标
+                val iconDrawable = loadAppIconSafely(packageName, notification.smallIcon)
+                appInfoStorage.saveAppInfo(packageName, appName, iconDrawable)
+                // v8.31：保存 app_info 后，同步更新通知历史中的 app_label（修复首次保存时不更新的问题）
+                historyExecutor.execute {
+                    kotlinx.coroutines.runBlocking {
+                        notificationHistoryRepository.updateAppLabelForPackage(packageName, appLabel)
                     }
                 }
             } catch (e: Exception) {
@@ -991,6 +987,8 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                         }
                         if (exists) {
                             skipped++
+                            // v8.31：即使通知已在历史中，也确保 app_info 已保存（修复图标/名称显示包名的问题）
+                            ensureAppInfoSaved(sbn)
                             continue
                         }
                         // 未记录则走正常处理流程
@@ -1005,6 +1003,77 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                 Log.e(TAG, "Sync active notifications failed", e)
             }
         }.start()
+    }
+
+    /**
+     * v8.31：确保 app_info 已保存。如果 app_info 不存在或保存的是包名，则重新保存，
+     * 并同步更新通知历史中的 app_label。用于修复已存在通知显示包名而非应用名称的问题。
+     */
+    private fun ensureAppInfoSaved(sbn: StatusBarNotification) {
+        try {
+            val packageName = sbn.packageName
+            val savedAppName = appInfoStorage.isAppInfoSaved(packageName)
+            if (savedAppName == null || savedAppName == packageName) {
+                // 应用名称：resolveAppName 内部已包含 PackageManager + extras 兜底
+                var appName = resolveAppName(this, sbn).toString()
+                // 如果还是包名，再尝试从通知 extras 获取
+                if (appName == packageName) {
+                    val extrasName = sbn.notification.extras.getCharSequence("android.appName")?.toString()
+                    if (!extrasName.isNullOrBlank() && extrasName != packageName) {
+                        appName = extrasName
+                    }
+                }
+                // 图标：多级容错
+                val iconDrawable = loadAppIconSafely(packageName, sbn.notification.smallIcon)
+                appInfoStorage.saveAppInfo(packageName, appName, iconDrawable)
+                historyExecutor.execute {
+                    kotlinx.coroutines.runBlocking {
+                        notificationHistoryRepository.updateAppLabelForPackage(packageName, appName)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ensureAppInfoSaved failed for ${sbn.packageName}", e)
+        }
+    }
+
+    /**
+     * v8.31：安全加载应用图标，多级容错：
+     * 1. PackageManager.getApplicationIcon（正常 app）
+     * 2. ApplicationInfo.loadIcon（多 flag，应对 Android 14+ 特殊状态）
+     * 3. 通知 smallIcon.loadDrawable（兜底）
+     * 4. 系统默认图标（最终兜底）
+     */
+    private fun loadAppIconSafely(packageName: String, smallIcon: android.graphics.drawable.Icon?): android.graphics.drawable.Drawable {
+        // 方式1：标准方式
+        try {
+            return packageManager.getApplicationIcon(packageName)
+        } catch (e: Exception) {
+            Log.w(TAG, "getApplicationIcon failed for $packageName, try ApplicationInfo.loadIcon", e)
+        }
+        // 方式2：用多 flag 获取 ApplicationInfo 后 loadIcon
+        try {
+            val flags = android.content.pm.PackageManager.GET_UNINSTALLED_PACKAGES or
+                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+            val appInfo = packageManager.getApplicationInfo(packageName, flags)
+            val icon = appInfo.loadIcon(packageManager)
+            if (icon != null) return icon
+        } catch (e: Exception) {
+            Log.w(TAG, "ApplicationInfo.loadIcon failed for $packageName, try smallIcon", e)
+        }
+        // 方式3：通知 smallIcon
+        try {
+            val icon = smallIcon?.loadDrawable(this)
+            if (icon != null) return icon
+        } catch (e: Exception) {
+            Log.w(TAG, "smallIcon loadDrawable failed for $packageName, using default", e)
+        }
+        // 方式4：默认图标
+        return try {
+            packageManager.getApplicationIcon("android")
+        } catch (e: Exception) {
+            android.graphics.drawable.ColorDrawable(android.graphics.Color.GRAY)
+        }
     }
 
     /**
@@ -1215,7 +1284,10 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         val extras = sbn.notification.extras
         val pkg = sbn.packageName
         return try {
-            val ai = context.packageManager.getApplicationInfo(pkg, 0)
+            // v8.31：使用多 flag 获取 ApplicationInfo，应对 Android 14+ 特殊状态
+            val flags = android.content.pm.PackageManager.GET_UNINSTALLED_PACKAGES or
+                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+            val ai = context.packageManager.getApplicationInfo(pkg, flags)
             val label = context.packageManager.getApplicationLabel(ai).toString()
             if (label == "Android系统" || label == "Android System") {
                 extras.getCharSequence(Notification.EXTRA_SUB_TEXT)

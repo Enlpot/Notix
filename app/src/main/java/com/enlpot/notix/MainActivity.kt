@@ -1079,6 +1079,9 @@ class MainActivity : ComponentActivity() {
                 // v7.50：存储占用——清空全部规则
                 onClearRules = { clearAllRulesForStorage() },
                 pastNotifications = pastNotifications,
+                // v8.31：未监控应用状态由 MainActivity 统一管理，确保历史页和设置页同步刷新
+                unmonitoredApps = unmonitoredApps,
+                onUnmonitoredAppsChanged = { this@MainActivity.unmonitoredApps = it },
             )
         }
     }
@@ -1167,3 +1170,4 @@ class MainActivity : ComponentActivity() {
 fun Color.luminance(): Float {
     return (this.red * 0.2126f + this.green * 0.7152f + this.blue * 0.0722f)
 }
+

@@ -10,6 +10,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- v8.31：Android 11+ 包可见性声明——允许查询所有有启动 Activity 的应用，
+         用于获取发送通知的应用名称和图标（否则 PackageManager.getApplicationInfo 会抛 NameNotFoundException） -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+        </intent>
+    </queries>
+
     <application
         android:name=".NotixApp"
         android:allowBackup="true"

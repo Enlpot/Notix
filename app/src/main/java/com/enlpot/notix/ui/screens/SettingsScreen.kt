@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.screens
+﻿package com.enlpot.notix.ui.screens
 
 import android.app.ActivityManager
 import android.content.Context
@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -103,6 +104,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.enlpot.notix.AppInfoStorage
 import com.enlpot.notix.CrashLogManager
 import com.enlpot.notix.ImportError
 import com.enlpot.notix.ImportResult
@@ -142,6 +144,9 @@ fun SettingsScreen(
     onClearHistoryByPackages: (Set<String>) -> Unit = {},
     onClearRules: () -> Unit = {},
     pastNotifications: List<SimpleNotification> = emptyList(),
+    // v8.31：未监控应用状态由 MainActivity 统一管理，确保历史页和设置页同步刷新
+    unmonitoredApps: Set<String> = emptySet(),
+    onUnmonitoredAppsChanged: (Set<String>) -> Unit = {},
 ) {
     val context = LocalContext.current
     val ruleStorage = remember { RuleStorage(context) }
@@ -170,17 +175,18 @@ fun SettingsScreen(
         mutableStateOf(NotificationColorEngine.isDynamicColorEnabled(context))
     }
 
-    // v8.21：未监控应用管理
+    // v8.21：未监控应用管理（v8.31：状态由 MainActivity 统一管理，确保历史页和设置页同步刷新）
     val unmonitoredStorage = remember { UnmonitoredAppsStorage(context) }
-    var unmonitoredRefreshTick by remember { mutableStateOf(0) }
-    val unmonitoredApps = remember(unmonitoredRefreshTick) { unmonitoredStorage.getUnmonitoredApps() }
     var showUnmonitoredAppsDialog by remember { mutableStateOf(false) }
     var unmonitoredSearchQuery by remember { mutableStateOf("") }
     var selectedUnmonitoredPackages by remember { mutableStateOf(setOf<String>()) }
-    val unmonitoredAppList = remember(unmonitoredApps, unmonitoredRefreshTick) {
+    val unmonitoredAppList = remember(unmonitoredApps) {
         val pm = context.packageManager
         unmonitoredApps.map { pkg ->
-            val label = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { pkg }
+            val label = try {
+                val flags = android.content.pm.PackageManager.GET_UNINSTALLED_PACKAGES or android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+                pm.getApplicationLabel(pm.getApplicationInfo(pkg, flags)).toString()
+            } catch (_: Exception) { pkg }
             pkg to label
         }.sortedBy { it.second.lowercase() }
     }
@@ -199,6 +205,9 @@ fun SettingsScreen(
 
     // v8.14：恢复常驻通知——确认弹窗状态
     var showRestoreSnoozedDialog by remember { mutableStateOf(false) }
+
+    // v8.31：刷新应用信息——清除缓存的应用名称和图标，下次通知到达时重新获取
+    var showRefreshAppInfoDialog by remember { mutableStateOf(false) }
 
     // v8.17：关于分组改为弹窗形式（功能介绍 / 隐私与安全）
     var showAboutFeaturesDialog by remember { mutableStateOf(false) }
@@ -858,7 +867,8 @@ fun SettingsScreen(
                         selectedUnmonitoredPackages.forEach { pkg ->
                             unmonitoredStorage.removeApp(pkg)
                         }
-                        unmonitoredRefreshTick++
+                        // v8.31：通知 MainActivity 更新未监控应用状态，确保历史页同步刷新
+                        onUnmonitoredAppsChanged(unmonitoredStorage.getUnmonitoredApps().toSet())
                         showUnmonitoredAppsDialog = false
                         unmonitoredSearchQuery = ""
                         selectedUnmonitoredPackages = setOf()
@@ -906,6 +916,23 @@ fun SettingsScreen(
             },
             title = stringResource(R.string.settings_restore_snoozed_confirm_title),
             body = stringResource(R.string.settings_restore_snoozed_confirm_body),
+            confirmText = stringResource(R.string.confirm),
+            danger = false,
+        )
+    }
+
+    // v8.31：刷新应用信息——确认弹窗（清除缓存的应用名称和图标）
+    if (showRefreshAppInfoDialog) {
+        NotixConfirmDialog(
+            onDismiss = { showRefreshAppInfoDialog = false },
+            onConfirm = {
+                val storage = AppInfoStorage(context)
+                storage.clearAllAppInfo()
+                showRefreshAppInfoDialog = false
+                showMessage("应用信息已刷新，下次通知到达时将重新获取名称和图标")
+            },
+            title = "刷新应用信息",
+            body = "将清除所有已缓存的应用名称和图标。下次通知到达时会重新从系统获取应用信息，此操作不会删除通知历史。",
             confirmText = stringResource(R.string.confirm),
             danger = false,
         )
@@ -1043,6 +1070,13 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_storage_usage),
                     subtitle = formatStorageBytes(storageTotalBytes),
                     onClick = { showStorageUsageScreen = true },
+                )
+                // v8.31：刷新应用信息——清除缓存的应用名称和图标
+                SettingsRow(
+                    icon = Icons.Filled.Refresh,
+                    title = "刷新应用信息",
+                    subtitle = "清除缓存的应用名称和图标，下次通知到达时重新获取",
+                    onClick = { showRefreshAppInfoDialog = true },
                 )
             }
 
@@ -1712,3 +1746,4 @@ private fun isKeepaliveServiceRunning(context: Context): Boolean {
         it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }
+
