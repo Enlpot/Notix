@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.components
+﻿package com.enlpot.notix.ui.components
 
 import android.content.Context
 import android.content.Intent
@@ -22,7 +22,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import com.enlpot.notix.ui.components.NotixSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -111,7 +111,7 @@ fun CrashLogDialog(
                                 else c.contentSecondary
                             )
                         }
-                        Switch(
+                        NotixSwitch(
                             checked = enabled,
                             onCheckedChange = {
                                 enabled = it
@@ -243,3 +243,4 @@ private fun openLogLocation(context: Context): String? {
         context.getString(R.string.crash_log_path_toast, file.absolutePath)
     }
 }
+

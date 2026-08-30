@@ -92,7 +92,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import com.enlpot.notix.ui.components.NotixSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -1653,7 +1653,7 @@ private fun TimeSection(
                 color = MaterialTheme.notix.contentSecondary,
                 modifier = Modifier.weight(1f),
             )
-            Switch(checked = timeEnabled, onCheckedChange = onTimeEnabledChange)
+            NotixSwitch(checked = timeEnabled, onCheckedChange = onTimeEnabledChange)
         }
         AnimatedVisibility(visible = timeEnabled) {
             Column {
@@ -2269,7 +2269,7 @@ private fun ActionParamEditor(
                                 .padding(vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Switch(checked = mode == m, onCheckedChange = { mode = m })
+                            NotixSwitch(checked = mode == m, onCheckedChange = { mode = m })
                             Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                             Text(
                                 text = copyModeLabel(m),
@@ -2422,7 +2422,7 @@ private fun ActionParamEditor(
                         modifier = Modifier.fillMaxWidth().clickable { sound = !sound }.padding(vertical = MaterialTheme.notixSpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Switch(checked = sound, onCheckedChange = { sound = it })
+                        NotixSwitch(checked = sound, onCheckedChange = { sound = it })
                         Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                         Text(stringResource(R.string.rule_wizard_strong_remind_sound))
                     }
@@ -2430,7 +2430,7 @@ private fun ActionParamEditor(
                         modifier = Modifier.fillMaxWidth().clickable { vibrate = !vibrate }.padding(vertical = MaterialTheme.notixSpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Switch(checked = vibrate, onCheckedChange = { vibrate = it })
+                        NotixSwitch(checked = vibrate, onCheckedChange = { vibrate = it })
                         Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
                         Text(stringResource(R.string.rule_wizard_strong_remind_vibrate))
                     }
@@ -2507,7 +2507,7 @@ private fun ActionParamEditor(
                                 color = MaterialTheme.notix.contentSecondary,
                             )
                         }
-                        Switch(
+                        NotixSwitch(
                             checked = includeOngoing,
                             onCheckedChange = { includeOngoing = it },
                         )
@@ -2703,6 +2703,7 @@ private fun actionDescription(action: RuleAction): String = when (action) {
     RuleAction.DELAY -> stringResource(R.string.rule_action_desc_wait)
     RuleAction.POSTPONE -> stringResource(R.string.rule_action_desc_postpone)
 }
+
 
 
 

@@ -71,7 +71,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
+import com.enlpot.notix.ui.components.NotixSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -1050,7 +1050,7 @@ fun SettingsScreen(
                     subtitle = stringResource(R.string.settings_extract_remoteviews_desc),
                     onClick = null,
                     trailing = {
-                        Switch(
+                        NotixSwitch(
                             checked = extractRemoteViewsEnabled,
                             onCheckedChange = { enabled ->
                                 extractRemoteViewsEnabled = enabled
@@ -1066,7 +1066,7 @@ fun SettingsScreen(
                     subtitle = stringResource(R.string.settings_dynamic_color_desc),
                     onClick = null,
                     trailing = {
-                        Switch(
+                        NotixSwitch(
                             checked = dynamicColorEnabled,
                             onCheckedChange = { enabled ->
                                 dynamicColorEnabled = enabled
@@ -1770,6 +1770,7 @@ private fun isKeepaliveServiceRunning(context: Context): Boolean {
         it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }
+
 
 
 

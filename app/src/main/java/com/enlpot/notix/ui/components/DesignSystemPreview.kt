@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
+import com.enlpot.notix.ui.components.NotixSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -190,7 +190,7 @@ private fun DesignSystemContent() {
                         Spacer(Modifier.width(sp.sm))
                         Text("Shell", style = NotixTypographyTokens.cardTitle, color = s.contentPrimary)
                         Spacer(Modifier.weight(1f))
-                        Switch(checked = true, onCheckedChange = { })
+                        NotixSwitch(checked = true, onCheckedChange = { })
                     }
                     Text("匹配：包含任一关键字 “天气预警”", style = NotixTypographyTokens.bodySecondary, color = s.contentSecondary)
                     Box(Modifier.fillMaxWidth().height(1.dp).background(s.outlineVariant))
@@ -208,7 +208,7 @@ private fun DesignSystemContent() {
                 Box(Modifier.clip(NotixCorner.Full).background(s.surfaceVariant).padding(horizontal = sp.md, vertical = sp.xs)) {
                     Text("未选", style = NotixTypographyTokens.label, color = s.contentSecondary)
                 }
-                Switch(checked = true, onCheckedChange = { })
+                NotixSwitch(checked = true, onCheckedChange = { })
             }
         }
 
@@ -395,7 +395,7 @@ fun ComponentShowcaseContent() {
             SettingRow(
                 icon = Icons.Default.Notifications,
                 title = "普通项",
-                trailing = { Switch(checked = true, onCheckedChange = {}) },
+                trailing = { NotixSwitch(checked = true, onCheckedChange = {}) },
             )
         }
 
@@ -459,5 +459,6 @@ fun ComponentPreview_Dark() {
         }
     }
 }
+
 
 
