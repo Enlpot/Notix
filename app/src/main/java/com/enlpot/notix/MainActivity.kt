@@ -18,6 +18,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -71,6 +72,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -681,17 +684,15 @@ class MainActivity : ComponentActivity() {
         }
         // v7.41：当前 tab 页面内容（横屏右半 / 竖屏内容区共用）
         val screenContent: @Composable () -> Unit = {
-            // v8.0：tab 切换过渡动画（淡入淡出 + 轻微水平位移，约 250ms）
-            AnimatedContent(
-                targetState = currentTab,
-                transitionSpec = {
-                    (fadeIn(tween(250)) + slideInHorizontally { it / 8 }) togetherWith
-                        (fadeOut(tween(250)) + slideOutHorizontally { -it / 8 })
-                },
-                label = "tabContent",
-            ) { tab ->
-                when (tab) {
-                0 -> PagerScreenContent(
+            // v8.30：三屏常驻组合树，避免切换 tab 时 HistoryScreen 销毁导致滚动/折叠状态丢失
+            // 用 alpha 动画 + zIndex 控制显隐和触摸层级（当前 tab zIndex=1 在最上层）
+            val alpha0 by animateFloatAsState(if (currentTab == 0) 1f else 0f, tween(200), label = "tab0Alpha")
+            val alpha1 by animateFloatAsState(if (currentTab == 1) 1f else 0f, tween(200), label = "tab1Alpha")
+            val alpha2 by animateFloatAsState(if (currentTab == 2) 1f else 0f, tween(200), label = "tab2Alpha")
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 通知历史（常驻）
+                Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 0) 1f else 0f).graphicsLayer { alpha = alpha0 }) {
+                PagerScreenContent(
                     page = 0,
                     historyEntries = historyEntries,
                     pastNotifications = pastNotifications,
@@ -725,7 +726,10 @@ class MainActivity : ComponentActivity() {
                     selectedDay = selectedDay,
                     onSelectedDayChange = { selectedDay = it }
                 )
-                1 -> PagerScreenContent(
+                }
+                // 规则（常驻）
+                Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 1) 1f else 0f).graphicsLayer { alpha = alpha1 }) {
+                PagerScreenContent(
                     page = 1,
                     historyEntries = historyEntries,
                     pastNotifications = pastNotifications,
@@ -759,7 +763,10 @@ class MainActivity : ComponentActivity() {
                     selectedDay = selectedDay,
                     onSelectedDayChange = { selectedDay = it }
                 )
-                else -> PagerScreenContent(
+                }
+                // 设置（常驻）
+                Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 2) 1f else 0f).graphicsLayer { alpha = alpha2 }) {
+                PagerScreenContent(
                     page = 2,
                     historyEntries = historyEntries,
                     pastNotifications = pastNotifications,
@@ -874,18 +881,15 @@ class MainActivity : ComponentActivity() {
                 color = MaterialTheme.colorScheme.background
             ) {
                 Box(modifier = Modifier.padding(innerPadding)) {
-                    // v7.40：底部三 tab 取消滑动，改为按 currentTab 直接渲染当前页
-                    // v8.0：tab 切换过渡动画（淡入淡出 + 轻微水平位移，约 250ms）
-                    AnimatedContent(
-                        targetState = currentTab,
-                        transitionSpec = {
-                            (fadeIn(tween(250)) + slideInHorizontally { it / 8 }) togetherWith
-                                (fadeOut(tween(250)) + slideOutHorizontally { -it / 8 })
-                        },
-                        label = "tabContent",
-                    ) { tab ->
-                        when (tab) {
-                        0 -> PagerScreenContent(
+                    // v8.30：三屏常驻组合树，避免切换 tab 时 HistoryScreen 销毁导致滚动/折叠状态丢失
+                    // 用 alpha 动画 + zIndex 控制显隐和触摸层级（当前 tab zIndex=1 在最上层）
+                    val alpha0 by animateFloatAsState(if (currentTab == 0) 1f else 0f, tween(200), label = "vTab0Alpha")
+                    val alpha1 by animateFloatAsState(if (currentTab == 1) 1f else 0f, tween(200), label = "vTab1Alpha")
+                    val alpha2 by animateFloatAsState(if (currentTab == 2) 1f else 0f, tween(200), label = "vTab2Alpha")
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // 通知历史（常驻）
+                        Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 0) 1f else 0f).graphicsLayer { alpha = alpha0 }) {
+                        PagerScreenContent(
                             page = 0,
                             historyEntries = historyEntries,
                             pastNotifications = pastNotifications,
@@ -919,7 +923,10 @@ class MainActivity : ComponentActivity() {
                             selectedDay = selectedDay,
                             onSelectedDayChange = { selectedDay = it }
                         )
-                        1 -> PagerScreenContent(
+                        }
+                        // 规则（常驻）
+                        Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 1) 1f else 0f).graphicsLayer { alpha = alpha1 }) {
+                        PagerScreenContent(
                             page = 1,
                             historyEntries = historyEntries,
                             pastNotifications = pastNotifications,
@@ -953,7 +960,10 @@ class MainActivity : ComponentActivity() {
                             selectedDay = selectedDay,
                             onSelectedDayChange = { selectedDay = it }
                         )
-                        else -> PagerScreenContent(
+                        }
+                        // 设置（常驻）
+                        Box(modifier = Modifier.fillMaxSize().zIndex(if (currentTab == 2) 1f else 0f).graphicsLayer { alpha = alpha2 }) {
+                        PagerScreenContent(
                             page = 2,
                             historyEntries = historyEntries,
                             pastNotifications = pastNotifications,
