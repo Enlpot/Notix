@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -68,7 +66,6 @@ fun RuleCard(
     onLongClick: () -> Unit = {},
     onToggle: (Boolean) -> Unit = {},
     onClick: () -> Unit = {},
-    onRescan: () -> Unit = {},
     onResetHitCount: () -> Unit = {},
 ) {
     val c = MaterialTheme.notix
@@ -119,17 +116,6 @@ fun RuleCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(
-                    onClick = onRescan,
-                    modifier = Modifier.size(44.dp),
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = clickableFg),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = stringResource(R.string.notification_rescan),
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
                 Switch(checked = enabled, onCheckedChange = onToggle)
             }
 
@@ -151,7 +137,7 @@ fun RuleCard(
                 )
             }
 
-            // 分隔线 + 执行动作（强）；仅当存在动作时展示，避免空布局
+            // 分隔线 + 执行动作（强）+ 重置按钮；仅当存在动作时展示，避免空布局
             if (actionText.isNotBlank()) {
                 Box(
                     modifier = Modifier
@@ -159,11 +145,37 @@ fun RuleCard(
                         .height(1.dp)
                         .background(sepFg),
                 )
-                Text(
-                    text = actionText,
-                    style = t.cardTitle.copy(fontWeight = FontWeight.SemiBold),
-                    color = actionFg,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = actionText,
+                        style = t.cardTitle.copy(fontWeight = FontWeight.SemiBold),
+                        color = actionFg,
+                        modifier = Modifier.weight(1f),
+                    )
+                    // 重置命中按钮（命中 > 0 时显示，点击区 ≥44dp）
+                    if (hitCount > 0) {
+                        TextButton(
+                            onClick = onResetHitCount,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = clickableFg,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.reset_hit_counters),
+                                style = t.label,
+                                color = clickableFg,
+                            )
+                        }
+                    }
+                }
             }
 
             // 命中次数（三级）
@@ -177,31 +189,6 @@ fun RuleCard(
                 color = tertiaryFg,
             )
 
-            // 重置命中按钮（命中 > 0 时显示，点击区 ≥44dp）
-            if (hitCount > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(
-                        onClick = onResetHitCount,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = clickableFg,
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(R.string.reset_hit_counters),
-                            style = t.label,
-                            color = clickableFg,
-                        )
-                    }
-                }
-            }
         }
     }
 }

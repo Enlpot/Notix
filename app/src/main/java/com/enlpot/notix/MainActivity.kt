@@ -1068,8 +1068,7 @@ class MainActivity : ComponentActivity() {
             1 -> RulesScreen(rules, onRuleClick, onCreateRuleClick, onToggleAllRules,
                 onDeleteRule = onDeleteRule,
                 onToggleRule = onToggleRule,
-                onResetHitCount = onResetHitCount,
-                onRescanRule = onRescanRule
+                onResetHitCount = onResetHitCount
             )
             2 -> SettingsScreen(
                 onClose = onSettingsClose,

@@ -54,10 +54,10 @@ fun RulesScreen(
     onToggleAllRules: (Boolean) -> Unit,
     onDeleteRule: (BlockerRule) -> Unit = {},
     onToggleRule: (BlockerRule, Boolean) -> Unit = { _, _ -> },
-    onResetHitCount: (BlockerRule) -> Unit = {},
-    onRescanRule: () -> Unit = {}
+    onResetHitCount: (BlockerRule) -> Unit = {}
 ) {
     var ruleToDelete by remember { mutableStateOf<BlockerRule?>(null) }
+    var ruleToResetHitCount by remember { mutableStateOf<BlockerRule?>(null) }
 
     val c = MaterialTheme.notix
     val t = MaterialTheme.notixType
@@ -179,8 +179,7 @@ fun RulesScreen(
                         onClick = { onRuleClick(rule) },
                         onLongClick = { ruleToDelete = rule },
                         onToggle = { enabled -> onToggleRule(rule, enabled) },
-                        onRescan = onRescanRule,
-                        onResetHitCount = { onResetHitCount(rule) },
+                        onResetHitCount = { ruleToResetHitCount = rule },
                     )
                 }
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -199,6 +198,20 @@ fun RulesScreen(
             title = stringResource(R.string.confirm_delete_rule_title),
             body = stringResource(R.string.confirm_delete_rule_message),
             confirmText = stringResource(R.string.confirm_delete),
+        )
+    }
+
+    // Reset hit count confirmation dialog
+    ruleToResetHitCount?.let { rule ->
+        NotixConfirmDialog(
+            onDismiss = { ruleToResetHitCount = null },
+            onConfirm = {
+                onResetHitCount(rule)
+                ruleToResetHitCount = null
+            },
+            title = "重置命中计数？",
+            body = "将重置该规则的命中次数，此操作不可撤销。",
+            confirmText = "重置",
         )
     }
 }

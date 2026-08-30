@@ -371,7 +371,6 @@ fun ComponentShowcaseContent() {
                 enabled = true,
                 accent = c.primary,
                 onAccent = c.onPrimary,
-                onRescan = {},
                 onResetHitCount = {},
             )
         }
