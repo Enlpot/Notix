@@ -87,9 +87,27 @@ jobs:
         id: notes
         run: |
           VERSION=${{ needs.check-version.outputs.version }}
-          # Find the previous tag
-          PREV_TAG=$(git tag --sort=-creatordate | grep -A1 "^v$VERSION$" | tail -1)
-          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "v$VERSION" ]; then
+          # Find the previous tag - robust matching for both v8.38 and v8.38.0 formats
+          # Strategy: list tags sorted by date descending, find first tag whose version < current version
+          PREV_TAG=""
+          CURRENT_MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          CURRENT_MINOR=$(echo "$VERSION" | cut -d. -f2)
+          CURRENT_PATCH=$(echo "$VERSION" | cut -d. -f3)
+          for tag in $(git tag --sort=-creatordate | grep -E "^v[0-9]"); do
+            TAG_VER=$(echo "$tag" | sed 's/^v//')
+            TAG_MAJOR=$(echo "$TAG_VER" | cut -d. -f1)
+            TAG_MINOR=$(echo "$TAG_VER" | cut -d. -f2)
+            TAG_PATCH=$(echo "$TAG_VER" | cut -d. -f3)
+            TAG_PATCH=${TAG_PATCH:-0}
+            # Compare versions: tag version < current version
+            if [ "$TAG_MAJOR" -lt "$CURRENT_MAJOR" ] 2>/dev/null || \
+               { [ "$TAG_MAJOR" -eq "$CURRENT_MAJOR" ] 2>/dev/null && [ "$TAG_MINOR" -lt "$CURRENT_MINOR" ] 2>/dev/null; } || \
+               { [ "$TAG_MAJOR" -eq "$CURRENT_MAJOR" ] 2>/dev/null && [ "$TAG_MINOR" -eq "$CURRENT_MINOR" ] 2>/dev/null && [ "$TAG_PATCH" -lt "$CURRENT_PATCH" ] 2>/dev/null; }; then
+              PREV_TAG="$tag"
+              break
+            fi
+          done
+          if [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
           echo "Previous tag: $PREV_TAG"
@@ -99,13 +117,18 @@ jobs:
           NOTES+="Changes since ${PREV_TAG}.\n\n"
           NOTES+="## What's Changed\n\n"
           
-          # Categorize commits
-          FEATS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -i "^- feat" || true)
-          FIXES=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -i "^- fix" || true)
-          CHORES=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -iE "^- (chore|docs|perf|refactor|style|test)" || true)
+          # Categorize commits - support both English (feat/fix/chore) and Chinese (功能/优化/修复) prefixes
+          ALL_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD)
+          FEATS=$(echo "$ALL_COMMITS" | grep -iE "^- (feat|功能|新增|add)" || true)
+          FIXES=$(echo "$ALL_COMMITS" | grep -iE "^- (fix|修复|bug)" || true)
+          IMPROVED=$(echo "$ALL_COMMITS" | grep -iE "^- (优化|improve|perf|refactor|style)" || true)
+          CHORES=$(echo "$ALL_COMMITS" | grep -iE "^- (chore|docs|test|升版|v[0-9])" || true)
           
           if [ -n "$FEATS" ]; then
             NOTES+="### Features\n$FEATS\n\n"
+          fi
+          if [ -n "$IMPROVED" ]; then
+            NOTES+="### Improved\n$IMPROVED\n\n"
           fi
           if [ -n "$FIXES" ]; then
             NOTES+="### Bug Fixes\n$FIXES\n\n"

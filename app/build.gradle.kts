@@ -27,8 +27,8 @@ android {
         applicationId = "com.enlpot.notix"
         minSdk = 24
         targetSdk = 36
-        versionCode = 153
-        versionName = "8.38.0"
+        versionCode = 154
+        versionName = "8.39.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -100,6 +100,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
 
 
 
