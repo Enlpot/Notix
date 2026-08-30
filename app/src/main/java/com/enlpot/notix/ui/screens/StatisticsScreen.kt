@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -118,6 +120,34 @@ fun StatisticsScreen(
         }
         .sortedByDescending { it.third }
         .take(5)
+
+    // App环形图数据（前6个app，其余归为"其他"）
+    val pieData = remember(historyEntries) {
+        val appCounts = historyEntries
+            .filter { it.packageName != null }
+            .groupBy { it.packageName!! }
+            .map { (pkg, entries) ->
+                Triple(pkg, entries.firstOrNull()?.appLabel ?: pkg, entries.size)
+            }
+            .sortedByDescending { it.third }
+        val top = appCounts.take(5)
+        val othersCount = appCounts.drop(5).sumOf { it.third }
+        val result = top.toMutableList()
+        if (othersCount > 0) {
+            result.add(Triple("other", "其他", othersCount))
+        }
+        result
+    }
+    val pieTotal = pieData.sumOf { it.third }
+
+    // 规则效果排行数据（按命中次数降序，前5）
+    val ruleRanking = remember(rules) {
+        rules
+            .filter { it.hitCount > 0 }
+            .sortedByDescending { it.hitCount }
+            .take(5)
+    }
+    val maxRuleHits = ruleRanking.maxOfOrNull { it.hitCount } ?: 1
 
     // 通知趋势数据（近7天）
     val trendData = remember(historyEntries) {
@@ -273,6 +303,191 @@ fun StatisticsScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+            }
+        }
+
+        // App通知占比环形图
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = NotixCorner.Card,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceElevated),
+            ) {
+                Column(modifier = Modifier.padding(MaterialTheme.notixSpacing.md)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PieChart,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.notix.primary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "通知来源占比",
+                            style = MaterialTheme.notixType.body,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.notix.contentPrimary,
+                        )
+                    }
+                    Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
+                    if (pieData.isEmpty() || pieTotal == 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "暂无数据",
+                                style = MaterialTheme.notixType.caption,
+                                color = MaterialTheme.notix.contentTertiary,
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // 环形图
+                            DonutChart(
+                                data = pieData,
+                                total = pieTotal,
+                                modifier = Modifier.size(140.dp),
+                            )
+                            Spacer(Modifier.width(MaterialTheme.notixSpacing.md))
+                            // 图例
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                pieData.forEachIndexed { index, (_, label, count) ->
+                                    val percent = if (pieTotal > 0) (count * 100 / pieTotal) else 0
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .background(
+                                                    color = donutColors[index % donutColors.size],
+                                                    shape = RoundedCornerShape(2.dp),
+                                                ),
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.notixType.caption,
+                                            color = MaterialTheme.notix.contentSecondary,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1,
+                                        )
+                                        Text(
+                                            text = "${percent}%",
+                                            style = MaterialTheme.notixType.caption,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.notix.contentPrimary,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 规则效果排行
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = NotixCorner.Card,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceElevated),
+            ) {
+                Column(modifier = Modifier.padding(MaterialTheme.notixSpacing.md)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EmojiEvents,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.notix.primary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "规则效果排行（前5）",
+                            style = MaterialTheme.notixType.body,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.notix.contentPrimary,
+                        )
+                    }
+                    Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
+                    if (ruleRanking.isEmpty()) {
+                        Text(
+                            text = "暂无规则命中数据",
+                            style = MaterialTheme.notixType.caption,
+                            color = MaterialTheme.notix.contentTertiary,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        )
+                    } else {
+                        ruleRanking.forEachIndexed { index, rule ->
+                            val percent = if (maxRuleHits > 0) (rule.hitCount * 100 / maxRuleHits) else 0
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        style = MaterialTheme.notixType.caption,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.notix.primary,
+                                        modifier = Modifier.width(16.dp),
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = rule.name?.ifEmpty { "未命名规则" } ?: "未命名规则",
+                                        style = MaterialTheme.notixType.caption,
+                                        color = MaterialTheme.notix.contentSecondary,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                    )
+                                    Text(
+                                        text = "${rule.hitCount}次",
+                                        style = MaterialTheme.notixType.caption,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.notix.contentPrimary,
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                // 进度条
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .background(
+                                            color = MaterialTheme.notix.surfaceVariant,
+                                            shape = RoundedCornerShape(3.dp),
+                                        ),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(percent / 100f)
+                                            .height(6.dp)
+                                            .background(
+                                                color = MaterialTheme.notix.primary.copy(alpha = 0.7f),
+                                                shape = RoundedCornerShape(3.dp),
+                                            ),
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -692,6 +907,71 @@ private fun HourHeatmap(
     }
 }
 
+
+/**
+ * 环形图颜色列表。
+ */
+private val donutColors = listOf(
+    Color(0xFF6366F1),  // 靛蓝
+    Color(0xFFEC4899),  // 粉红
+    Color(0xFF10B981),  // 翠绿
+    Color(0xFFF59E0B),  // 琥珀
+    Color(0xFF3B82F6),  // 蓝色
+    Color(0xFF8B5CF6),  // 紫色
+    Color(0xFFEF4444),  // 红色
+    Color(0xFF14B8A6),  // 青色
+)
+
+/**
+ * App通知占比环形图组件。
+ */
+@Composable
+private fun DonutChart(
+    data: List<Triple<String, String, Int>>,
+    total: Int,
+    modifier: Modifier = Modifier,
+) {
+    val primaryColor = MaterialTheme.notix.primary
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = size.minDimension * 0.25f
+            val radius = (size.minDimension - strokeWidth) / 2f
+            val center = Offset(size.width / 2f, size.height / 2f)
+            var startAngle = -90f
+
+            data.forEachIndexed { index, (_, _, count) ->
+                if (count <= 0 || total <= 0) return@forEachIndexed
+                val sweepAngle = (count.toFloat() / total) * 360f
+                drawArc(
+                    color = donutColors[index % donutColors.size],
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    topLeft = Offset(center.x - radius, center.y - radius),
+                    size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                    style = Stroke(width = strokeWidth),
+                )
+                startAngle += sweepAngle
+            }
+        }
+        // 中间显示总数
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = total.toString(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = primaryColor,
+            )
+            Text(
+                text = "总通知",
+                style = MaterialTheme.notixType.caption,
+                color = MaterialTheme.notix.contentSecondary,
+            )
+        }
+    }
+}
+
 /**
  * 统计卡片组件。
  */
@@ -750,6 +1030,7 @@ private fun StatCard(
         }
     }
 }
+
 
 
 
