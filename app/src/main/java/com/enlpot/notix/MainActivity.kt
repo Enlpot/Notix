@@ -127,6 +127,10 @@ class MainActivity : ComponentActivity() {
     private var rules by mutableStateOf<List<BlockerRule>>(emptyList())
     private var unmonitoredApps by mutableStateOf<Set<String>>(emptySet())
     private var listenerPaused by mutableStateOf(false)
+    // v8.31：通知历史分页加载——每页 100 条，滚动到底部加载更多，搜索走全量
+    private val HISTORY_PAGE_SIZE = 100
+    private var hasMoreHistory by mutableStateOf(false)
+    private var loadingMoreHistory by mutableStateOf(false)
     private var showRuleWizard by mutableStateOf(false)
     private var editingRule by mutableStateOf<BlockerRule?>(null)
     // v7.39：从成员级提升，随 savedInstanceState 保存恢复（旋转后保留通知预填）
@@ -153,12 +157,47 @@ class MainActivity : ComponentActivity() {
         uiScope.launch {
             delay(400)
             historyRefreshScheduled = false
-            val entries = withContext(Dispatchers.IO) { kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() } }
+            // v8.31：只加载第一页（最近 100 条），滚动到底部再加载更多
+            val entries = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getPagedEntries(HISTORY_PAGE_SIZE, 0) }
+            }
+            val total = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getGroupCount() }
+            }
             historyEntries = entries
             pastNotifications = entries.flatMap { it.changes }
+            hasMoreHistory = entries.size >= HISTORY_PAGE_SIZE && total > entries.size
             rules = ruleStorage.getRules().filter { it.isValid }
             unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
             listenerPaused = NotificationBlockerService.isListenerPaused(this@MainActivity)
+        }
+    }
+
+    // v8.31：加载更多历史通知（下一页）
+    private fun loadMoreHistory() {
+        if (loadingMoreHistory || !hasMoreHistory) return
+        loadingMoreHistory = true
+        uiScope.launch {
+            val offset = historyEntries.size
+            val more = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getPagedEntries(HISTORY_PAGE_SIZE, offset) }
+            }
+            if (more.isNotEmpty()) {
+                historyEntries = historyEntries + more
+                pastNotifications = historyEntries.flatMap { it.changes }
+            }
+            val total = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getGroupCount() }
+            }
+            hasMoreHistory = historyEntries.size < total
+            loadingMoreHistory = false
+        }
+    }
+
+    // v8.31：全量搜索通知历史（覆盖所有数据，不受分页限制）
+    private suspend fun searchHistory(keyword: String): List<SimpleNotification> {
+        return withContext(Dispatchers.IO) {
+            kotlinx.coroutines.runBlocking { notificationHistoryRepository.searchNotifications(keyword, limit = 200) }
         }
     }
 
@@ -231,10 +270,17 @@ class MainActivity : ComponentActivity() {
             showSetupWizard = true
         }
         // v8.0：历史/规则读取移到 IO 线程，避免大历史文件在主线程 Gson 解析导致进入页面卡顿
+        // v8.31：只加载第一页（最近 100 条），滚动到底部再加载更多
         uiScope.launch {
-            val entries = withContext(Dispatchers.IO) { kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() } }
+            val entries = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getPagedEntries(HISTORY_PAGE_SIZE, 0) }
+            }
+            val total = withContext(Dispatchers.IO) {
+                kotlinx.coroutines.runBlocking { notificationHistoryRepository.getGroupCount() }
+            }
             historyEntries = entries
             pastNotifications = entries.flatMap { it.changes }
+            hasMoreHistory = entries.size >= HISTORY_PAGE_SIZE && total > entries.size
             rules = ruleStorage.getRules().filter { it.isValid }
             unmonitoredApps = unmonitoredAppsStorage.getUnmonitoredApps().toSet()
             listenerPaused = NotificationBlockerService.isListenerPaused(this@MainActivity)
@@ -1062,7 +1108,12 @@ class MainActivity : ComponentActivity() {
                 onClearBlockedHistory = onClearBlockedHistory,
                 rules = rules,
                 selectedDay = selectedDay,
-                onSelectedDayChange = onSelectedDayChange
+                onSelectedDayChange = onSelectedDayChange,
+                // v8.31：分页加载 + 全量搜索
+                onSearch = { keyword -> searchHistory(keyword) },
+                onLoadMore = { loadMoreHistory() },
+                hasMore = hasMoreHistory,
+                loadingMore = loadingMoreHistory
             )
 
             1 -> RulesScreen(rules, onRuleClick, onCreateRuleClick, onToggleAllRules,

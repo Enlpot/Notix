@@ -87,6 +87,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -242,6 +243,57 @@ fun HistoryScreen(
         }
     }
 
+    // v8.31：滚动位置保持——数据更新（onResume/新通知到达）时，基于 entry.id 锚定用户正在看的通知，
+    // 避免新通知插入顶部导致列表"滚回顶部"。原理：记录当前可见第一条通知的 entry.id 及其在旧列表中的 index，
+    // 数据更新后计算该 entry 在新列表中的 index 差值，用 firstVisibleItemIndex + 差值 恢复。
+    // 前提：折叠/展开状态不变（数据更新不改变折叠状态，此前提成立）。
+    data class ScrollAnchor(
+        val firstVisibleIndex: Int,
+        val anchorId: String,
+        val oldEntryIndex: Int,
+        val scrollOffset: Int
+    )
+    var previousEntries by remember { mutableStateOf(entries) }
+    var scrollAnchor by remember { mutableStateOf<ScrollAnchor?>(null) }
+
+    SideEffect {
+        if (previousEntries !== entries) {
+            val currentTab = tabPagerState.settledPage
+            val listState = tabListStates[currentTab]
+            val visibleItems = listState.layoutInfo.visibleItemsInfo
+            val entryIdSet = entries.map { it.id }.toSet()
+            // 找到当前可见区域中第一个普通通知卡片（key 是 entry.id，不是 header/fold_toggle 等）
+            val firstNotificationKey = visibleItems
+                .map { it.key }
+                .filterIsInstance<String>()
+                .firstOrNull { it in entryIdSet }
+            if (firstNotificationKey != null) {
+                scrollAnchor = ScrollAnchor(
+                    firstVisibleIndex = listState.firstVisibleItemIndex,
+                    anchorId = firstNotificationKey,
+                    oldEntryIndex = entries.indexOfFirst { it.id == firstNotificationKey },
+                    scrollOffset = listState.firstVisibleItemScrollOffset
+                )
+            }
+            previousEntries = entries
+        }
+    }
+
+    LaunchedEffect(entries) {
+        val anchor = scrollAnchor
+        if (anchor != null) {
+            val currentTab = tabPagerState.settledPage
+            val listState = tabListStates[currentTab]
+            val newEntryIndex = entries.indexOfFirst { it.id == anchor.anchorId }
+            if (newEntryIndex >= 0) {
+                val delta = newEntryIndex - anchor.oldEntryIndex
+                val targetIndex = (anchor.firstVisibleIndex + delta).coerceAtLeast(0)
+                listState.scrollToItem(targetIndex, anchor.scrollOffset)
+            }
+            scrollAnchor = null
+        }
+    }
+
     val context = LocalContext.current
 
     // v7.5：进入历史页检测一次通知监听权限是否掉线
@@ -272,6 +324,22 @@ fun HistoryScreen(
     // v7.37：滑动切页后同步 selectedTab（tab 选择器高亮跟随）
     LaunchedEffect(tabPagerState.settledPage) {
         selectedTab = HistoryTab.entries[tabPagerState.settledPage]
+    }
+
+    // v8.31：分页加载——滚动到底部时触发加载更多（仅非搜索模式）
+    LaunchedEffect(tabPagerState.settledPage, hasMore, searchQuery) {
+        if (searchQuery.isNotBlank() || !hasMore) return@LaunchedEffect
+        val listState = tabListStates[tabPagerState.settledPage]
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo }
+            .collect { visible ->
+                if (visible.isEmpty()) return@collect
+                val totalItems = listState.layoutInfo.totalItemsCount
+                val lastVisibleIndex = visible.last().index
+                // 距离底部不足 5 条时触发加载更多
+                if (lastVisibleIndex >= totalItems - 5) {
+                    onLoadMore()
+                }
+            }
     }
 
     // --- Stop monitoring dialog ---
@@ -380,36 +448,22 @@ fun HistoryScreen(
         else entries.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
     }
 
-    val filteredEntries = remember(dayFilteredEntries, searchQuery) {
+    val filteredEntries = remember(dayFilteredEntries, searchQuery, searchResults) {
         if (searchQuery.isBlank()) dayFilteredEntries
-        else {
-            val query = searchQuery.lowercase()
-            dayFilteredEntries.filter { entry ->
-                val n = entry.latest
-                val app = (n?.appLabel ?: n?.packageName.orEmpty()).lowercase()
-                val t = n?.title.orEmpty().lowercase()
-                val tx = n?.text.orEmpty().lowercase()
-                app.contains(query) || t.contains(query) || tx.contains(query)
-            }
-        }
+        else searchResults // v8.31：搜索时使用全量搜索结果，不受分页限制，可搜到几个月前的通知
     }
 
     // v7.12：被过滤列表从统一历史按 blocked 标记派生（原 blockedNotifications 已并入统一历史）
-    val filteredBlocked = remember(entries, selectedDay, searchQuery) {
-        val day = selectedDay
-        var list = entries.filter { it.blocked }
-        list = if (day == null) list
-        else list.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
-        if (searchQuery.isBlank()) list
-        else {
-            val query = searchQuery.lowercase()
-            list.filter { entry ->
-                val n = entry.latest
-                val app = (n?.appLabel ?: n?.packageName.orEmpty()).lowercase()
-                val t = n?.title.orEmpty().lowercase()
-                val tx = n?.text.orEmpty().lowercase()
-                app.contains(query) || t.contains(query) || tx.contains(query)
-            }
+    // v8.31：搜索时从全量搜索结果中过滤 blocked，不受分页限制
+    val filteredBlocked = remember(entries, selectedDay, searchQuery, searchResults) {
+        if (searchQuery.isNotBlank()) {
+            searchResults.filter { it.blocked }
+        } else {
+            val day = selectedDay
+            var list = entries.filter { it.blocked }
+            list = if (day == null) list
+            else list.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
+            list
         }
     }
 
