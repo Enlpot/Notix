@@ -1,9 +1,10 @@
-﻿package com.enlpot.notix.ui.components
+package com.enlpot.notix.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,15 +41,18 @@ import com.enlpot.notix.R
 import com.enlpot.notix.ui.theme.*
 
 /**
- * 规则卡片（v8.35 重构）。
+ * 规则卡片（v8.35 重构；v8.45 支持折叠/展开）。
  *
- * 布局结构（5行）：
- * - 第一行：规则名称（左，粗体主题色） + 开关（右）
- * - 第二行：app图标 + app名称（左） + 重置计数按钮（右）
- * - 分割线
- * - 第三行：规则内容（匹配条件+附加条件，可换行）
- * - 第四行：动作流（可换行）
- * - 第五行：命中次数
+ * 布局结构：
+ * - 头部区（点击折叠/展开，长按删除）：
+ *   - 第一行：规则名称（左，粗体主题色） + 开关（右）
+ *   - 分割线
+ *   - 第二行：app图标 + app名称（左） + 重置计数按钮（右）
+ * - 内容区（点击进编辑，折叠时隐藏）：
+ *   - 分割线
+ *   - 第三行：规则内容（匹配条件+附加条件，可换行）
+ *   - 第四行：动作流（可换行）
+ *   - 第五行：命中次数
  *
  * 禁用态整体 alpha = 0.5。
  *
@@ -76,6 +80,8 @@ fun RuleCard(
     onToggle: (Boolean) -> Unit = {},
     onClick: () -> Unit = {},
     onResetHitCount: () -> Unit = {},
+    collapsed: Boolean = false,
+    onToggleCollapse: () -> Unit = {},
 ) {
     val c = MaterialTheme.notix
     val t = MaterialTheme.notixType
@@ -97,7 +103,6 @@ fun RuleCard(
             .clip(NotixCorner.Card)
             .background(bg)
             .then(if (isDynamic) Modifier else Modifier.border(1.dp, c.outlineVariant, NotixCorner.Card))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(lay.cardPadding)
             .alpha(if (enabled) 1f else 0.5f)
     ) {
@@ -105,197 +110,207 @@ fun RuleCard(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // 第一行：规则名称（左） + 开关（右）
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = ruleName,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = actionFg,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                NotixSwitch(checked = enabled, onCheckedChange = onToggle)
-            }
-            // 分割线
-            Box(
+            // 头部区（标题行 + app 行）：点击折叠/展开，长按删除
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(1.dp)
-                    .background(sepFg),
-            )
-
-            // 第二行：app图标 + app名称（左） + 重置计数按钮（右）
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                    .combinedClickable(onClick = onToggleCollapse, onLongClick = onLongClick),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                RealAppIcon(
-                    packageName = packageName,
-                    appName = appName,
-                    size = 24.dp,
-                    shape = NotixCorner.Sm,
-                )
-                Spacer(Modifier.width(sp.sm))
-                Text(
-                    text = appName,
-                    style = t.body,
-                    color = headerFg,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (hitCount > 0) {
-                    TextButton(
-                        onClick = onResetHitCount,
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = clickableFg,
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(R.string.reset_hit_counters),
-                            style = t.label,
-                            color = clickableFg,
-                        )
-                    }
-                }
-            }
-
-            // 分割线
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(sepFg),
-            )
-
-            // 第三行：条件区（三行：关键字、状态、时间，不限则不显示）
-            if (keywordSummary.isNotBlank()) {
+                // 第一行：规则名称（左） + 开关（右）
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Label,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = actionFg,
-                    )
-                    Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "关键字",
-                        style = t.caption,
-                        color = weakFg,
-                        fontWeight = FontWeight.Medium,
+                        text = ruleName,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = actionFg,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        modifier = Modifier.widthIn(min = 42.dp),
-                    )
-                    Text(
-                        text = keywordSummary,
-                        style = t.caption,
-                        color = weakFg,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
+                    NotixSwitch(checked = enabled, onCheckedChange = onToggle)
                 }
-            }
-            if (phoneStateSummary.isNotBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PhoneAndroid,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = weakFg,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "状态",
-                        style = t.caption,
-                        color = weakFg,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        modifier = Modifier.widthIn(min = 42.dp),
-                    )
-                    Text(
-                        text = phoneStateSummary,
-                        style = t.caption,
-                        color = weakFg,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-            if (timeSummary.isNotBlank()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = weakFg,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "时间",
-                        style = t.caption,
-                        color = weakFg,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        modifier = Modifier.widthIn(min = 42.dp),
-                    )
-                    Text(
-                        text = timeSummary,
-                        style = t.caption,
-                        color = weakFg,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-
-            // 第四行：动作流（可换行）
-            if (actionText.isNotBlank()) {
+                // 分割线
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
                         .background(sepFg),
                 )
-                Text(
-                    text = actionText,
-                    style = t.cardTitle.copy(fontWeight = FontWeight.SemiBold),
-                    color = actionFg,
-                )
+                // 第二行：app图标 + app名称（左） + 重置计数按钮（右）
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RealAppIcon(
+                        packageName = packageName,
+                        appName = appName,
+                        size = 24.dp,
+                        shape = NotixCorner.Sm,
+                    )
+                    Spacer(Modifier.width(sp.sm))
+                    Text(
+                        text = appName,
+                        style = t.body,
+                        color = headerFg,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (hitCount > 0) {
+                        TextButton(
+                            onClick = onResetHitCount,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = clickableFg,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.reset_hit_counters),
+                                style = t.label,
+                                color = clickableFg,
+                            )
+                        }
+                    }
+                }
             }
 
-            // 第五行：命中次数
-            Text(
-                text = if (hitCount > 0) {
-                    stringResource(R.string.hits_count, hitCount)
-                } else {
-                    stringResource(R.string.no_hits)
-                },
-                style = t.caption,
-                color = tertiaryFg,
-            )
+            // 内容区（条件 + 动作 + 命中）：点击进编辑，折叠时隐藏
+            if (!collapsed) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onClick),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    // 分割线
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(sepFg),
+                    )
+
+                    // 第三行：条件区（三行：关键字、状态、时间，不限则不显示）
+                    if (keywordSummary.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Label,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = actionFg,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "关键字",
+                                style = t.caption,
+                                color = weakFg,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                modifier = Modifier.widthIn(min = 42.dp),
+                            )
+                            Text(
+                                text = keywordSummary,
+                                style = t.caption,
+                                color = weakFg,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    if (phoneStateSummary.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhoneAndroid,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = weakFg,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "状态",
+                                style = t.caption,
+                                color = weakFg,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                modifier = Modifier.widthIn(min = 42.dp),
+                            )
+                            Text(
+                                text = phoneStateSummary,
+                                style = t.caption,
+                                color = weakFg,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    if (timeSummary.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = weakFg,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "时间",
+                                style = t.caption,
+                                color = weakFg,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                modifier = Modifier.widthIn(min = 42.dp),
+                            )
+                            Text(
+                                text = timeSummary,
+                                style = t.caption,
+                                color = weakFg,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+
+                    // 第四行：动作流（可换行）
+                    if (actionText.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(sepFg),
+                        )
+                        Text(
+                            text = actionText,
+                            style = t.cardTitle.copy(fontWeight = FontWeight.SemiBold),
+                            color = actionFg,
+                        )
+                    }
+
+                    // 第五行：命中次数
+                    Text(
+                        text = if (hitCount > 0) {
+                            stringResource(R.string.hits_count, hitCount)
+                        } else {
+                            stringResource(R.string.no_hits)
+                        },
+                        style = t.caption,
+                        color = tertiaryFg,
+                    )
+                }
+            }
         }
     }
 }
-
-
-
-
-
-
-

@@ -270,6 +270,8 @@ class MainActivity : ComponentActivity() {
         var scrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
         // v8.33：规则/设置页回到顶部trigger
         var rulesScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
+        // v8.45：双击规则 tab 全量展开/折叠 trigger
+        var rulesToggleAllCollapsedTrigger by rememberSaveable { mutableIntStateOf(0) }
         var settingsScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
         var statsScrollToTopTrigger by rememberSaveable { mutableIntStateOf(0) }
         // v7.13：上次崩溃弹窗状态（检测到日志非空时下次启动提示）
@@ -361,6 +363,8 @@ class MainActivity : ComponentActivity() {
                 onSettingsTabClick = { settingsScrollToTopTrigger++ },
                 rulesScrollToTopTrigger = rulesScrollToTopTrigger,
                 settingsScrollToTopTrigger = settingsScrollToTopTrigger,
+                rulesToggleAllCollapsedTrigger = rulesToggleAllCollapsedTrigger,
+                onToggleAllRulesCollapsed = { rulesToggleAllCollapsedTrigger++ },
                 onRefreshHistory = {
                     historyEntries = kotlinx.coroutines.runBlocking { notificationHistoryRepository.getEntries() }
                     pastNotifications = historyEntries.flatMap { it.changes }
@@ -580,7 +584,9 @@ class MainActivity : ComponentActivity() {
         onSettingsTabClick: () -> Unit = {},
         rulesScrollToTopTrigger: Int = 0,
         settingsScrollToTopTrigger: Int = 0,
-        statsScrollToTopTrigger: Int = 0
+        statsScrollToTopTrigger: Int = 0,
+        rulesToggleAllCollapsedTrigger: Int = 0,
+        onToggleAllRulesCollapsed: () -> Unit = {}
     ) {
         val context = LocalContext.current // Get context inside Composable
         val c = MaterialTheme.notix
@@ -588,6 +594,8 @@ class MainActivity : ComponentActivity() {
         val coroutineScope = rememberCoroutineScope()
         // v7.37：底部"历史"tab 双击检测（300ms 内二次点击返回本周）
         var lastHistoryTabClickTime by remember { mutableLongStateOf(0L) }
+        // v8.45：底部"规则"tab 双击检测（300ms 内二次点击全部展开/折叠）
+        var lastRulesTabClickTime by remember { mutableLongStateOf(0L) }
         val tabTitles = listOf(
             stringResource(R.string.tab_history),
             stringResource(R.string.tab_rules),
@@ -647,7 +655,15 @@ class MainActivity : ComponentActivity() {
                                         }
                                     } else if (index == 1 && currentTab == 1) {
                                         // v8.33：已在规则页时再次点击底部规则tab则回到顶部
-                                        onRulesTabClick()
+                                        // v8.45：300ms 内双击切换全部规则展开/折叠
+                                        val now = SystemClock.uptimeMillis()
+                                        if (now - lastRulesTabClickTime <= 300L) {
+                                            lastRulesTabClickTime = 0L
+                                            onToggleAllRulesCollapsed()
+                                        } else {
+                                            lastRulesTabClickTime = now
+                                            onRulesTabClick()
+                                        }
                                     } else if (index == 3 && currentTab == 3) {
                                         // v8.33：已在设置页时再次点击底部设置tab则回到顶部
                                         onSettingsTabClick()
@@ -792,7 +808,8 @@ class MainActivity : ComponentActivity() {
                     selectedDay = selectedDay,
                     onSelectedDayChange = { selectedDay = it },
                     rulesScrollToTopTrigger = rulesScrollToTopTrigger,
-                    settingsScrollToTopTrigger = settingsScrollToTopTrigger
+                    settingsScrollToTopTrigger = settingsScrollToTopTrigger,
+                        rulesToggleAllCollapsedTrigger = rulesToggleAllCollapsedTrigger
                 )
                 }
                 // 统计（常驻）
@@ -1036,7 +1053,8 @@ class MainActivity : ComponentActivity() {
                             selectedDay = selectedDay,
                             onSelectedDayChange = { selectedDay = it },
                     rulesScrollToTopTrigger = rulesScrollToTopTrigger,
-                            settingsScrollToTopTrigger = settingsScrollToTopTrigger
+                            settingsScrollToTopTrigger = settingsScrollToTopTrigger,
+                        rulesToggleAllCollapsedTrigger = rulesToggleAllCollapsedTrigger
                         )
                         }
                         // 统计（常驻）
@@ -1163,7 +1181,8 @@ class MainActivity : ComponentActivity() {
         // v8.33：规则/设置页回到顶部trigger
         rulesScrollToTopTrigger: Int = 0,
         settingsScrollToTopTrigger: Int = 0,
-        statsScrollToTopTrigger: Int = 0
+        statsScrollToTopTrigger: Int = 0,
+        rulesToggleAllCollapsedTrigger: Int = 0
     ) {
         when (page) {
             0 -> HistoryScreen(
@@ -1194,7 +1213,8 @@ class MainActivity : ComponentActivity() {
                 onToggleRule = onToggleRule,
                 onResetHitCount = onResetHitCount,
                 onRescanRule = onRescanRule,
-                scrollToTopTrigger = rulesScrollToTopTrigger
+                scrollToTopTrigger = rulesScrollToTopTrigger,
+                toggleAllCollapsedTrigger = rulesToggleAllCollapsedTrigger
             )
             2 -> StatisticsScreen(
                 historyEntries = historyEntries,

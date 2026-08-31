@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.RuleCard
 import com.enlpot.notix.ui.theme.*
 
+
 @Composable
 fun RulesScreen(
     rules: List<BlockerRule>,
@@ -58,7 +60,8 @@ fun RulesScreen(
     onToggleRule: (BlockerRule, Boolean) -> Unit = { _, _ -> },
     onResetHitCount: (BlockerRule) -> Unit = {},
     onRescanRule: () -> Unit = {},
-    scrollToTopTrigger: Int = 0
+    scrollToTopTrigger: Int = 0,
+    toggleAllCollapsedTrigger: Int = 0
 ) {
     var ruleToDelete by remember { mutableStateOf<BlockerRule?>(null) }
     var ruleToReset by remember { mutableStateOf<BlockerRule?>(null) }
@@ -160,6 +163,16 @@ fun RulesScreen(
         } else {
             // 规则按创建时间倒序（最新创建在最上方）
             val sortedRules = remember(rules) { rules.sortedByDescending { it.createdAt } }
+            // v8.45：折叠状态（ruleId -> collapsed）。三屏常驻组合树下 remember 跨 tab/界面/后台保持，完全重启重置
+            val collapsedRules = remember { mutableStateMapOf<String, Boolean>() }
+            // v8.45：双击底部规则 tab 触发全量展开/折叠切换
+            LaunchedEffect(toggleAllCollapsedTrigger) {
+                if (toggleAllCollapsedTrigger > 0) {
+                    val anyCollapsed = rules.any { collapsedRules[it.id] == true }
+                    if (anyCollapsed) collapsedRules.clear()
+                    else rules.forEach { collapsedRules[it.id] = true }
+                }
+            }
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -208,6 +221,8 @@ fun RulesScreen(
                         onLongClick = { ruleToDelete = rule },
                         onToggle = { enabled -> onToggleRule(rule, enabled) },
                         onResetHitCount = { ruleToReset = rule },
+                        collapsed = collapsedRules[rule.id] == true,
+                        onToggleCollapse = { collapsedRules[rule.id] = !(collapsedRules[rule.id] ?: false) },
                     )
                 }
                 item { Spacer(modifier = Modifier.height(80.dp)) }
