@@ -47,14 +47,18 @@ object WordTokenizerManager {
     private const val PREF_NAME = "plugin_settings"
     private const val PREF_MIRRORS = "plugin_mirror_prefixes"
 
-    /** 内置默认镜像源（首次使用时写入，可删除） */
+    /** 内置默认镜像源（首次使用时写入，可删除）——实测对固定 tag（plugin-hanlp）下载均可用 */
     private val DEFAULT_MIRROR_PREFIXES = listOf(
+        "https://ghfast.top",
         "https://gh-proxy.com",
-        "https://ghfast.top"
+        "https://gh.llkk.cc",
+        "https://gh.ddlc.top",
+        "https://ghproxy.cn",
+        "https://ghproxy.link"
     )
 
     /** 镜像源（不含官方）数量上限 */
-    const val MAX_MIRROR_COUNT = 5
+    const val MAX_MIRROR_COUNT = 10
 
     // v8.46.0：镜像源管理
     // 官方源前缀为空字符串（直接使用 PLUGIN_PATH），固定存在不可删除

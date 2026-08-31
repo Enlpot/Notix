@@ -76,8 +76,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import com.enlpot.notix.ui.components.NotixSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -160,11 +158,10 @@ fun SettingsScreen(
     val context = LocalContext.current
     val ruleStorage = remember { RuleStorage(context) }
 
-    // v7.24：日志/提示改为应用内展示（Snackbar），不再使用系统 Toast
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+    // v8.46.1：改用系统 Toast——Snackbar 是页面内组件，会被弹窗（Dialog）阴影遮挡；
+    // 系统 Toast 是系统级窗口，始终显示在所有 app 窗口（含弹窗）之上，不会被遮挡
     fun showMessage(msg: String) {
-        scope.launch { snackbarHostState.showSnackbar(msg) }
+        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
     }
 
     var showExportImportDialog by remember { mutableStateOf(false) }
@@ -201,12 +198,10 @@ fun SettingsScreen(
     var pluginToUninstall by remember { mutableStateOf<PluginInfo?>(null) }
     // v8.46.0：镜像源管理
     var showMirrorDialog by remember { mutableStateOf(false) }
-    var mirrorLatencies by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    var mirrorLatencies by remember { mutableStateOf<Map<String, Long?>>(emptyMap()) }
     var mirrorTesting by remember { mutableStateOf(false) }
     var mirrorAddMode by remember { mutableStateOf(false) }
     var mirrorInput by remember { mutableStateOf("") }
-    var mirrorNewTesting by remember { mutableStateOf(false) }
-    var mirrorNewLatency by remember { mutableStateOf<Long?>(null) }
     var pluginInstallError by remember { mutableStateOf<String?>(null) }
 
     // v8.21：未监控应用管理（v8.31：状态由 MainActivity 统一管理，确保历史页和设置页同步刷新）
@@ -1105,7 +1100,7 @@ fun SettingsScreen(
                 mirrorTesting = true
                 val sources = listOf(com.enlpot.notix.plugin.WordTokenizerManager.getOfficialPrefix()) +
                     com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context)
-                val result = mutableMapOf<String, Long>()
+                val result = mutableMapOf<String, Long?>()
                 sources.forEach { p ->
                     result[p] = com.enlpot.notix.plugin.WordTokenizerManager.testLatency(p)
                 }
@@ -1118,7 +1113,6 @@ fun SettingsScreen(
                 showMirrorDialog = false
                 mirrorAddMode = false
                 mirrorInput = ""
-                mirrorNewLatency = null
             },
             title = "镜像源管理",
             titleTrailing = {
@@ -1134,7 +1128,6 @@ fun SettingsScreen(
                             } else {
                                 mirrorAddMode = !mirrorAddMode
                                 mirrorInput = ""
-                                mirrorNewLatency = null
                             }
                         }
                         .padding(horizontal = 8.dp, vertical = 6.dp)
@@ -1179,7 +1172,6 @@ fun SettingsScreen(
                         onValueChange = {
                             // v8.46.0：输入法可能把英文标点转成全角，统一转半角再保存
                             mirrorInput = toHalfWidth(it)
-                            mirrorNewLatency = null
                         },
                         label = { Text("镜像源前缀（如 https://gh-proxy.com）") },
                         singleLine = true,
@@ -1187,60 +1179,34 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        NotixDialogButton(
-                            onClick = {
-                                if (mirrorInput.isNotBlank() && !mirrorNewTesting) {
-                                    mirrorNewTesting = true
+                    // v8.46.1：添加源无需先测连通性——输入后直接添加，添加完自动测延迟
+                    NotixDialogButton(
+                        onClick = {
+                            val p = mirrorInput.trim().trimEnd('/')
+                            if (p.isNotBlank()) {
+                                val err = com.enlpot.notix.plugin.WordTokenizerManager.addMirror(context, p)
+                                if (err == null) {
+                                    mirrorLatencies = mirrorLatencies + (p to null)  // 先标记测试中
+                                    mirrorInput = ""
+                                    mirrorAddMode = false
+                                    showMessage("已添加镜像源")
+                                    // 自动测连通性并更新列表
                                     pluginScope.launch {
-                                        mirrorNewLatency = com.enlpot.notix.plugin.WordTokenizerManager.testLatency(mirrorInput.trim())
-                                        mirrorNewTesting = false
-                                    }
-                                }
-                            },
-                            text = "测连通性",
-                            modifier = Modifier.weight(1f),
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        NotixDialogButton(
-                            onClick = {
-                                val p = mirrorInput.trim().trimEnd('/')
-                                if (p.isNotBlank() && mirrorNewLatency != null && mirrorNewLatency!! >= 0) {
-                                    val err = com.enlpot.notix.plugin.WordTokenizerManager.addMirror(context, p)
-                                    if (err == null) {
-                                        mirrorLatencies = mirrorLatencies + (p to (mirrorNewLatency ?: -1))
-                                        mirrorInput = ""
-                                        mirrorNewLatency = null
-                                        mirrorAddMode = false
-                                        showMessage("已添加镜像源")
-                                    } else {
-                                        showMessage(err)
+                                        val lat = com.enlpot.notix.plugin.WordTokenizerManager.testLatency(p)
+                                        mirrorLatencies = mirrorLatencies + (p to lat)
                                     }
                                 } else {
-                                    showMessage("请先测连通性")
+                                    showMessage(err)
                                 }
-                            },
-                            text = "添加",
-                            modifier = Modifier.weight(1f),
-                            containerColor = MaterialTheme.notix.primary,
-                            contentColor = MaterialTheme.notix.onPrimary
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    when {
-                        mirrorNewTesting -> Text(
-                            text = "正在测试…",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.notix.contentSecondary
-                        )
-                        mirrorNewLatency != null -> Text(
-                            text = if (mirrorNewLatency!! >= 0) "连通性正常：${mirrorNewLatency}ms" else "不可达（超时 5s）",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (mirrorNewLatency!! >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                        )
-                    }
+                            } else {
+                                showMessage("请输入镜像源前缀")
+                            }
+                        },
+                        text = "添加",
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = MaterialTheme.notix.primary,
+                        contentColor = MaterialTheme.notix.onPrimary
+                    )
                 }
             }
         )
@@ -1348,7 +1314,6 @@ fun SettingsScreen(
     val density = LocalDensity.current
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         Box(
             modifier = Modifier
