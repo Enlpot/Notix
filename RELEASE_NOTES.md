@@ -1,5 +1,15 @@
 ﻿# Notix 发布说明
 
+## v8.44.5 (2026-08-31)
+
+### 修复
+- **release 包动作参数丢失（严重）**：规则动作流的参数（点击按钮名 / 复制模式 / 延迟时长 / TTS 模板 / 强提醒设置 / 延迟重发时长）在正式发行版中全部丢失，debug 包正常。
+  - 根因：release 开启 R8 混淆但 proguard 规则为空，参与 Gson 反射序列化的 data class 字段被混淆改名（如 `ClickButtonParams.buttonLabel` → `a`），序列化输出混淆后的 JSON key，读取端按原始字段名查不到 → 参数丢失
+  - 修复：`proguard-rules.pro` 增加 keep 规则，保护规则/动作规格/条件/动作参数 data class 字段名 + 枚举常量名
+  - 真机 release 复测：按钮名保存、回显正常
+
+---
+
 ## v8.44.4 (2026-08-31)
 
 ### 修复
