@@ -77,6 +77,10 @@ object WordTokenizerManager {
     private const val STALL_THRESHOLD_BPS = 5 * 1024
     /** 下载卡住判定窗口（毫秒） */
     private const val STALL_WINDOW_MS = 10000
+    /** 线路探测：每源小样本下载量（字节），仅测前 256KB 把带宽竞争压到极小 */
+    private const val PROBE_RANGE_SIZE = 256 * 1024
+    /** 线路探测窗口上限（毫秒）：窗口内累计字节最多者即最快源 */
+    private const val PROBE_TIMEOUT_MS = 3000
 
     /** 安装结果 */
     sealed class PluginInstallResult {
@@ -125,6 +129,57 @@ object WordTokenizerManager {
     /** 根据前缀构建下载 URL（官方前缀为空则直接用固定路径） */
     fun buildDownloadUrl(prefix: String): String =
         if (prefix.isBlank()) PLUGIN_PATH else prefix.trim().trimEnd('/') + "/" + PLUGIN_PATH
+
+    /** 线路探测结果 */
+    data class ProbeResult(
+        val prefix: String,
+        val bytes: Long,        // 窗口内实际下载字节数
+        val elapsedMs: Long,    // 探测耗时
+        val valid: Boolean,     // 是否可用（有字节且内容正常）
+        val eofEarly: Boolean,  // 未下满探测量即 EOF（内容异常，如代理返回 2KB HTML）
+        val reason: String = ""
+    )
+
+    /**
+     * 线路探测（v8.47.3）：并行小样本 Range 测速——只下载每个源的前 256KB，
+     * 把带宽竞争压到极小（N 源合计至多 N*256KB），3 秒窗口内累计字节最多者即最快源。
+     * 附带效果：返回 2KB HTML 等坏 zip 的代理会在测速阶段提前 EOF 被识别剔除，无需等解压。
+     */
+    suspend fun probeSpeed(prefix: String): ProbeResult = withContext(Dispatchers.IO) {
+        val t0 = System.currentTimeMillis()
+        try {
+            val conn = URL(buildDownloadUrl(prefix)).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = LATENCY_TIMEOUT_MS
+            conn.readTimeout = PROBE_TIMEOUT_MS
+            conn.setRequestProperty("Range", "bytes=0-${PROBE_RANGE_SIZE - 1}")
+            conn.instanceFollowRedirects = true
+            conn.connect()
+            val code = conn.responseCode
+            if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
+                conn.disconnect()
+                return@withContext ProbeResult(prefix, 0, System.currentTimeMillis() - t0, false, false, "HTTP $code")
+            }
+            val input = conn.inputStream
+            val buf = ByteArray(8192)
+            var total = 0L
+            var eof = false
+            while (true) {
+                if (System.currentTimeMillis() - t0 >= PROBE_TIMEOUT_MS) break // 窗口到点：按已下字节判定
+                val n = input.read(buf)
+                if (n < 0) { eof = true; break }
+                total += n
+                if (total >= PROBE_RANGE_SIZE) break // 下满探测量即结束
+            }
+            input.close()
+            conn.disconnect()
+            val elapsed = System.currentTimeMillis() - t0
+            val eofEarly = eof && total < PROBE_RANGE_SIZE && total > 0
+            ProbeResult(prefix, total, elapsed, total > 0 && !eofEarly, eofEarly)
+        } catch (e: Exception) {
+            ProbeResult(prefix, 0, System.currentTimeMillis() - t0, false, false, e.message ?: "异常")
+        }
+    }
 
     /** 测试某镜像源连通性（5 秒超时），返回延迟 ms；失败/超时返回 -1。
      *  测的是「镜像服务器前缀」本身的可达性（官方源测 github.com），而非完整插件 URL，
@@ -323,15 +378,27 @@ object WordTokenizerManager {
         fun sourceName(prefix: String): String = if (prefix.isEmpty()) "官方" else prefix
 
         // 组装源列表：[官方] + 用户镜像
-        // v8.47.2：并行测延迟（async/awaitAll），总耗时≈最慢源（上限 5s），顺序测最坏 5 源全超时 25s
+        // v8.47.3：并行小样本测速（每源仅下前 256KB，合计至多 1.25MB，竞争极小），
+        // 3 秒窗口内累计字节最多者即最快源；坏源（返回 2KB HTML 的代理）提前 EOF 直接剔除
         val prefixes = listOf(OFFICIAL_PREFIX) + getMirrorPrefixes(context)
-        val latencies = coroutineScope {
-            prefixes.map { p -> async { p to testLatency(p) } }.awaitAll().toMap()
+        onStatus("正在检测最优线路…")
+        val probes = coroutineScope {
+            prefixes.map { p -> async { p to probeSpeed(p) } }.awaitAll().toMap()
         }
-        val sorted = prefixes.sortedBy { latencies[it] ?: Long.MAX_VALUE }
-        DebugLogManager.i(TAG, "开始安装插件，源列表（按延迟升序）: ${
-            sorted.joinToString(", ") { (if (it.isEmpty()) "官方" else it) + "(${latencies[it] ?: -1}ms)" }
-        }")
+        val sorted = probes.entries
+            .sortedWith(compareByDescending<Map.Entry<String, ProbeResult>> { it.value.valid }
+                .thenByDescending { it.value.bytes })
+            .map { it.key }
+        val probeLog = probes.entries.joinToString(", ") {
+            val n = if (it.key.isEmpty()) "官方" else it.key
+            when {
+                it.value.valid -> "$n(${it.value.bytes / 1024}KB/${it.value.elapsedMs}ms)"
+                it.value.eofEarly -> "$n(内容异常)"
+                else -> "$n(不可用:${it.value.reason})"
+            }
+        }
+        DebugLogManager.i(TAG, "开始安装插件，线路探测结果: $probeLog")
+        onStatus("已选定线路：${sourceName(sorted.first())}")
 
         var lastError = "未知错误"
         for (prefix in sorted) {
@@ -341,7 +408,7 @@ object WordTokenizerManager {
                 // ---- 1. 下载（当前源）----
                 onStage(InstallStage.DOWNLOADING, 0)
                 onSourceChanged(prefix)
-                onStatus("尝试 ${sourceName(prefix)} 源")
+                onStatus("正在从 ${sourceName(prefix)} 源下载")
                 connection = URL(buildDownloadUrl(prefix)).openConnection() as HttpURLConnection
                 connection.connectTimeout = LATENCY_TIMEOUT_MS
                 connection.readTimeout = READ_TIMEOUT_MS
