@@ -1,5 +1,11 @@
 ﻿# Notix Release Notes
 
+## v8.41.2 (2026-08-31)
+
+### Improved
+- **常驻通知聚合查询优化**：从"查询前50条再在代码中过滤常驻通知"改为"数据库层直接查询最新的一条普通通知"。新增 getLatestNormal() DAO 方法（WHERE was_ongoing = 0 ORDER BY last_timestamp DESC LIMIT 1），无论有多少常驻通知都只查1条普通通知，性能更好，逻辑更简洁。
+
+---
 ## v8.41.1 (2026-08-31)
 
 ### Fixed
@@ -123,5 +129,6 @@
 
 ### Notes
 - `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells; their real execution lands in a future release.
+
 
 

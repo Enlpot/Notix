@@ -107,10 +107,9 @@ class NotificationHistoryRepository(context: Context) {
         notification: SimpleNotification,
         blocked: Boolean
     ): Boolean {
-        // v8.41.1：查询前50条，跳过常驻通知聚合组，找到第一个普通通知组进行聚合判断
+        // v8.41.2：直接查询最新的普通通知聚合组（在数据库层排除常驻通知）
         // 只排除常驻通知（was_ongoing=1），普通通知仍正常打断连续性
-        val candidates = groupDao.getPaged(50, 0)
-        val head = candidates.firstOrNull { it.was_ongoing == 0 }
+        val head = groupDao.getLatestNormal()
         val blockedInt = if (blocked) 1 else 0
 
         // v8.25：全局去重——同一 sbnKey 同一 postTime 视为同一条通知的重复回调，忽略。
@@ -361,5 +360,6 @@ class NotificationHistoryRepository(context: Context) {
         return groupDao.findBySbnKey(sbnKey) != null
     }
 }
+
 
 

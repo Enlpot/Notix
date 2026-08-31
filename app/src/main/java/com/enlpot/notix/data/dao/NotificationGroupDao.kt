@@ -1,4 +1,4 @@
-package com.enlpot.notix.data.dao
+﻿package com.enlpot.notix.data.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -32,6 +32,13 @@ interface NotificationGroupDao {
     @Query("SELECT * FROM notification_group ORDER BY last_timestamp DESC LIMIT :limit OFFSET :offset")
     suspend fun getPaged(limit: Int, offset: Int): List<NotificationGroupEntity>
 
+    /**
+     * v8.41.2：直接获取最新的普通通知聚合组（排除常驻通知）。
+     * 用于普通通知聚合判断，避免查询多条后在代码中过滤常驻通知。
+     */
+    @Query("SELECT * FROM notification_group WHERE was_ongoing = 0 ORDER BY last_timestamp DESC LIMIT 1")
+    suspend fun getLatestNormal(): NotificationGroupEntity?
+
     @Query("SELECT COUNT(*) FROM notification_group")
     suspend fun count(): Int
 
@@ -61,3 +68,4 @@ interface NotificationGroupDao {
     )
     suspend fun markBlockedBySbnKeyAndPostTime(sbnKey: String, postTime: Long)
 }
+
