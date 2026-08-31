@@ -35,6 +35,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BatteryAlert
@@ -195,6 +199,15 @@ fun SettingsScreen(
     var showPluginMarketDialog by remember { mutableStateOf(false) }
     var pluginMarketQuery by remember { mutableStateOf("") }
     var pluginToUninstall by remember { mutableStateOf<PluginInfo?>(null) }
+    // v8.46.0：镜像源管理
+    var showMirrorDialog by remember { mutableStateOf(false) }
+    var mirrorLatencies by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    var mirrorTesting by remember { mutableStateOf(false) }
+    var mirrorAddMode by remember { mutableStateOf(false) }
+    var mirrorInput by remember { mutableStateOf("") }
+    var mirrorNewTesting by remember { mutableStateOf(false) }
+    var mirrorNewLatency by remember { mutableStateOf<Long?>(null) }
+    var pluginInstallError by remember { mutableStateOf<String?>(null) }
 
     // v8.21：未监控应用管理（v8.31：状态由 MainActivity 统一管理，确保历史页和设置页同步刷新）
     val unmonitoredStorage = remember { UnmonitoredAppsStorage(context) }
@@ -950,8 +963,24 @@ fun SettingsScreen(
             onDismiss = {
                 showPluginMarketDialog = false
                 pluginMarketQuery = ""
+                pluginInstallError = null
             },
             title = "添加插件",
+            titleTrailing = {
+                // v8.46.0：镜像源管理入口（标题行右侧）
+                Text(
+                    text = "镜像源",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.notix.primary,
+                    modifier = Modifier
+                        .clip(NotixCorner.Control)
+                        .clickable {
+                            pluginInstallError = null
+                            showMirrorDialog = true
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                )
+            },
             contentScrollable = false,
             content = {
                 OutlinedTextField(
@@ -989,21 +1018,64 @@ fun SettingsScreen(
                                         pluginInstalling = true
                                         pluginInstallProgress = 0
                                         pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
+                                        pluginInstallError = null
                                         pluginScope.launch {
-                                            val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { stage, progress ->
-                                                pluginStage = stage
-                                                if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
-                                                    pluginInstallProgress = progress
+                                            val result = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(
+                                                context,
+                                                { stage, progress ->
+                                                    pluginStage = stage
+                                                    if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
+                                                        pluginInstallProgress = progress
+                                                    }
+                                                },
+                                                { _ -> }
+                                            )
+                                            pluginInstalling = false
+                                            pluginStage = null
+                                            when (result) {
+                                                is com.enlpot.notix.plugin.WordTokenizerManager.PluginInstallResult.Success -> {
+                                                    pluginInstalled = true
+                                                    pluginInstallError = null
+                                                }
+                                                is com.enlpot.notix.plugin.WordTokenizerManager.PluginInstallResult.Failure -> {
+                                                    pluginInstalled = false
+                                                    pluginInstallError = result.reason
                                                 }
                                             }
-                                            pluginInstalling = false
-                                            pluginInstalled = success
-                                            pluginStage = null
                                         }
                                     }
                                 }
                             )
                         }
+                    }
+                }
+                // v8.46.0：安装失败错误提示 + 切换镜像源入口
+                pluginInstallError?.let { err ->
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "安装失败：$err",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        NotixDialogButton(
+                            onClick = { showMirrorDialog = true },
+                            text = "切换镜像源",
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
@@ -1023,6 +1095,154 @@ fun SettingsScreen(
             title = "卸载插件",
             body = "确定卸载「${plugin.title}」吗？卸载后将恢复内置简单分词。",
             confirmText = "卸载",
+        )
+    }
+
+    // v8.46.0：镜像源管理弹窗（打开自动测连通；添加/删除；官方固定）
+    if (showMirrorDialog) {
+        LaunchedEffect(showMirrorDialog) {
+            if (showMirrorDialog) {
+                mirrorTesting = true
+                val sources = listOf(com.enlpot.notix.plugin.WordTokenizerManager.getOfficialPrefix()) +
+                    com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context)
+                val result = mutableMapOf<String, Long>()
+                sources.forEach { p ->
+                    result[p] = com.enlpot.notix.plugin.WordTokenizerManager.testLatency(p)
+                }
+                mirrorLatencies = result
+                mirrorTesting = false
+            }
+        }
+        NotixDialog(
+            onDismiss = {
+                showMirrorDialog = false
+                mirrorAddMode = false
+                mirrorInput = ""
+                mirrorNewLatency = null
+            },
+            title = "镜像源管理",
+            titleTrailing = {
+                Text(
+                    text = "添加（${com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context).size}/${com.enlpot.notix.plugin.WordTokenizerManager.MAX_MIRROR_COUNT}）",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.notix.primary,
+                    modifier = Modifier
+                        .clip(NotixCorner.Control)
+                        .clickable {
+                            if (com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context).size >= com.enlpot.notix.plugin.WordTokenizerManager.MAX_MIRROR_COUNT) {
+                                showMessage("最多可添加 ${com.enlpot.notix.plugin.WordTokenizerManager.MAX_MIRROR_COUNT} 个镜像源")
+                            } else {
+                                mirrorAddMode = !mirrorAddMode
+                                mirrorInput = ""
+                                mirrorNewLatency = null
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                )
+            },
+            contentScrollable = false,
+            content = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // 官方源（固定不可删）
+                    MirrorSourceRow(
+                        label = "GitHub 官方",
+                        latency = mirrorLatencies[""],
+                        fixed = true,
+                        onRemove = null
+                    )
+                    // 用户镜像源
+                    com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context).forEach { prefix ->
+                        MirrorSourceRow(
+                            label = prefix,
+                            latency = mirrorLatencies[prefix],
+                            fixed = false,
+                            onRemove = {
+                                com.enlpot.notix.plugin.WordTokenizerManager.removeMirror(context, prefix)
+                                mirrorLatencies = mirrorLatencies - prefix
+                            }
+                        )
+                    }
+                    if (mirrorTesting) {
+                        Text(
+                            text = "正在测试连通性…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.notix.contentSecondary,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                    }
+                }
+                // 添加镜像源模式
+                if (mirrorAddMode) {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = mirrorInput,
+                        onValueChange = {
+                            // v8.46.0：输入法可能把英文标点转成全角，统一转半角再保存
+                            mirrorInput = toHalfWidth(it)
+                            mirrorNewLatency = null
+                        },
+                        label = { Text("镜像源前缀（如 https://gh-proxy.com）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        NotixDialogButton(
+                            onClick = {
+                                if (mirrorInput.isNotBlank() && !mirrorNewTesting) {
+                                    mirrorNewTesting = true
+                                    pluginScope.launch {
+                                        mirrorNewLatency = com.enlpot.notix.plugin.WordTokenizerManager.testLatency(mirrorInput.trim())
+                                        mirrorNewTesting = false
+                                    }
+                                }
+                            },
+                            text = "测连通性",
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        NotixDialogButton(
+                            onClick = {
+                                val p = mirrorInput.trim().trimEnd('/')
+                                if (p.isNotBlank() && mirrorNewLatency != null && mirrorNewLatency!! >= 0) {
+                                    val err = com.enlpot.notix.plugin.WordTokenizerManager.addMirror(context, p)
+                                    if (err == null) {
+                                        mirrorLatencies = mirrorLatencies + (p to (mirrorNewLatency ?: -1))
+                                        mirrorInput = ""
+                                        mirrorNewLatency = null
+                                        mirrorAddMode = false
+                                        showMessage("已添加镜像源")
+                                    } else {
+                                        showMessage(err)
+                                    }
+                                } else {
+                                    showMessage("请先测连通性")
+                                }
+                            },
+                            text = "添加",
+                            modifier = Modifier.weight(1f),
+                            containerColor = MaterialTheme.notix.primary,
+                            contentColor = MaterialTheme.notix.onPrimary
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    when {
+                        mirrorNewTesting -> Text(
+                            text = "正在测试…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.notix.contentSecondary
+                        )
+                        mirrorNewLatency != null -> Text(
+                            text = if (mirrorNewLatency!! >= 0) "连通性正常：${mirrorNewLatency}ms" else "不可达（超时 5s）",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (mirrorNewLatency!! >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
         )
     }
 
@@ -1267,6 +1487,7 @@ fun SettingsScreen(
                         }
                     )
                 }
+
             }
 
             // ===== 通知：通知处理与通知历史数据管理 =====
@@ -1437,6 +1658,97 @@ fun SettingsScreen(
             onClearHistory = onClearHistory,
             onClearRules = onClearRules
         )
+    }
+}
+
+/** v8.46.0：全角字符转半角（输入法可能把英文标点自动转成全角，如 ：→: 。→. ） */
+private fun toHalfWidth(input: String): String {
+    val sb = StringBuilder(input.length)
+    for (ch in input) {
+        val c = ch.code
+        sb.append(
+            when (c) {
+                0x3002 -> '.' // 。（CJK 句号，不在 FF01..FF5E 范围）
+                0x3001 -> ',' // 、
+                0x3000 -> ' ' // 全角空格
+                in 0xFF01..0xFF5E -> (c - 0xFEE0).toChar() // 全角 ASCII 转半角
+                else -> ch
+            }
+        )
+    }
+    return sb.toString()
+}
+
+@Composable
+private fun MirrorSourceRow(
+    label: String,
+    latency: Long?,
+    fixed: Boolean,
+    onRemove: (() -> Unit)?
+) {
+    val c = MaterialTheme.notix
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 连通性指示灯：绿=正常(<300ms) 黄=较慢(<1000ms) 红=超时 灰=测试中
+        Box(
+            modifier = Modifier
+                .size(9.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        latency == null -> c.contentTertiary
+                        latency < 0 -> MaterialTheme.colorScheme.error
+                        latency < 300 -> Color(0xFF4CAF50)
+                        latency < 1000 -> Color(0xFFFFC107)
+                        else -> MaterialTheme.colorScheme.error
+                    }
+                )
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = c.contentPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
+        // v8.46.0：延迟列固定宽度右对齐（ms 右端对齐，数字往左增长）
+        Box(modifier = Modifier.width(76.dp)) {
+            Text(
+                text = when {
+                    latency == null -> "测试中"
+                    latency < 0 -> "超时"
+                    else -> "${latency}ms"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = c.contentSecondary,
+                maxLines = 1,
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        // v8.46.0：操作列固定宽度右对齐（官方源空占位），保证延迟列右端一致、ms 上下对齐
+        Box(modifier = Modifier.width(56.dp), contentAlignment = Alignment.CenterEnd) {
+            if (!fixed && onRemove != null) {
+                Text(
+                    text = "删除",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .clip(NotixCorner.Control)
+                        .clickable { onRemove() }
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                )
+            }
+        }
     }
 }
 

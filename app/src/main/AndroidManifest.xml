@@ -9,6 +9,8 @@
     <!-- v7.23：前台服务保活，防止后台回收导致通知监听断开 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- v8.46.0：插件下载需要网络权限（HanLP 插件从 GitHub Release 下载） -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- v8.31：Android 11+ 包可见性声明——允许查询所有有启动 Activity 的应用，
          用于获取发送通知的应用名称和图标（否则 PackageManager.getApplicationInfo 会抛 NameNotFoundException） -->

@@ -40,9 +40,115 @@ object WordTokenizerManager {
     // HanLP 词典根目录系统属性（HanLPWordTokenizer 初始化时读取）
     private const val DICT_ROOT_PROPERTY = "notix.hanlp.root"
 
-    // GitHub Release 最新版插件下载地址（由 CI 随发行版发布）
-    private const val PLUGIN_DOWNLOAD_URL =
-        "https://github.com/Enlpot/Notix/releases/latest/download/word_tokenizer_hanlp.zip"
+    // 插件固定下载路径（独立 release plugin-hanlp，不随主版本变化）
+    private const val PLUGIN_PATH =
+        "https://github.com/Enlpot/Notix/releases/download/plugin-hanlp/word_tokenizer_hanlp.zip"
+
+    private const val PREF_NAME = "plugin_settings"
+    private const val PREF_MIRRORS = "plugin_mirror_prefixes"
+
+    /** 内置默认镜像源（首次使用时写入，可删除） */
+    private val DEFAULT_MIRROR_PREFIXES = listOf(
+        "https://gh-proxy.com",
+        "https://ghfast.top"
+    )
+
+    /** 镜像源（不含官方）数量上限 */
+    const val MAX_MIRROR_COUNT = 5
+
+    // v8.46.0：镜像源管理
+    // 官方源前缀为空字符串（直接使用 PLUGIN_PATH），固定存在不可删除
+    private const val OFFICIAL_PREFIX = ""
+
+    /** 连通性测试超时（毫秒） */
+    private const val LATENCY_TIMEOUT_MS = 5000
+    /** 下载单次无响应超时（毫秒） */
+    private const val READ_TIMEOUT_MS = 30000
+    /** 下载卡住判定：窗口内速率低于该值视为卡住（字节/秒） */
+    private const val STALL_THRESHOLD_BPS = 5 * 1024
+    /** 下载卡住判定窗口（毫秒） */
+    private const val STALL_WINDOW_MS = 10000
+
+    /** 安装结果 */
+    sealed class PluginInstallResult {
+        object Success : PluginInstallResult()
+        data class Failure(val reason: String) : PluginInstallResult()
+    }
+
+    /** 镜像源前缀列表（不含官方源）；首次调用写入内置默认源 */
+    fun getMirrorPrefixes(context: Context): List<String> {
+        val sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val raw = sp.getString(PREF_MIRRORS, null)
+        if (raw == null) {
+            sp.edit().putString(PREF_MIRRORS, DEFAULT_MIRROR_PREFIXES.joinToString("\n")).apply()
+            return DEFAULT_MIRROR_PREFIXES
+        }
+        return raw.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+    }
+
+    /** 添加镜像源前缀；返回 null 成功，否则错误文案 */
+    fun addMirror(context: Context, prefix: String): String? {
+        val p = prefix.trim().trimEnd('/')
+        if (p.isBlank()) return "镜像源前缀不能为空"
+        val cur = getMirrorPrefixes(context).toMutableList()
+        if (p in cur) return "该镜像源已存在"
+        if (cur.size >= MAX_MIRROR_COUNT) return "最多可添加 $MAX_MIRROR_COUNT 个镜像源"
+        cur.add(p)
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            .edit().putString(PREF_MIRRORS, cur.joinToString("\n")).apply()
+        return null
+    }
+
+    /** 删除镜像源前缀 */
+    fun removeMirror(context: Context, prefix: String) {
+        val cur = getMirrorPrefixes(context).toMutableList()
+        cur.remove(prefix)
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            .edit().putString(PREF_MIRRORS, cur.joinToString("\n")).apply()
+    }
+
+    /** 官方源前缀（空字符串） */
+    fun getOfficialPrefix(): String = OFFICIAL_PREFIX
+
+    /** 根据前缀构建下载 URL（官方前缀为空则直接用固定路径） */
+    fun buildDownloadUrl(prefix: String): String =
+        if (prefix.isBlank()) PLUGIN_PATH else prefix.trim().trimEnd('/') + "/" + PLUGIN_PATH
+
+    /** 测试某镜像源连通性（5 秒超时），返回延迟 ms；失败/超时返回 -1。
+     *  测的是「镜像服务器前缀」本身的可达性（官方源测 github.com），而非完整插件 URL，
+     *  避免插件文件未上传（404）时误判镜像不可用。 */
+    suspend fun testLatency(prefix: String): Long = withContext(Dispatchers.IO) {
+        val t0 = System.currentTimeMillis()
+        try {
+            val target = if (prefix.isBlank()) "https://github.com" else prefix.trim().trimEnd('/')
+            val conn = URL(target).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = LATENCY_TIMEOUT_MS
+            conn.readTimeout = LATENCY_TIMEOUT_MS
+            conn.instanceFollowRedirects = true
+            conn.connect()
+            val code = conn.responseCode
+            if (code in 200..399) {
+                conn.inputStream.use { it.read(ByteArray(128)) }
+                System.currentTimeMillis() - t0
+            } else {
+                conn.disconnect()
+                -1
+            }
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    /** 将异常/HTTP 错误转为用户可读原因 */
+    private fun describeError(e: Exception?, httpCode: Int? = null): String = when {
+        httpCode != null -> "下载失败（HTTP $httpCode）"
+        e is java.net.SocketTimeoutException -> "网络超时（镜像无响应）"
+        e is java.net.ConnectException -> "网络异常（无法连接）"
+        e is java.net.SocketException -> "网络异常（连接被重置）"
+        e is java.net.UnknownHostException -> "网络异常（无法解析域名）"
+        else -> "网络异常（${e?.javaClass?.simpleName ?: "未知"}）"
+    }
 
     /** 安装阶段 */
     enum class InstallStage {
@@ -162,81 +268,107 @@ object WordTokenizerManager {
     }
 
     /**
-     * 下载并安装插件（单 zip：下载→解压→加载）。
-     * 全程通过 onStage 回调阶段进度，用户无需任何操作。
+     * 下载并安装插件（多源自动切换：按延迟升序依次尝试官方源和用户镜像源）。
+     * 下载中监控速率，卡住/异常自动中断并尝试下一个源；全部失败返回可读原因。
      *
      * @param onStage 阶段回调（stage, progress），progress 仅 DOWNLOADING 阶段有意义（0-100）
-     * @return true 安装成功，false 失败（自动清理半成品）
+     * @param onSourceChanged 当前使用的源回调（prefix；空字符串=官方源）
+     * @return [PluginInstallResult]
      */
     suspend fun downloadAndInstallPlugin(
         context: Context,
-        onStage: (InstallStage, Int) -> Unit = { _, _ -> }
-    ): Boolean = withContext(Dispatchers.IO) {
+        onStage: (InstallStage, Int) -> Unit = { _, _ -> },
+        onSourceChanged: (String) -> Unit = {}
+    ): PluginInstallResult = withContext(Dispatchers.IO) {
         val tmpZip = File(context.cacheDir, PLUGIN_ZIP_NAME)
-        try {
-            // ---- 1. 下载 ----
-            onStage(InstallStage.DOWNLOADING, 0)
-            val url = URL(PLUGIN_DOWNLOAD_URL)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 15000
-            connection.readTimeout = 60000
-            connection.connect()
 
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                Log.e(TAG, "下载失败，HTTP code: ${connection.responseCode}")
-                return@withContext false
-            }
+        // 组装源列表：[官方] + 用户镜像，按延迟升序（测试失败放最后）
+        val prefixes = listOf(OFFICIAL_PREFIX) + getMirrorPrefixes(context)
+        val latencies = prefixes.map { p -> p to testLatency(p) }.toMap()
+        val sorted = prefixes.sortedBy { latencies[it] ?: Long.MAX_VALUE }
 
-            val totalLength = connection.contentLength
-            val inputStream = connection.inputStream
-            val outputStream = tmpZip.outputStream()
-            val buffer = ByteArray(8192)
-            var downloaded = 0
-            var bytesRead: Int
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                outputStream.write(buffer, 0, bytesRead)
-                downloaded += bytesRead
-                if (totalLength > 0) {
-                    onStage(InstallStage.DOWNLOADING, (downloaded * 100 / totalLength).toInt())
-                }
-            }
-            outputStream.flush()
-            outputStream.close()
-            inputStream.close()
-            connection.disconnect()
-
-            Log.i(TAG, "插件下载完成: ${tmpZip.absolutePath}, 大小: $downloaded bytes")
-
-            // ---- 2. 解压 ----
-            onStage(InstallStage.EXTRACTING, 0)
-            val pluginDir = getPluginDir(context)
-            if (pluginDir.exists()) {
-                pluginDir.deleteRecursively()
-            }
-            pluginDir.mkdirs()
-            unzip(tmpZip, pluginDir)
-            Log.i(TAG, "插件解压完成: ${pluginDir.absolutePath}")
-
-            // ---- 3. 加载 ----
-            onStage(InstallStage.LOADING, 0)
-            val loaded = loadPlugin(context)
-            if (!loaded) {
-                Log.e(TAG, "插件解压成功但加载失败，清理插件目录")
-                pluginDir.deleteRecursively()
-            }
-            tmpZip.delete()
-            loaded
-        } catch (e: Exception) {
-            Log.e(TAG, "插件安装失败", e)
+        var lastError = "未知错误"
+        for (prefix in sorted) {
             try {
+                // ---- 1. 下载（当前源）----
+                onStage(InstallStage.DOWNLOADING, 0)
+                onSourceChanged(prefix)
+                val connection = URL(buildDownloadUrl(prefix)).openConnection() as HttpURLConnection
+                connection.connectTimeout = LATENCY_TIMEOUT_MS
+                connection.readTimeout = READ_TIMEOUT_MS
+                connection.instanceFollowRedirects = true
+                connection.connect()
+
+                val code = connection.responseCode
+                if (code != HttpURLConnection.HTTP_OK) {
+                    lastError = describeError(null, code)
+                    connection.disconnect()
+                    Log.w(TAG, "源[$prefix]下载失败: $lastError")
+                    continue
+                }
+
+                val totalLength = connection.contentLength
+                val inputStream = connection.inputStream
+                val outputStream = tmpZip.outputStream()
+                val buffer = ByteArray(8192)
+                var downloaded = 0
+                var bytesRead: Int
+                // 速度监控：连续 STALL_WINDOW_MS 内速率低于阈值视为卡住
+                val t0 = System.currentTimeMillis()
+                var lastCheckTime = t0
+                var lastCheckBytes = 0L
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    outputStream.write(buffer, 0, bytesRead)
+                    downloaded += bytesRead
+                    if (totalLength > 0) {
+                        onStage(InstallStage.DOWNLOADING, (downloaded * 100 / totalLength).toInt())
+                    }
+                    val now = System.currentTimeMillis()
+                    if (now - lastCheckTime >= STALL_WINDOW_MS) {
+                        val bps = (downloaded - lastCheckBytes) * 1000L / (now - lastCheckTime)
+                        if (bps < STALL_THRESHOLD_BPS) {
+                            throw java.net.SocketTimeoutException("下载卡住（网速过慢）")
+                        }
+                        lastCheckTime = now
+                        lastCheckBytes = downloaded.toLong()
+                    }
+                }
+                outputStream.flush()
+                outputStream.close()
+                inputStream.close()
+                connection.disconnect()
+                Log.i(TAG, "插件下载完成（源=$prefix）: $downloaded bytes")
+
+                // ---- 2. 解压 ----
+                onStage(InstallStage.EXTRACTING, 0)
+                val pluginDir = getPluginDir(context)
+                if (pluginDir.exists()) pluginDir.deleteRecursively()
+                pluginDir.mkdirs()
+                unzip(tmpZip, pluginDir)
+                Log.i(TAG, "插件解压完成")
+
+                // ---- 3. 加载 ----
+                onStage(InstallStage.LOADING, 0)
+                val loaded = loadPlugin(context)
                 tmpZip.delete()
-                val dir = getPluginDir(context)
-                if (dir.exists()) dir.deleteRecursively()
-            } catch (cleanup: Exception) {
-                // 忽略清理异常
+                if (loaded) {
+                    return@withContext PluginInstallResult.Success
+                } else {
+                    lastError = "插件解压成功但加载失败"
+                    pluginDir.deleteRecursively()
+                    return@withContext PluginInstallResult.Failure(lastError)
+                }
+            } catch (e: Exception) {
+                lastError = describeError(e)
+                Log.w(TAG, "源[$prefix]下载异常: $lastError")
+                try {
+                    tmpZip.delete()
+                    val dir = getPluginDir(context)
+                    if (dir.exists()) dir.deleteRecursively()
+                } catch (_: Exception) { }
             }
-            false
         }
+        PluginInstallResult.Failure(lastError)
     }
 
     /** 解压 zip 到目标目录 */
