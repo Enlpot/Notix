@@ -36,7 +36,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BatteryAlert
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
@@ -189,6 +191,10 @@ fun SettingsScreen(
     var pluginInstallProgress by remember { mutableStateOf(0) }
     var pluginStage by remember { mutableStateOf<com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?>(null) }
     val pluginScope = rememberCoroutineScope()
+    // v8.45.1：插件市场弹窗状态
+    var showPluginMarketDialog by remember { mutableStateOf(false) }
+    var pluginMarketQuery by remember { mutableStateOf("") }
+    var pluginToUninstall by remember { mutableStateOf<PluginInfo?>(null) }
 
     // v8.21：未监控应用管理（v8.31：状态由 MainActivity 统一管理，确保历史页和设置页同步刷新）
     val unmonitoredStorage = remember { UnmonitoredAppsStorage(context) }
@@ -938,6 +944,88 @@ fun SettingsScreen(
         )
     }
 
+    // v8.45.1：添加插件弹窗（搜索 + 插件清单，已安装变灰）
+    if (showPluginMarketDialog) {
+        NotixDialog(
+            onDismiss = {
+                showPluginMarketDialog = false
+                pluginMarketQuery = ""
+            },
+            title = "添加插件",
+            contentScrollable = false,
+            content = {
+                OutlinedTextField(
+                    value = pluginMarketQuery,
+                    onValueChange = { pluginMarketQuery = it },
+                    label = { Text("搜索插件") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(12.dp))
+                val filteredPlugins = pluginCatalog.filter {
+                    pluginMarketQuery.isBlank() ||
+                        it.title.contains(pluginMarketQuery.trim(), ignoreCase = true) ||
+                        it.description.contains(pluginMarketQuery.trim(), ignoreCase = true)
+                }
+                if (filteredPlugins.isEmpty()) {
+                    Text(
+                        text = "未找到相关插件",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                        items(filteredPlugins) { plugin ->
+                            val installed = pluginInstalled && plugin.id == "hanlp"
+                            PluginMarketRow(
+                                plugin = plugin,
+                                installed = installed,
+                                installing = pluginInstalling,
+                                installProgress = pluginInstallProgress,
+                                installStage = pluginStage,
+                                onInstall = {
+                                    if (!installed && !pluginInstalling) {
+                                        pluginInstalling = true
+                                        pluginInstallProgress = 0
+                                        pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
+                                        pluginScope.launch {
+                                            val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { stage, progress ->
+                                                pluginStage = stage
+                                                if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
+                                                    pluginInstallProgress = progress
+                                                }
+                                            }
+                                            pluginInstalling = false
+                                            pluginInstalled = success
+                                            pluginStage = null
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // v8.45.1：卸载插件二次确认
+    pluginToUninstall?.let { plugin ->
+        NotixConfirmDialog(
+            onDismiss = { pluginToUninstall = null },
+            onConfirm = {
+                com.enlpot.notix.plugin.WordTokenizerManager.unloadPlugin(context)
+                pluginInstalled = false
+                pluginToUninstall = null
+                showMessage("已卸载「${plugin.title}」")
+            },
+            title = "卸载插件",
+            body = "确定卸载「${plugin.title}」吗？卸载后将恢复内置简单分词。",
+            confirmText = "卸载",
+        )
+    }
+
     // v8.31：刷新应用信息——确认弹窗（清除缓存的应用名称和图标）
     if (showRefreshAppInfoDialog) {
         NotixConfirmDialog(
@@ -1147,61 +1235,38 @@ fun SettingsScreen(
 
             // ===== 插件：可选功能插件 =====
             SettingsSection(title = stringResource(R.string.settings_section_plugins)) {
+                // v8.45.1：添加插件入口（置顶）
                 SettingsRow(
-                    icon = Icons.Filled.TextFields,
-                    title = "高级分词插件",
-                    subtitle = when {
-                        pluginInstalling -> {
-                            when (pluginStage) {
-                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "正在下载插件 $pluginInstallProgress%"
-                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "正在解压插件…"
-                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "正在加载插件…"
-                                else -> "正在安装插件…"
-                            }
-                        }
-                        pluginInstalled -> "已安装 HanLP 高级分词，分词更精准"
-                        else -> "未安装，当前使用内置简单分词（约5MB）"
-                    },
-                    onClick = {
-                        if (pluginInstalled) {
-                            // 卸载插件
-                            com.enlpot.notix.plugin.WordTokenizerManager.unloadPlugin(context)
-                            pluginInstalled = false
-                        } else if (!pluginInstalling) {
-                            // 安装插件（全自动：下载→解压→加载，阶段进度提示）
-                            pluginInstalling = true
-                            pluginInstallProgress = 0
-                            pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
-                            pluginScope.launch {
-                                val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { stage, progress ->
-                                    pluginStage = stage
-                                    if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
-                                        pluginInstallProgress = progress
-                                    }
-                                }
-                                pluginInstalling = false
-                                pluginInstalled = success
-                                pluginStage = null
-                            }
-                        }
-                    },
+                    icon = Icons.Filled.Extension,
+                    title = "添加插件",
+                    subtitle = "浏览并安装更多插件",
+                    onClick = { showPluginMarketDialog = true },
                     trailing = {
-                        when {
-                            pluginInstalling -> Text(
-                                text = when (pluginStage) {
-                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "$pluginInstallProgress%"
-                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "解压中"
-                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "加载中"
-                                    else -> "安装中"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            pluginInstalled -> Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
-                            else -> Icon(Icons.Filled.ImportExport, null, tint = MaterialTheme.notix.contentTertiary)
-                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.notix.contentTertiary)
                     }
                 )
+
+                // v8.45.1：已安装插件卡片（右侧卸载，二次确认）
+                if (pluginInstalled) {
+                    SettingsRow(
+                        icon = Icons.Filled.TextFields,
+                        title = "高级分词插件",
+                        subtitle = "HanLP 高级分词，分词更精准",
+                        onClick = null,
+                        trailing = {
+                            Text(
+                                text = "卸载",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier
+                                    .clip(NotixCorner.Card)
+                                    .clickable { pluginToUninstall = pluginCatalog.first() }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                    )
+                }
             }
 
             // ===== 通知：通知处理与通知历史数据管理 =====
@@ -1372,6 +1437,97 @@ fun SettingsScreen(
             onClearHistory = onClearHistory,
             onClearRules = onClearRules
         )
+    }
+}
+
+// v8.45.1：插件市场——插件清单数据（可扩展）
+private data class PluginInfo(
+    val id: String,
+    val title: String,
+    val description: String,
+    val icon: ImageVector,
+)
+
+private val pluginCatalog = listOf(
+    PluginInfo(
+        id = "hanlp",
+        title = "高级分词插件",
+        description = "HanLP 高级分词，分词更精准",
+        icon = Icons.Filled.TextFields
+    )
+)
+
+@Composable
+private fun PluginMarketRow(
+    plugin: PluginInfo,
+    installed: Boolean,
+    installing: Boolean,
+    installProgress: Int,
+    installStage: com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?,
+    onInstall: () -> Unit
+) {
+    val c = MaterialTheme.notix
+    val sp = MaterialTheme.notixSpacing
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(c.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = plugin.icon,
+                contentDescription = null,
+                tint = c.onPrimaryContainer,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(sp.lg))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = plugin.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = if (installed) c.contentTertiary else c.contentPrimary
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = plugin.description,
+                style = MaterialTheme.typography.bodyMedium,
+                lineHeight = 18.sp,
+                color = if (installed) c.contentTertiary else c.contentSecondary
+            )
+        }
+        Spacer(modifier = Modifier.width(sp.md))
+        when {
+            installed -> Text(
+                text = "已安装",
+                style = MaterialTheme.typography.labelMedium,
+                color = c.contentTertiary
+            )
+            installing -> Text(
+                text = when (installStage) {
+                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "安装中 $installProgress%"
+                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "解压中"
+                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "加载中"
+                    else -> "安装中"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            else -> NotixDialogButton(
+                onClick = onInstall,
+                text = "安装",
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 
