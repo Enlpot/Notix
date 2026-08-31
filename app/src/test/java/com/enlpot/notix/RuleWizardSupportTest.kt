@@ -246,8 +246,8 @@ class RuleWizardSupportTest {
             ActionSpec(RuleAction.DISMISS),
         )
         assertEquals(
-            "TTS 播报：播报模板 → 标题 + 正文 → 等待 2 秒 → 点击：标记为已读 → 移除通知",
-            RuleWizardSupport.actionFlowSummaryFlow(flow, maxShown = 10)
+            "TTS 播报：播报模板 → 复制标题和正文 → 等待 2 秒 → 点击：标记为已读 → 移除通知",
+            RuleWizardSupport.actionFlowSummaryFlow(flow)
         )
     }
 

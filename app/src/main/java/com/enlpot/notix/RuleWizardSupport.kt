@@ -261,15 +261,32 @@ object RuleWizardSupport {
                 when (mode) {
                     CopyMode.TITLE -> "复制标题"
                     CopyMode.TEXT -> "复制正文"
-                    CopyMode.TITLE_AND_TEXT -> "标题 + 正文"
+                    CopyMode.TITLE_AND_TEXT -> "复制标题和正文"
                 }
             }
             RuleAction.TTS -> {
                 val template = params?.get("template")
                     ?.takeIf { it.isJsonPrimitive }?.asString
-                if (template.isNullOrBlank()) "TTS 播报通知标题和正文" else "TTS 播报：$template"
+                if (template.isNullOrBlank()) {
+                    "TTS 播报通知标题和正文"
+                } else {
+                    "TTS 播报：" + template
+                        .replace("{app}", "「应用」")
+                        .replace("{title}", "「标题」")
+                        .replace("{text}", "「内容」")
+                        .replace("{time}", "「时间」")
+                        .replace("{date}", "「日期」")
+                }
             }
-            RuleAction.STRONG_REMIND -> "强提醒（heads-up + 响铃 + 震动）"
+            RuleAction.STRONG_REMIND -> {
+                val p = params?.takeIf { it.isJsonObject }
+                val sound = p?.get("sound")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true
+                val vibrate = p?.get("vibrate")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true
+                val parts = mutableListOf("横幅")
+                if (sound) parts += "响铃"
+                if (vibrate) parts += "震动"
+                "强提醒（${parts.joinToString(" + ")}）"
+            }
             RuleAction.DELAY -> {
                 val ms = params?.get("durationMs")?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L
                 if (ms > 0L && ms % 1000L == 0L) "等待 ${ms / 1000L} 秒"
@@ -295,14 +312,12 @@ object RuleWizardSupport {
 
     /**
      * 组合完整 Action Flow 摘要（RulesScreen 卡片展示用）：按顺序用 " → " 连接
-     * 每个 Action 的 [actionFlowSummary]，过长时只显示前 [maxShown] 个并追加
-     * "…"。全 App 的 Flow 组合摘要只此一个来源，调用方不得另写一套。
+     * 每个 Action 的 [actionFlowSummary]，全部动作展示不截断。全 App 的 Flow
+     * 组合摘要只此一个来源，调用方不得另写一套。
      */
-    fun actionFlowSummaryFlow(actions: List<ActionSpec>, maxShown: Int = 3): String {
+    fun actionFlowSummaryFlow(actions: List<ActionSpec>): String {
         if (actions.isEmpty()) return ""
-        val shown = actions.take(maxShown)
-        val base = shown.joinToString(" → ") { actionFlowSummary(it) }
-        return if (actions.size > shown.size) "$base → …" else base
+        return actions.joinToString(" → ") { actionFlowSummary(it) }
     }
 
     /** v8.14：冻结时长的人类可读文案（供 DISMISS 摘要与 UI 档位展示共用） */

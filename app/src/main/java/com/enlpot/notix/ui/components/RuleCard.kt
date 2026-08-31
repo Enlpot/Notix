@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.AccessTime
@@ -195,13 +196,13 @@ fun RuleCard(
                         style = t.caption,
                         color = weakFg,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.width(42.dp),
+                        maxLines = 1,
+                        modifier = Modifier.widthIn(min = 42.dp),
                     )
                     Text(
                         text = keywordSummary,
                         style = t.caption,
-                        color = actionFg,
-                        fontWeight = FontWeight.Medium,
+                        color = weakFg,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -223,7 +224,8 @@ fun RuleCard(
                         style = t.caption,
                         color = weakFg,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.width(42.dp),
+                        maxLines = 1,
+                        modifier = Modifier.widthIn(min = 42.dp),
                     )
                     Text(
                         text = phoneStateSummary,
@@ -250,7 +252,8 @@ fun RuleCard(
                         style = t.caption,
                         color = weakFg,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.width(42.dp),
+                        maxLines = 1,
+                        modifier = Modifier.widthIn(min = 42.dp),
                     )
                     Text(
                         text = timeSummary,
@@ -263,6 +266,12 @@ fun RuleCard(
 
             // 第四行：动作流（可换行）
             if (actionText.isNotBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(sepFg),
+                )
                 Text(
                     text = actionText,
                     style = t.cardTitle.copy(fontWeight = FontWeight.SemiBold),

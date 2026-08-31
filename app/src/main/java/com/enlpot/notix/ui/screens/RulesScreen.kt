@@ -158,6 +158,8 @@ fun RulesScreen(
                 )
             }
         } else {
+            // 规则按创建时间倒序（最新创建在最上方）
+            val sortedRules = remember(rules) { rules.sortedByDescending { it.createdAt } }
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -167,10 +169,10 @@ fun RulesScreen(
                 verticalArrangement = Arrangement.spacedBy(sp.sm)
             ) {
                 items(
-                    count = rules.size,
-                    key = { rules[it].id }
+                    count = sortedRules.size,
+                    key = { sortedRules[it].id }
                 ) { index ->
-                    val rule = rules[index]
+                    val rule = sortedRules[index]
                     // v7.11：来源 App 列表（v7.13：orEmpty 兜底，旧数据 sourcePackages 可能为 null）
                     val sourceApps = rule.sourcePackages.orEmpty()
                     val primary = sourceApps.firstOrNull()
@@ -188,14 +190,8 @@ fun RulesScreen(
                     }
                     val accent = colors?.backgroundColor?.let { Color(it) }
                     val onAccent = colors?.primaryTextColor?.let { Color(it) }
-                    // 动作流摘要（复用 RuleWizardSupport，全 App 唯一摘要来源；长 Flow 截断前 3 + "…" + "共 N 个动作"）
-                    val flowActions = rule.actions.orEmpty()
-                    val baseFlow = RuleWizardSupport.actionFlowSummaryFlow(flowActions)
-                    val actionText = if (baseFlow.isNotEmpty() && flowActions.size > 3) {
-                        "$baseFlow · ${stringResource(R.string.rule_flow_total_actions, flowActions.size)}"
-                    } else {
-                        baseFlow
-                    }
+                    // 动作流摘要（复用 RuleWizardSupport，全 App 唯一摘要来源；全部动作展示）
+                    val actionText = RuleWizardSupport.actionFlowSummaryFlow(rule.actions.orEmpty())
                     RuleCard(
                         ruleName = ruleDisplayNames[rule.id] ?: rule.name ?: "未命名规则",
                         appName = appName,
@@ -292,8 +288,8 @@ private fun buildTimeDescription(rule: BlockerRule): String {
     if (!extra.time.enabled) return ""
     val time = extra.time
     val weekText = if (time.weekdays.isEmpty()) "每天" else {
-        val weekNames = listOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
-        time.weekdays.sorted().joinToString("、") { weekNames.getOrElse(it) { "周$it" } }
+        val weekNames = mapOf(1 to "周一", 2 to "周二", 3 to "周三", 4 to "周四", 5 to "周五", 6 to "周六", 7 to "周日")
+        time.weekdays.sorted().joinToString("、") { weekNames[it] ?: "周$it" }
     }
     return "${time.startHour.toString().padStart(2, '0')}:${time.startMinute.toString().padStart(2, '0')}-${time.endHour.toString().padStart(2, '0')}:${time.endMinute.toString().padStart(2, '0')} · $weekText"
 }
