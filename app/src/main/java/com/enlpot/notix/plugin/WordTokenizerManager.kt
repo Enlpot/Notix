@@ -417,16 +417,13 @@ object WordTokenizerManager {
                     onStatus("安装完成")
                     return@withContext PluginInstallResult.Success
                 } else {
-                    // v8.47.0：解压成功但加载失败——可能是该源返回了损坏的 zip，
-                    // 记录具体原因并删除坏文件，自动切下个源重下
+                    // v8.47.2：解压成功即 zip 有效——加载失败是插件依赖/环境问题
+                    // （如插件 dex 缺 kotlin-stdlib，release 版 app R8 裁剪后运行时 ClassNotFoundException），
+                    // 换源重下同一 zip 毫无意义，直接报失败，不再反复下载。
                     val reason = lastLoadError ?: "插件解压成功但加载失败"
-                    lastError = reason
-                    onStatus("${sourceName(prefix)} 源加载失败（$reason），切换下一镜像源")
-                    DebugLogManager.e(TAG, "源[${sourceName(prefix)}]$reason，切换下一个源重试")
-                    try {
-                        if (pluginDir.exists()) pluginDir.deleteRecursively()
-                    } catch (_: Exception) { }
-                    continue
+                    DebugLogManager.e(TAG, "插件加载失败（zip 有效，非源问题，不再切换源重试）: $reason")
+                    onStatus("安装失败：$reason")
+                    return@withContext PluginInstallResult.Failure(reason)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 // 协程被取消（用户中断/页面退出）：断开连接，立即终止整个流程，不再换源

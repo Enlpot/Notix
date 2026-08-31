@@ -1,4 +1,4 @@
-name: Build HanLP Plugin
+﻿name: Build HanLP Plugin
 
 # v8.46.0：插件与主版本解耦——插件 zip 挂固定 release tag plugin-hanlp，URL 恒定。
 # 仅在 plugins/ 目录变更或手动触发时构建并覆盖上传，不影响主版本发布。
@@ -54,9 +54,17 @@ jobs:
             exit 1
           fi
           echo "Using d8: $D8"
-          # 合并插件类 + HanLP 类转 dex
+          # 定位 kotlin-stdlib jar（gradle 缓存；插件用 Kotlin 编写，dex 必须自带 stdlib，
+          # 否则 release 版 app R8 裁剪 stdlib 后插件运行时报 ClassNotFoundException）
+          KOTLIN_STDLIB=$(find "$HOME/.gradle/caches" -name "kotlin-stdlib-*.jar" ! -name "*jdk7*" ! -name "*jdk8*" ! -name "*sources*" ! -name "*javadoc*" | sort -V | tail -1)
+          if [ -z "$KOTLIN_STDLIB" ]; then
+            echo "::error::kotlin-stdlib jar not found in gradle cache"
+            exit 1
+          fi
+          echo "kotlin-stdlib: $KOTLIN_STDLIB"
+          # 合并插件类 + HanLP 类 + kotlin-stdlib 转 dex
           mkdir -p plugin_dist
-          "$D8" --output plugin_dist --min-api 26 "$PLUGIN_JAR" "$HANLP_JAR"
+          "$D8" --output plugin_dist --min-api 26 "$PLUGIN_JAR" "$HANLP_JAR" "$KOTLIN_STDLIB"
           # 整理：重命名 dex、提取词典、打包单 zip
           cd plugin_dist
           mv classes.dex word_tokenizer_hanlp.dex
