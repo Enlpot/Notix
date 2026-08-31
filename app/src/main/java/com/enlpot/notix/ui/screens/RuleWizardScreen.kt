@@ -1280,6 +1280,7 @@ private fun MatchModePickerDialog(
     NotixDialog(
         onDismiss = onDismiss,
         title = stringResource(R.string.rule_wizard_mode_label),
+        contentScrollable = false,
     ) {
         Column(
             modifier = Modifier
@@ -1460,6 +1461,7 @@ private fun KeywordInputDialog(
     NotixDialog(
         onDismiss = onDismiss,
         title = title,
+        contentScrollable = false,
         content = {
             Column(
                 modifier = Modifier

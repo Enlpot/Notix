@@ -104,7 +104,8 @@ fun HistoryNotificationDetailsDialog(
             contentAlignment = Alignment.Center
         ) {
         BoxWithConstraints {
-            val maxDialogHeight = this.maxHeight * 0.8f
+            val maxDialogHeight = this.maxHeight * 0.9f
+            val maxContentHeight = this.maxHeight * 0.6f
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(0.9f)
@@ -155,7 +156,7 @@ fun HistoryNotificationDetailsDialog(
                 // 中部：变更通知卡片列表（占剩余空间，可滚动；内容短时压缩到内容高度；每条可点击弹详情弹窗）
                 LazyColumn(
                     modifier = Modifier
-                        .weight(1f, fill = false)
+                        .heightIn(max = maxContentHeight)
                         .fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(sp.sm)
                 ) {

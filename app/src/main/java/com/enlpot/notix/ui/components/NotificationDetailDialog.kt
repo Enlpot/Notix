@@ -106,7 +106,8 @@ fun NotificationDetailDialog(
             contentAlignment = Alignment.Center
         ) {
         BoxWithConstraints {
-            val maxDialogHeight = this.maxHeight * 0.8f
+            val maxDialogHeight = this.maxHeight * 0.9f
+            val maxContentHeight = this.maxHeight * 0.6f
             Surface(
                 modifier = Modifier
                     // v8.3：弹窗宽度改为屏幕 90%（关闭平台窄窗口后真实生效）
@@ -178,7 +179,7 @@ fun NotificationDetailDialog(
                     // 内容区：上限 80% 高度内可滚动（内容短时压缩到内容高度）+ 光标拖动选择复制
                     Column(
                         modifier = Modifier
-                            .weight(1f, fill = false)
+                            .heightIn(max = maxContentHeight)
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = sp.xl, vertical = sp.md)
