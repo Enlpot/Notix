@@ -25,6 +25,11 @@ import java.util.UUID
  */
 class NotificationHistoryRepository(context: Context) {
 
+    // v8.42.0：常驻通知更新限流——同一个 sbnKey 30秒内只刷新一次 lastTimestamp
+    // 减少频繁更新导致的数据库写入和UI刷新（如下载进度、音乐播放等）
+    private val ongoingLastRefresh = mutableMapOf<String, Long>()
+    private val ONGOING_REFRESH_INTERVAL_MS = 30_000L
+
     private val TAG = "NotificationHistoryRepo"
     private val gson = Gson()
     private val db = AppDatabase.getInstance(context)
@@ -65,18 +70,34 @@ class NotificationHistoryRepository(context: Context) {
         val blockedInt = if (blocked) 1 else 0
 
         return if (existing != null) {
-            // 找到现有组：更新 count、lastTimestamp，追加 change
-            val updatedGroup = existing.copy(
-                count = existing.count + 1,
-                last_timestamp = notification.timestamp,
-                blocked = blockedInt
-            )
+            // v8.42.0：常驻通知更新限流——30秒内只更新count，不刷新lastTimestamp
+            val now = System.currentTimeMillis()
+            val lastRefresh = ongoingLastRefresh[sbnKey] ?: 0L
+            val shouldRefreshTimestamp = (now - lastRefresh) >= ONGOING_REFRESH_INTERVAL_MS
+
+            val updatedGroup = if (shouldRefreshTimestamp) {
+                // 超过限流间隔：正常更新 lastTimestamp（会触发UI刷新）
+                ongoingLastRefresh[sbnKey] = now
+                existing.copy(
+                    count = existing.count + 1,
+                    last_timestamp = notification.timestamp,
+                    blocked = blockedInt,
+                    was_ongoing = 1
+                )
+            } else {
+                // 限流期间：只更新count，不刷新lastTimestamp（不触发UI刷新）
+                existing.copy(
+                    count = existing.count + 1,
+                    blocked = blockedInt,
+                    was_ongoing = 1
+                )
+            }
             groupDao.update(updatedGroup)
 
             val change = notification.toChangeEntity(updatedGroup.id)
             changeDao.insert(change)
 
-            Log.d(TAG, "Ongoing notification aggregated: sbnKey=$sbnKey, count=${updatedGroup.count}")
+            Log.d(TAG, "Ongoing notification aggregated: sbnKey=$sbnKey, count=${updatedGroup.count}, refreshTimestamp=$shouldRefreshTimestamp")
             false
         } else {
             // 没找到：新建组 + 新建 change
@@ -90,7 +111,8 @@ class NotificationHistoryRepository(context: Context) {
                 first_timestamp = notification.timestamp,
                 last_timestamp = notification.timestamp,
                 blocked = blockedInt,
-                sbn_key = sbnKey
+                sbn_key = sbnKey,
+                was_ongoing = 1
             )
             groupDao.insert(newGroup)
 
@@ -369,6 +391,7 @@ class NotificationHistoryRepository(context: Context) {
         return groupDao.findBySbnKey(sbnKey) != null
     }
 }
+
 
 
 
