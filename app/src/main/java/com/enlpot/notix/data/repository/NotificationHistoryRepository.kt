@@ -336,7 +336,8 @@ class NotificationHistoryRepository(context: Context) {
             post_time = this.postTime,
             matched_rule_ids = if (this.matchedRuleIds.isNotEmpty()) {
                 gson.toJson(this.matchedRuleIds)
-            } else null
+            } else null,
+            channel_id = this.channelId
         )
     }
 
@@ -359,7 +360,8 @@ class NotificationHistoryRepository(context: Context) {
             id = this.id,
             sbnKey = this.sbn_key,
             postTime = this.post_time,
-            matchedRuleIds = matchedIds
+            matchedRuleIds = matchedIds,
+            channelId = this.channel_id
         )
     }
 

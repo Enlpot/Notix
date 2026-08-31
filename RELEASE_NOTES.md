@@ -1,5 +1,12 @@
 ﻿# Notix 发布说明
 
+## v8.42.1 (2026-08-31)
+
+### 新增
+- **通知详情弹窗显示渠道和 sbnKey**：通知详情弹窗正文下方新增显示通知渠道 ID（channelId）和通知唯一标识（sbnKey），便于调试和后续按渠道聚合分析。
+- **数据库升级到 v4**：notification_change 表新增 channel_id 字段，通过正式迁移（ALTER TABLE ADD COLUMN）保留历史数据。
+
+---
 ## v8.42.0 (2026-08-31)
 
 ### 新增
@@ -154,6 +161,7 @@
 
 ### Notes
 - `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells; their real execution lands in a future release.
+
 
 
 

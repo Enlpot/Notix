@@ -1,4 +1,4 @@
-package com.enlpot.notix
+﻿package com.enlpot.notix
 
 import android.os.Parcelable
 import androidx.annotation.Keep
@@ -19,5 +19,8 @@ data class SimpleNotification(
     val sbnKey: String? = null,
     val postTime: Long? = null,
     // v7.36：命中规则 id（被过滤历史按规则分组依据），旧数据为空列表时归「未知规则」组
-    val matchedRuleIds: List<String> = emptyList()
+    val matchedRuleIds: List<String> = emptyList(),
+    // v8.43.0：通知渠道 ID（用于按渠道聚合分析和详情展示）
+    val channelId: String? = null
 ) : Parcelable
+

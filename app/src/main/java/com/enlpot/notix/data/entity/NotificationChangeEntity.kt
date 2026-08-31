@@ -52,5 +52,9 @@ data class NotificationChangeEntity(
     val post_time: Long? = null,
 
     /** 命中规则 ID 列表，以 JSON 字符串存储。 */
-    val matched_rule_ids: String? = null
+    val matched_rule_ids: String? = null,
+
+    // v8.43.0：通知渠道 ID
+    val channel_id: String? = null
 )
+

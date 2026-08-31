@@ -1,4 +1,4 @@
-package com.enlpot.notix
+﻿package com.enlpot.notix
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -492,7 +492,8 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             wasOngoing = isOngoing,
             sbnKey = sbn.key,
             postTime = sbn.postTime,
-            matchedRuleIds = hitRuleIds
+            matchedRuleIds = hitRuleIds,
+            channelId = sbn.notification.channelId
         )
 
         sbn.notification.contentIntent?.let { intent ->

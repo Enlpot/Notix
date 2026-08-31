@@ -201,6 +201,29 @@ fun NotificationDetailDialog(
                                         color = c.contentSecondary
                                     )
                                 }
+                                // v8.43.0：显示通知渠道和 sbnKey
+                                val channelIdStr = notification.channelId
+                                val sbnKeyStr = notification.sbnKey
+                                if (channelIdStr != null || sbnKeyStr != null) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    HorizontalDivider(color = c.outlineVariant)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    if (channelIdStr != null) {
+                                        Text(
+                                            text = "渠道：$channelIdStr",
+                                            style = MaterialTheme.notixType.caption,
+                                            color = c.contentSecondary
+                                        )
+                                    }
+                                    if (sbnKeyStr != null) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "sbnKey：$sbnKeyStr",
+                                            style = MaterialTheme.notixType.caption,
+                                            color = c.contentSecondary
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
