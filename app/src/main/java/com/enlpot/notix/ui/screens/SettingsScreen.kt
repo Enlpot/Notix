@@ -112,6 +112,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.AppInfoStorage
 import com.enlpot.notix.CrashLogManager
+import com.enlpot.notix.DebugLogManager
 import com.enlpot.notix.ImportError
 import com.enlpot.notix.ImportResult
 import com.enlpot.notix.NotificationBlockerService
@@ -126,6 +127,7 @@ import com.enlpot.notix.RuleWizardSupport
 import com.enlpot.notix.setup.SetupState
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.ui.components.CrashLogDialog
+import com.enlpot.notix.ui.components.DebugLogDialog
 import com.enlpot.notix.ui.components.NotixConfirmDialog
 import com.enlpot.notix.ui.components.NotixDangerButton
 import com.enlpot.notix.ui.components.NotixDialog
@@ -170,6 +172,9 @@ fun SettingsScreen(
     // v7.13：崩溃日志入口
     var showCrashLogDialog by remember { mutableStateOf(false) }
     var crashLogEnabled by remember { mutableStateOf(CrashLogManager.isEnabled(context)) }
+    // v8.47.0：调试日志（默认关，崩溃后自动开启）
+    var showDebugLogDialog by remember { mutableStateOf(false) }
+    var debugLogEnabled by remember { mutableStateOf(DebugLogManager.isEnabled(context)) }
 
     // v7.45：无文本通知文字提取开关（默认关）
     var extractRemoteViewsEnabled by remember {
@@ -932,6 +937,13 @@ fun SettingsScreen(
             onEnabledChanged = { crashLogEnabled = it }
         )
     }
+    // v8.47.0：调试日志弹窗
+    if (showDebugLogDialog) {
+        DebugLogDialog(
+            onDismiss = { showDebugLogDialog = false },
+            onEnabledChanged = { debugLogEnabled = it }
+        )
+    }
 
     // v8.14：恢复常驻通知——确认弹窗（确认后恢复所有被规则冻结的常驻通知）
     if (showRestoreSnoozedDialog) {
@@ -1553,6 +1565,14 @@ fun SettingsScreen(
                         else R.string.settings_crash_log_summary_off
                     ),
                     onClick = { showCrashLogDialog = true },
+                )
+
+                // v8.47.0：调试日志入口（详细日志，便于诊断）
+                SettingsRow(
+                    icon = Icons.Filled.Info,
+                    title = "调试日志",
+                    subtitle = if (debugLogEnabled) "已开启" else "已关闭",
+                    onClick = { showDebugLogDialog = true },
                 )
             }
 

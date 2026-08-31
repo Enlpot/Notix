@@ -405,6 +405,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         // 全局暂停：不处理任何通知（保留历史与统计，仅停止监听写入）。
         if (isListenerPaused(this)) {
             Log.i(TAG, "Listener paused — ignoring notification from ${sbn.packageName}")
+            DebugLogManager.i("Notify", "全局暂停，忽略通知: pkg=${sbn.packageName}")
             return
         }
 
@@ -467,6 +468,11 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         }
 
         Log.i(TAG, "Notification Received: App='${appLabel}' titleLen=${title?.length} textLen=${text?.length}")
+        DebugLogManager.i(
+            "Notify",
+            "收到: app=$appLabel pkg=$packageName key=${sbn.key} ch=${sbn.notification.channelId} " +
+                "title=$title text=$text"
+        )
 
         // v7.11 决策：来源App过滤 → 关键字匹配 → 额外条件 → 动作
         val rules = ruleStorage.getRules()
@@ -477,6 +483,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         // 执行动作（binder 线程，尽量轻量；Action Flow 在 action-worker 串行执行）
         if (matchedRule != null) {
             Log.i(TAG, "Rule matched for $packageName: ${matchedRule.description ?: matchedRule.id}")
+            DebugLogManager.i("Notify", "规则命中: pkg=$packageName rule=${matchedRule.id} actions=${matchedRule.actions.size}")
             executeActionFlow(sbn, matchedRule, appLabel, title, text, currentTime)
         }
 
@@ -497,6 +504,8 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             matchedRuleIds = hitRuleIds,
             channelId = sbn.notification.channelId
         )
+
+        DebugLogManager.i("Notify", "记录决策: pkg=$packageName key=${sbn.key} ongoing=$isOngoing handled=$isHandled rules=$hitRuleIds")
 
         sbn.notification.contentIntent?.let { intent ->
             simpleNotification.id?.let { id ->
@@ -625,6 +634,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             var flow: FlowExecution? = null
             flow = actionFlowExecutor.execute(rule.actions, ctx) { result ->
                 Log.i(TAG, "ActionFlow complete rule=${rule.id} status=${result.status} executed=${result.executedCount} failures=${result.failedActions.size}")
+                DebugLogManager.i("Action", "完成 rule=${rule.id} status=${result.status} executed=${result.executedCount} failures=${result.failedActions.size}")
                 flow?.let { activeFlows.remove(it) }
             }
             // 同步完成的 Flow 已结束无需追踪；未完成（TTS/DELAY 挂起）的登记以便 destroy 时统一 cancel
@@ -1133,6 +1143,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
+        DebugLogManager.i("Notify", "通知移除: key=${sbn?.key} pkg=${sbn?.packageName}")
         // v7.11: no stack handling; nothing to do
     }
 

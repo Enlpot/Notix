@@ -5,6 +5,7 @@ import android.os.Build
 import android.util.Log
 import dalvik.system.DexClassLoader
 import dalvik.system.InMemoryDexClassLoader
+import com.enlpot.notix.DebugLogManager
 import java.nio.ByteBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -85,6 +86,7 @@ object WordTokenizerManager {
         val raw = sp.getString(PREF_MIRRORS, null)
         if (raw == null) {
             sp.edit().putString(PREF_MIRRORS, DEFAULT_MIRROR_PREFIXES.joinToString("\n")).apply()
+            DebugLogManager.i(TAG, "首次写入默认镜像源: $DEFAULT_MIRROR_PREFIXES")
             return DEFAULT_MIRROR_PREFIXES
         }
         return raw.split("\n").map { it.trim() }.filter { it.isNotBlank() }
@@ -100,6 +102,7 @@ object WordTokenizerManager {
         cur.add(p)
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             .edit().putString(PREF_MIRRORS, cur.joinToString("\n")).apply()
+        DebugLogManager.i(TAG, "添加镜像源: $p")
         return null
     }
 
@@ -109,6 +112,7 @@ object WordTokenizerManager {
         cur.remove(prefix)
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             .edit().putString(PREF_MIRRORS, cur.joinToString("\n")).apply()
+        DebugLogManager.i(TAG, "删除镜像源: $prefix")
     }
 
     /** 官方源前缀（空字符串） */
@@ -170,6 +174,10 @@ object WordTokenizerManager {
     @Volatile
     private var pluginLoaded = false
 
+    /** v8.47.0：最近一次加载失败的具体原因（供诊断与下载重试判断） */
+    @Volatile
+    private var lastLoadError: String? = null
+
     /** 获取当前分词器 */
     fun getTokenizer(): WordTokenizer = currentTokenizer
 
@@ -196,6 +204,7 @@ object WordTokenizerManager {
         val dexFile = getDexFile(context)
         if (!dexFile.exists()) {
             Log.w(TAG, "插件 dex 不存在: ${dexFile.absolutePath}")
+            DebugLogManager.w(TAG, "插件 dex 不存在: ${dexFile.absolutePath}")
             return false
         }
 
@@ -245,11 +254,16 @@ object WordTokenizerManager {
                 }
             }
             pluginLoaded = true
+            lastLoadError = null
 
             Log.i(TAG, "插件加载成功: ${currentTokenizer.name()}")
+            DebugLogManager.i(TAG, "插件加载成功: ${currentTokenizer.name()} | dex=${dexFile.length()} bytes")
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // v8.47.0：捕获 Throwable（含 OOM），崩溃优雅回退而非直接崩溃
+            lastLoadError = "加载失败[${e.javaClass.simpleName}]: ${e.message}"
             Log.e(TAG, "插件加载失败，回退到内置分词器", e)
+            DebugLogManager.e(TAG, "插件加载失败: $lastLoadError", e)
             currentTokenizer = SimpleWordTokenizer()
             pluginLoaded = false
             false
@@ -269,6 +283,7 @@ object WordTokenizerManager {
             Log.e(TAG, "删除插件目录失败", e)
         }
         Log.i(TAG, "插件已卸载，回退到内置分词器")
+        DebugLogManager.i(TAG, "插件已卸载，回退到内置分词器")
     }
 
     /**
@@ -290,6 +305,9 @@ object WordTokenizerManager {
         val prefixes = listOf(OFFICIAL_PREFIX) + getMirrorPrefixes(context)
         val latencies = prefixes.map { p -> p to testLatency(p) }.toMap()
         val sorted = prefixes.sortedBy { latencies[it] ?: Long.MAX_VALUE }
+        DebugLogManager.i(TAG, "开始安装插件，源列表（按延迟升序）: ${
+            sorted.joinToString(", ") { (if (it.isEmpty()) "官方" else it) + "(${latencies[it] ?: -1}ms)" }
+        }")
 
         var lastError = "未知错误"
         for (prefix in sorted) {
@@ -308,6 +326,7 @@ object WordTokenizerManager {
                     lastError = describeError(null, code)
                     connection.disconnect()
                     Log.w(TAG, "源[$prefix]下载失败: $lastError")
+                    DebugLogManager.w(TAG, "源[${if (prefix.isEmpty()) "官方" else prefix}]下载失败: $lastError")
                     continue
                 }
 
@@ -342,6 +361,7 @@ object WordTokenizerManager {
                 inputStream.close()
                 connection.disconnect()
                 Log.i(TAG, "插件下载完成（源=$prefix）: $downloaded bytes")
+                DebugLogManager.i(TAG, "下载完成（源=${if (prefix.isEmpty()) "官方" else prefix}）: $downloaded bytes, 期望 $totalLength")
 
                 // ---- 2. 解压 ----
                 onStage(InstallStage.EXTRACTING, 0)
@@ -350,21 +370,30 @@ object WordTokenizerManager {
                 pluginDir.mkdirs()
                 unzip(tmpZip, pluginDir)
                 Log.i(TAG, "插件解压完成")
+                DebugLogManager.i(TAG, "解压完成 -> ${pluginDir.absolutePath}")
 
                 // ---- 3. 加载 ----
                 onStage(InstallStage.LOADING, 0)
                 val loaded = loadPlugin(context)
                 tmpZip.delete()
                 if (loaded) {
+                    DebugLogManager.i(TAG, "安装成功")
                     return@withContext PluginInstallResult.Success
                 } else {
-                    lastError = "插件解压成功但加载失败"
-                    pluginDir.deleteRecursively()
-                    return@withContext PluginInstallResult.Failure(lastError)
+                    // v8.47.0：解压成功但加载失败——可能是该源返回了损坏的 zip，
+                    // 记录具体原因并删除坏文件，自动切下个源重下
+                    val reason = lastLoadError ?: "插件解压成功但加载失败"
+                    lastError = reason
+                    DebugLogManager.e(TAG, "源[${if (prefix.isEmpty()) "官方" else prefix}]$reason，切换下一个源重试")
+                    try {
+                        if (pluginDir.exists()) pluginDir.deleteRecursively()
+                    } catch (_: Exception) { }
+                    continue
                 }
             } catch (e: Exception) {
                 lastError = describeError(e)
                 Log.w(TAG, "源[$prefix]下载异常: $lastError")
+                DebugLogManager.w(TAG, "源[${if (prefix.isEmpty()) "官方" else prefix}]下载异常: $lastError | ${e.javaClass.simpleName}: ${e.message}")
                 try {
                     tmpZip.delete()
                     val dir = getPluginDir(context)
@@ -403,7 +432,12 @@ object WordTokenizerManager {
             val loaded = loadPlugin(context)
             if (loaded) {
                 Log.i(TAG, "启动时自动加载插件成功")
+                DebugLogManager.i(TAG, "启动时自动加载插件成功")
+            } else {
+                DebugLogManager.w(TAG, "启动时自动加载插件失败: ${lastLoadError ?: "未知原因"}")
             }
+        } else {
+            DebugLogManager.i(TAG, "启动：未安装插件，使用内置分词器")
         }
     }
 }

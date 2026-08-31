@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.enlpot.notix.CrashLogManager
+import com.enlpot.notix.DebugLogManager
 import com.enlpot.notix.R
 import java.io.File
 import java.util.Locale
@@ -121,19 +122,23 @@ private fun historyBytes(context: Context): Long {
 private fun rulesBytes(context: Context): Long =
     filesDirFiles(context).filter { isRuleFile(it.name) }.sumOf { it.length() }
 
-/** 其他：崩溃日志（外部目录）+ 临时/备份文件 */
+/** 其他：崩溃日志 + 调试日志（外部目录）+ 临时/备份文件 */
 private fun otherBytes(context: Context): Long {
     val tempBytes = filesDirFiles(context)
         .filter { !HISTORY_FILE_NAMES.contains(it.name) && !isRuleFile(it.name) && isTempBackupFile(it.name) }
         .sumOf { it.length() }
     val crashFile = CrashLogManager.logFile(context)
     val crashBytes = if (crashFile.exists() && crashFile.isFile) crashFile.length() else 0L
-    return tempBytes + crashBytes
+    // v8.47.0：调试日志计入「其他」占用
+    val debugFile = DebugLogManager.logFile(context)
+    val debugBytes = if (debugFile.exists() && debugFile.isFile) debugFile.length() else 0L
+    return tempBytes + crashBytes + debugBytes
 }
 
-/** 清除「其他」：崩溃日志 + 临时/备份文件（不动 SharedPreferences 与统计） */
+/** 清除「其他」：崩溃日志 + 调试日志 + 临时/备份文件（不动 SharedPreferences 与统计） */
 private fun clearOtherFiles(context: Context) {
     CrashLogManager.clearLogs(context)
+    DebugLogManager.clearLogs(context)
     filesDirFiles(context)
         .filter { !HISTORY_FILE_NAMES.contains(it.name) && !isRuleFile(it.name) && isTempBackupFile(it.name) }
         .forEach { runCatching { it.delete() } }

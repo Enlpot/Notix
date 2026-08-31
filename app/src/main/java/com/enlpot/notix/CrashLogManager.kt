@@ -122,10 +122,16 @@ object CrashLogManager {
 
     private fun appendCrash(context: Context, thread: Thread, throwable: Throwable) {
         try {
+            // v8.47.0：崩溃后标记，下次启动自动开启调试日志（便于复现诊断）
+            DebugLogManager.noteCrash(context)
+            // v8.47.0：若调试日志已开启，同步写入详细崩溃信息
+            DebugLogManager.e("Crash", "未捕获异常 Thread=${thread.name}", throwable)
             val file = logFile(context)
             val existing = if (file.exists()) file.readText(Charsets.UTF_8) else ""
             val sb = StringBuilder()
             sb.append(ENTRY_SEPARATOR).append(timestamp()).append(" =====\n")
+            // v8.47.0：崩溃记录附带设备/环境信息，便于远程定位
+            sb.append("Device: ").append(DebugLogManager.deviceInfo(context)).append('\n')
             sb.append("Thread: ").append(thread.name).append('\n')
             sb.append("Exception: ").append(throwable.javaClass.name)
             throwable.message?.let { sb.append(": ").append(it) }
