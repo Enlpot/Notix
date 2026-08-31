@@ -81,6 +81,8 @@ object WordTokenizerManager {
     private const val PROBE_RANGE_SIZE = 256 * 1024
     /** 线路探测窗口上限（毫秒）：窗口内累计字节最多者即最快源 */
     private const val PROBE_TIMEOUT_MS = 3000
+    /** 可靠测速所需最小字节：探测字节过少时测速值不可靠，不用于动态阈值严管 */
+    private const val PROBE_MIN_RELIABLE_BYTES = 64 * 1024
 
     /** 安装结果 */
     sealed class PluginInstallResult {
@@ -138,7 +140,10 @@ object WordTokenizerManager {
         val valid: Boolean,     // 是否可用（有字节且内容正常）
         val eofEarly: Boolean,  // 未下满探测量即 EOF（内容异常，如代理返回 2KB HTML）
         val reason: String = ""
-    )
+    ) {
+        /** 测速速度（字节/秒）；探测耗时过短时可能为 0 */
+        val speedBps: Long = if (elapsedMs > 0) bytes * 1000 / elapsedMs else 0
+    }
 
     /**
      * 线路探测（v8.47.3）：并行小样本 Range 测速——只下载每个源的前 256KB，
@@ -207,8 +212,12 @@ object WordTokenizerManager {
         }
     }
 
+    /** v8.47.4：实际下载速度远低于测速值（低于测速 30% 且持续 10s）时抛出，触发切换下一线路 */
+    private class DownloadTooSlowException(message: String) : java.io.IOException(message)
+
     /** 将异常/HTTP 错误转为用户可读原因 */
     private fun describeError(e: Exception?, httpCode: Int? = null): String = when {
+        e is DownloadTooSlowException -> e.message ?: "下载速度不达标"
         httpCode != null -> "下载失败（HTTP $httpCode）"
         e is java.net.SocketTimeoutException -> "网络超时（镜像无响应）"
         e is java.net.ConnectException -> "网络异常（无法连接）"
@@ -409,6 +418,10 @@ object WordTokenizerManager {
                 onStage(InstallStage.DOWNLOADING, 0)
                 onSourceChanged(prefix)
                 onStatus("正在从 ${sourceName(prefix)} 源下载")
+                // v8.47.4：动态阈值 = max(5KB/s, 测速值×30%)；测速字节过少（<64KB）视为不可靠，仅用 5KB/s 兜底
+                val probe = probes[prefix]
+                val probeSpeed = if (probe != null && probe.valid && probe.bytes >= PROBE_MIN_RELIABLE_BYTES) probe.speedBps else 0L
+                val slowThreshold = maxOf(STALL_THRESHOLD_BPS.toLong(), probeSpeed * 30 / 100)
                 connection = URL(buildDownloadUrl(prefix)).openConnection() as HttpURLConnection
                 connection.connectTimeout = LATENCY_TIMEOUT_MS
                 connection.readTimeout = READ_TIMEOUT_MS
@@ -453,8 +466,14 @@ object WordTokenizerManager {
                     }
                     if (now - lastCheckTime >= STALL_WINDOW_MS) {
                         val bps = (downloaded - lastCheckBytes) * 1000L / (now - lastCheckTime)
-                        if (bps < STALL_THRESHOLD_BPS) {
-                            throw java.net.SocketTimeoutException("下载卡住（网速过慢）")
+                        if (bps < slowThreshold) {
+                            if (probeSpeed > 0) {
+                                throw DownloadTooSlowException(
+                                    "下载速度不达标（实际 ${bps / 1024}KB/s，测速 ${probeSpeed / 1024}KB/s）"
+                                )
+                            } else {
+                                throw java.net.SocketTimeoutException("下载卡住（网速过慢）")
+                            }
                         }
                         lastCheckTime = now
                         lastCheckBytes = downloaded.toLong()
