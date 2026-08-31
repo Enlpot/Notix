@@ -8,6 +8,9 @@ import dalvik.system.InMemoryDexClassLoader
 import com.enlpot.notix.DebugLogManager
 import java.nio.ByteBuffer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -319,9 +322,12 @@ object WordTokenizerManager {
         val tmpZip = File(context.cacheDir, PLUGIN_ZIP_NAME)
         fun sourceName(prefix: String): String = if (prefix.isEmpty()) "官方" else prefix
 
-        // 组装源列表：[官方] + 用户镜像，按延迟升序（测试失败放最后）
+        // 组装源列表：[官方] + 用户镜像
+        // v8.47.2：并行测延迟（async/awaitAll），总耗时≈最慢源（上限 5s），顺序测最坏 5 源全超时 25s
         val prefixes = listOf(OFFICIAL_PREFIX) + getMirrorPrefixes(context)
-        val latencies = prefixes.map { p -> p to testLatency(p) }.toMap()
+        val latencies = coroutineScope {
+            prefixes.map { p -> async { p to testLatency(p) } }.awaitAll().toMap()
+        }
         val sorted = prefixes.sortedBy { latencies[it] ?: Long.MAX_VALUE }
         DebugLogManager.i(TAG, "开始安装插件，源列表（按延迟升序）: ${
             sorted.joinToString(", ") { (if (it.isEmpty()) "官方" else it) + "(${latencies[it] ?: -1}ms)" }
