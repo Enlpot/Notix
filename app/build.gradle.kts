@@ -27,8 +27,8 @@ android {
         applicationId = "com.enlpot.notix"
         minSdk = 24
         targetSdk = 36
-        versionCode = 166
-        versionName = "8.44.0"
+        versionCode = 167
+        versionName = "8.44.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -59,6 +59,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -87,6 +88,7 @@ dependencies {
     implementation(libs.accompanist.systemuicontroller)
     implementation(libs.material)
     implementation(libs.reorderable)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(libs.androidx.work.runtime.ktx)
     // Room
     implementation(libs.androidx.room.runtime)

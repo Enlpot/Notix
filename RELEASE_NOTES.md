@@ -1,5 +1,14 @@
 ﻿# Notix 发布说明
 
+## v8.44.1 (2026-08-31)
+
+### 修复
+- **API 24~32 设备启动闪退**：修复 `LocalDate.ofInstant`（仅 Android 13+/API 33 及以上提供）在低版本设备上导致的 `NoSuchMethodError` 崩溃。
+  - 启用 core library desugaring（desugar_jdk_libs 2.1.5），`java.time` 全系 API 在 minSdk 24 上完整可用
+  - 修复统计页/通知历史页日期逻辑在 Android 12 及以下设备启动即崩溃的问题
+
+---
+
 ## v8.44.0 (2026-08-31)
 
 ### 新增
