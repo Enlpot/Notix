@@ -114,32 +114,41 @@ jobs:
           fi
           echo "Previous tag: $PREV_TAG"
           
-          # Generate release notes from git log
-          NOTES="# Notix v${VERSION} 发布说明\n\n"
-          NOTES+="本次版本相较于上一版本的更新内容：\n\n"
-          NOTES+="## 更新内容\n\n"
-          
-          # Categorize commits - support both English (feat/fix/chore) and Chinese (功能/优化/修复) prefixes
-          ALL_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD)
-          FEATS=$(echo "$ALL_COMMITS" | grep -iE "^- (feat|功能|新增|add|实现)" || true)
-          FIXES=$(echo "$ALL_COMMITS" | grep -iE "^- (fix|修复|bug|解决)" || true)
-          IMPROVED=$(echo "$ALL_COMMITS" | grep -iE "^- (优化|改进|improve|perf|refactor|style|调整)" || true)
-          CHORES=$(echo "$ALL_COMMITS" | grep -iE "^- (chore|docs|test|升版|v[0-9])" || true)
-          
-          if [ -n "$FEATS" ]; then
-            NOTES+="### 新增功能\n$FEATS\n\n"
+          # v8.42.3：优先从 RELEASE_NOTES.md 提取对应版本的详细更新说明
+          # 提取失败时回退到 git log 自动生成
+          NOTES_FROM_FILE=""
+          if [ -f RELEASE_NOTES.md ]; then
+            # 提取 ## v${VERSION} 到下一个 ## v 之间的内容（不含标题行和分隔线）
+            NOTES_FROM_FILE=$(awk "/^## v${VERSION}/{flag=1; next} /^## v/{flag=0} flag" RELEASE_NOTES.md | sed "/^---$/d" | sed "s/^[[:space:]]*//" | awk "NF")
           fi
-          if [ -n "$IMPROVED" ]; then
-            NOTES+="### 改进优化\n$IMPROVED\n\n"
+
+          if [ -n "$NOTES_FROM_FILE" ]; then
+            # 从 RELEASE_NOTES.md 提取成功，使用详细内容
+            echo -e "# Notix v${VERSION} 发布说明\n\n${NOTES_FROM_FILE}" > RELEASE_NOTES_GENERATED.md
+          else
+            # 提取失败，回退到 git log 自动生成
+            NOTES="# Notix v${VERSION} 发布说明\n\n"
+            NOTES+="本次版本相较于上一版本的更新内容：\n\n"
+            NOTES+="## 更新内容\n\n"
+            ALL_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD)
+            FEATS=$(echo "$ALL_COMMITS" | grep -iE "^- (feat|功能|新增|add|实现)" || true)
+            FIXES=$(echo "$ALL_COMMITS" | grep -iE "^- (fix|修复|bug|解决)" || true)
+            IMPROVED=$(echo "$ALL_COMMITS" | grep -iE "^- (优化|改进|improve|perf|refactor|style|调整)" || true)
+            CHORES=$(echo "$ALL_COMMITS" | grep -iE "^- (chore|docs|test|升版|v[0-9])" || true)
+            if [ -n "$FEATS" ]; then
+              NOTES+="### 新增功能\n$FEATS\n\n"
+            fi
+            if [ -n "$IMPROVED" ]; then
+              NOTES+="### 改进优化\n$IMPROVED\n\n"
+            fi
+            if [ -n "$FIXES" ]; then
+              NOTES+="### 问题修复\n$FIXES\n\n"
+            fi
+            if [ -n "$CHORES" ]; then
+              NOTES+="### 维护更新\n$CHORES\n\n"
+            fi
+            echo -e "$NOTES" > RELEASE_NOTES_GENERATED.md
           fi
-          if [ -n "$FIXES" ]; then
-            NOTES+="### 问题修复\n$FIXES\n\n"
-          fi
-          if [ -n "$CHORES" ]; then
-            NOTES+="### 维护更新\n$CHORES\n\n"
-          fi
-          
-          echo -e "$NOTES" > RELEASE_NOTES_GENERATED.md
           cat RELEASE_NOTES_GENERATED.md
 
       - name: Create Release
@@ -151,5 +160,6 @@ jobs:
           files: app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
