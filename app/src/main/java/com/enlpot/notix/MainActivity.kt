@@ -199,6 +199,8 @@ class MainActivity : ComponentActivity() {
         val legacyBlocked = blockedNotificationHistoryStorage.getHistory()
         if (legacyBlocked.isNotEmpty()) {
             kotlinx.coroutines.runBlocking { notificationHistoryRepository.mergeBlockedNotifications(legacyBlocked) }
+        // v8.41.3：修复旧数据中常驻通知组的 was_ongoing 字段（历史迁移时未设置）
+        kotlinx.coroutines.runBlocking { notificationHistoryRepository.fixOngoingGroups() }
             blockedNotificationHistoryStorage.clearHistory()
         }
 
@@ -1298,6 +1300,7 @@ class MainActivity : ComponentActivity() {
 fun Color.luminance(): Float {
     return (this.red * 0.2126f + this.green * 0.7152f + this.blue * 0.0722f)
 }
+
 
 
 

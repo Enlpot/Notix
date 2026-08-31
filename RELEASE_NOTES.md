@@ -1,5 +1,13 @@
 ﻿# Notix Release Notes
 
+## v8.41.3 (2026-08-31)
+
+### Fixed
+- **常驻通知聚合修复（根因修复）**：历史迁移（HistoryMigration.kt）时创建的常驻通知组未设置 was_ongoing 字段，默认值为 0，导致 getLatestNormal() 把常驻通知误判为普通通知返回，微信等同标题普通通知在常驻通知发送期间无法聚合。
+  - 修复迁移逻辑：迁移时根据 change 的 wasOngoing 字段正确设置组的 was_ongoing
+  - 新增数据修复：应用启动时自动调用 ixOngoingGroups()，把"组内有 was_ongoing=1 的 change"的组标记为常驻通知，修复已升级用户的旧数据
+
+---
 ## v8.41.2 (2026-08-31)
 
 ### Improved
@@ -129,6 +137,7 @@
 
 ### Notes
 - `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells; their real execution lands in a future release.
+
 
 
 

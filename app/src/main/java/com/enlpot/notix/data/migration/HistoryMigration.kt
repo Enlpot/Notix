@@ -80,6 +80,7 @@ class HistoryMigration(
                 val groupId = entry.id.ifBlank { UUID.randomUUID().toString() }
 
                 // 写入 group
+                val entryWasOngoing = entry.changes.firstOrNull()?.wasOngoing ?: false
                 val groupEntity = NotificationGroupEntity(
                     id = groupId,
                     package_name = entry.packageName,
@@ -89,7 +90,8 @@ class HistoryMigration(
                     first_timestamp = entry.firstTimestamp,
                     last_timestamp = entry.lastTimestamp,
                     blocked = if (entry.blocked) 1 else 0,
-                    sbn_key = entry.changes.firstOrNull()?.sbnKey
+                    sbn_key = entry.changes.firstOrNull()?.sbnKey,
+                    was_ongoing = if (entryWasOngoing) 1 else 0
                 )
                 groupDao.insert(groupEntity)
                 groupCount++
@@ -145,7 +147,8 @@ class HistoryMigration(
                     first_timestamp = notification.timestamp,
                     last_timestamp = notification.timestamp,
                     blocked = 0,
-                    sbn_key = notification.sbnKey
+                    sbn_key = notification.sbnKey,
+                    was_ongoing = if (notification.wasOngoing) 1 else 0
                 )
                 groupDao.insert(groupEntity)
                 changeDao.insert(notification.toChangeEntity(groupId))
@@ -183,3 +186,4 @@ class HistoryMigration(
         data class FAILED(val message: String) : MigrationResult()
     }
 }
+

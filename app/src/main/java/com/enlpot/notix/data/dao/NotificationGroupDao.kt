@@ -39,6 +39,21 @@ interface NotificationGroupDao {
     @Query("SELECT * FROM notification_group WHERE was_ongoing = 0 ORDER BY last_timestamp DESC LIMIT 1")
     suspend fun getLatestNormal(): NotificationGroupEntity?
 
+    /**
+     * v8.41.3：修复旧数据中常驻通知组的 was_ongoing 字段。
+     * 历史迁移时未设置 was_ongoing，导致常驻通知组被误判为普通通知。
+     * 通过子查询检查组内是否有 was_ongoing=1 的 change，有则标记组为常驻通知。
+     */
+    @Query(
+        """
+        UPDATE notification_group SET was_ongoing = 1 
+        WHERE was_ongoing = 0 AND id IN (
+            SELECT DISTINCT group_id FROM notification_change WHERE was_ongoing = 1
+        )
+        """
+    )
+    suspend fun fixOngoingGroups()
+
     @Query("SELECT COUNT(*) FROM notification_group")
     suspend fun count(): Int
 
@@ -68,4 +83,5 @@ interface NotificationGroupDao {
     )
     suspend fun markBlockedBySbnKeyAndPostTime(sbnKey: String, postTime: Long)
 }
+
 

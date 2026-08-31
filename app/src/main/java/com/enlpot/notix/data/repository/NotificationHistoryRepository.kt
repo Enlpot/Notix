@@ -170,6 +170,15 @@ class NotificationHistoryRepository(context: Context) {
     }
 
     // ========== 读取 ==========
+    /**
+     * v8.41.3：修复旧数据中常驻通知组的 was_ongoing 字段。
+     * 应在应用启动时调用一次。
+     */
+    suspend fun fixOngoingGroups() {
+        val fixed = groupDao.fixOngoingGroups()
+        Log.d(TAG, "Fixed ongoing groups: ")
+    }
+
 
     /** 获取所有聚合组（按时间倒序）。 */
     suspend fun getEntries(): List<NotificationHistoryEntry> {
@@ -360,6 +369,7 @@ class NotificationHistoryRepository(context: Context) {
         return groupDao.findBySbnKey(sbnKey) != null
     }
 }
+
 
 
 
