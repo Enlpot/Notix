@@ -263,6 +263,17 @@ object WordTokenizerManager {
         } catch (e: Throwable) {
             // v8.47.0：捕获 Throwable（含 OOM），崩溃优雅回退而非直接崩溃
             lastLoadError = "加载失败[${e.javaClass.simpleName}]: ${e.message}"
+            // 反射/包装异常（如 InvocationTargetException）根因在 cause 链，追加摘要便于定位
+            val causeChain = buildString {
+                var cur: Throwable? = e.cause
+                var d = 0
+                while (cur != null && d < 3) {
+                    append(" <- ").append(cur.javaClass.simpleName).append(": ").append(cur.message)
+                    cur = cur.cause
+                    d++
+                }
+            }
+            if (causeChain.isNotEmpty()) lastLoadError += causeChain
             Log.e(TAG, "插件加载失败，回退到内置分词器", e)
             DebugLogManager.e(TAG, "插件加载失败: $lastLoadError", e)
             currentTokenizer = SimpleWordTokenizer()
@@ -294,14 +305,16 @@ object WordTokenizerManager {
      *
      * @param onStage 阶段回调（stage, progress），progress 仅 DOWNLOADING 阶段有意义（0-100）
      * @param onSourceChanged 当前使用的源回调（prefix；空字符串=官方源）
-     * @param onStatus 状态信息回调（中文，供 UI 展示"尝试X源→超时→切换→下载成功→解压中→加载中→安装完成"）
+     * @param onStatus 状态信息回调（中文，单行覆盖：尝试源→失败切换→下载成功→解压→加载→安装完成/失败原因）
+     * @param onDownload 下载中回传（speedText, progress%），UI 单行显示速度与进度
      * @return [PluginInstallResult]
      */
     suspend fun downloadAndInstallPlugin(
         context: Context,
         onStage: (InstallStage, Int) -> Unit = { _, _ -> },
         onSourceChanged: (String) -> Unit = {},
-        onStatus: (String) -> Unit = {}
+        onStatus: (String) -> Unit = {},
+        onDownload: (String, Int) -> Unit = { _, _ -> }
     ): PluginInstallResult = withContext(Dispatchers.IO) {
         val tmpZip = File(context.cacheDir, PLUGIN_ZIP_NAME)
         fun sourceName(prefix: String): String = if (prefix.isEmpty()) "官方" else prefix
@@ -348,6 +361,7 @@ object WordTokenizerManager {
                 val t0 = System.currentTimeMillis()
                 var lastCheckTime = t0
                 var lastCheckBytes = 0L
+                var lastEmitTime = t0
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                     coroutineContext.ensureActive()
                     outputStream.write(buffer, 0, bytesRead)
@@ -356,6 +370,14 @@ object WordTokenizerManager {
                         onStage(InstallStage.DOWNLOADING, (downloaded * 100 / totalLength).toInt())
                     }
                     val now = System.currentTimeMillis()
+                    // 每 500ms 回传平均速度 + 进度（UI 单行覆盖显示）
+                    if (now - lastEmitTime >= 500) {
+                        val elapsed = (now - t0).coerceAtLeast(1)
+                        val speedBps = downloaded * 1000L / elapsed
+                        val pct = if (totalLength > 0) (downloaded * 100 / totalLength).toInt() else 0
+                        onDownload(formatSpeed(speedBps), pct)
+                        lastEmitTime = now
+                    }
                     if (now - lastCheckTime >= STALL_WINDOW_MS) {
                         val bps = (downloaded - lastCheckBytes) * 1000L / (now - lastCheckTime)
                         if (bps < STALL_THRESHOLD_BPS) {
@@ -372,7 +394,8 @@ object WordTokenizerManager {
                 connection = null
                 Log.i(TAG, "插件下载完成（源=$prefix）: $downloaded bytes")
                 DebugLogManager.i(TAG, "下载完成（源=${sourceName(prefix)}）: $downloaded bytes, 期望 $totalLength")
-                onStatus("下载成功（${sourceName(prefix)} 源，$downloaded bytes）")
+                val mb = String.format(java.util.Locale.US, "%.1f MB", downloaded / 1024f / 1024f)
+                onStatus("下载成功 $mb")
 
                 // ---- 2. 解压 ----
                 onStage(InstallStage.EXTRACTING, 0)
@@ -427,6 +450,13 @@ object WordTokenizerManager {
         }
         onStatus("安装失败：$lastError")
         PluginInstallResult.Failure(lastError)
+    }
+
+    /** 下载速度格式化（B/s → MB/s） */
+    private fun formatSpeed(bps: Long): String = when {
+        bps >= 1024L * 1024L -> String.format(java.util.Locale.US, "%.1f MB/s", bps / 1024f / 1024f)
+        bps >= 1024L -> String.format(java.util.Locale.US, "%.1f KB/s", bps / 1024f)
+        else -> "$bps B/s"
     }
 
     /** 解压 zip 到目标目录 */

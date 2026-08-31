@@ -65,6 +65,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -197,8 +198,9 @@ fun SettingsScreen(
     var pluginInstalling by remember { mutableStateOf(false) }
     var pluginInstallProgress by remember { mutableStateOf(0) }
     var pluginStage by remember { mutableStateOf<com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?>(null) }
-    // v8.47.1：插件安装状态信息流（尝试源/切换/下载/解压/加载/完成）
-    var pluginStatusLog by remember { mutableStateOf<List<String>>(emptyList()) }
+    // v8.47.1：插件安装状态（单行覆盖，含下载速度/进度）+ 下载进度条
+    var pluginStatus by remember { mutableStateOf<String?>(null) }
+    var pluginDownloadProgress by remember { mutableStateOf<Float?>(null) }
     val pluginScope = rememberCoroutineScope()
     // v8.45.1：插件市场弹窗状态
     var showPluginMarketDialog by remember { mutableStateOf(false) }
@@ -1023,14 +1025,16 @@ fun SettingsScreen(
                                 installing = pluginInstalling,
                                 installProgress = pluginInstallProgress,
                                 installStage = pluginStage,
-                                statusLog = pluginStatusLog,
+                                statusText = pluginStatus,
+                                downloadProgress = pluginDownloadProgress,
                                 onInstall = {
                                     if (!installed && !pluginInstalling) {
                                         pluginInstalling = true
                                         pluginInstallProgress = 0
                                         pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
                                         pluginInstallError = null
-                                        pluginStatusLog = emptyList()
+                                        pluginStatus = "准备安装"
+                                        pluginDownloadProgress = null
                                         pluginScope.launch {
                                             val result = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(
                                                 context,
@@ -1041,7 +1045,14 @@ fun SettingsScreen(
                                                     }
                                                 },
                                                 { _ -> },
-                                                { msg -> pluginStatusLog = pluginStatusLog + msg }
+                                                { msg ->
+                                                    pluginStatus = msg
+                                                    pluginDownloadProgress = null
+                                                },
+                                                { speed, pct ->
+                                                    pluginStatus = "下载中 $pct% · $speed"
+                                                    pluginDownloadProgress = pct / 100f
+                                                }
                                             )
                                             pluginInstalling = false
                                             pluginStage = null
@@ -1767,7 +1778,8 @@ private fun PluginMarketRow(
     installing: Boolean,
     installProgress: Int,
     installStage: com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?,
-    statusLog: List<String>,
+    statusText: String?,
+    downloadProgress: Float?,
     onInstall: () -> Unit
 ) {
     val c = MaterialTheme.notix
@@ -1829,19 +1841,26 @@ private fun PluginMarketRow(
             )
         }
     }
-    // v8.47.1：待安装插件下方显示安装状态信息（尝试源/切换/下载/解压/加载/完成）
-    if (statusLog.isNotEmpty()) {
+    // v8.47.1：插件安装状态（单行覆盖：尝试源→下载速度/进度→下载成功→解压→加载→安装完成/失败）
+    if (statusText != null) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 40.dp + sp.lg)
         ) {
-            statusLog.forEach { msg ->
-                Text(
-                    text = msg,
-                    style = MaterialTheme.typography.labelSmall,
-                    lineHeight = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelSmall,
+                lineHeight = 15.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (downloadProgress != null) {
+                Spacer(Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    progress = { downloadProgress },
+                    modifier = Modifier.fillMaxWidth().height(3.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
         }

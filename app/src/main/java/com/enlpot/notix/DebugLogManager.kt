@@ -141,10 +141,18 @@ object DebugLogManager {
                 .append(" [").append(level).append("] [").append(tag).append("] ")
                 .append(Thread.currentThread().name).append(": ").append(msg).append('\n')
             if (tr != null) {
-                sb.append("    ").append(tr.javaClass.name)
-                tr.message?.let { m -> sb.append(": ").append(m) }
-                sb.append('\n')
-                sb.append(tr.stackTrace.joinToString("\n") { "    at $it" }).append('\n')
+                // 打印完整 cause 链（最多 6 层），否则反射/包装异常（如 InvocationTargetException）的根因看不到
+                var cur: Throwable? = tr
+                var depth = 0
+                while (cur != null && depth < 6) {
+                    if (depth > 0) sb.append("    Caused by: ")
+                    sb.append(cur.javaClass.name)
+                    cur.message?.let { m -> sb.append(": ").append(m) }
+                    sb.append('\n')
+                    sb.append(cur.stackTrace.joinToString("\n") { "    at $it" }).append('\n')
+                    cur = cur.cause
+                    depth++
+                }
             }
             synchronized(this) {
                 val existing = if (file.exists()) file.readText(Charsets.UTF_8) else ""
