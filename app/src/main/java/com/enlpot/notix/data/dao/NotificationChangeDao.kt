@@ -1,4 +1,4 @@
-package com.enlpot.notix.data.dao
+﻿package com.enlpot.notix.data.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -55,4 +55,11 @@ interface NotificationChangeDao {
      */
     @Query("SELECT COUNT(*) FROM notification_change WHERE sbn_key = :sbnKey AND post_time = :postTime")
     suspend fun countBySbnKeyAndPostTime(sbnKey: String, postTime: Long): Int
+
+    /**
+     * v8.42.2：获取某个聚合组下最新的一条变更记录（用于内容去重判断）。
+     */
+    @Query("SELECT * FROM notification_change WHERE group_id = :groupId ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestByGroupId(groupId: String): NotificationChangeEntity?
 }
+

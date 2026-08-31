@@ -70,6 +70,19 @@ class NotificationHistoryRepository(context: Context) {
         val blockedInt = if (blocked) 1 else 0
 
         return if (existing != null) {
+            // v8.42.2：常驻通知内容去重——连续内容相同（标题+内容）的更新只刷新时间戳，不增加计数
+            val latestChange = changeDao.getLatestByGroupId(existing.id)
+            val contentSame = latestChange != null &&
+                latestChange.title == notification.title &&
+                latestChange.text == notification.text
+
+            if (contentSame) {
+                // 内容相同：只更新 last_timestamp，不创建新 change，不增加 count
+                groupDao.update(existing.copy(last_timestamp = notification.timestamp))
+                Log.d(TAG, "Ongoing notification content same, skip count: sbnKey=$sbnKey")
+                return false
+            }
+
             // v8.42.0：常驻通知更新限流——30秒内只更新count，不刷新lastTimestamp
             val now = System.currentTimeMillis()
             val lastRefresh = ongoingLastRefresh[sbnKey] ?: 0L

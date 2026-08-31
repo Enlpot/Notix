@@ -1,5 +1,11 @@
 ﻿# Notix 发布说明
 
+## v8.42.2 (2026-08-31)
+
+### 改进
+- **常驻通知内容去重**：常驻通知（音乐播放、导航等）连续更新时，如果标题和内容与上一条完全相同，只刷新时间戳，不增加变更计数、不创建重复记录。下载进度等内容变化的通知不受影响，正常计数。
+
+---
 ## v8.42.1 (2026-08-31)
 
 ### 新增
@@ -161,6 +167,7 @@
 
 ### Notes
 - `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells; their real execution lands in a future release.
+
 
 
 
