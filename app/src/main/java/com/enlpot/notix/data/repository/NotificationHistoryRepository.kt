@@ -107,7 +107,9 @@ class NotificationHistoryRepository(context: Context) {
         notification: SimpleNotification,
         blocked: Boolean
     ): Boolean {
-        val head = groupDao.getPaged(1, 0).firstOrNull()
+        // v8.41：查询前5条，跳过常驻通知聚合组，找到第一个普通通知组进行聚合判断
+        val candidates = groupDao.getPaged(5, 0)
+        val head = candidates.firstOrNull { it.was_ongoing == 0 }
         val blockedInt = if (blocked) 1 else 0
 
         // v8.25：全局去重——同一 sbnKey 同一 postTime 视为同一条通知的重复回调，忽略。
@@ -358,3 +360,4 @@ class NotificationHistoryRepository(context: Context) {
         return groupDao.findBySbnKey(sbnKey) != null
     }
 }
+
