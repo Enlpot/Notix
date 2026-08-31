@@ -115,28 +115,28 @@ jobs:
           echo "Previous tag: $PREV_TAG"
           
           # Generate release notes from git log
-          NOTES="# Notix v${VERSION} Release Notes\n\n"
-          NOTES+="Changes since ${PREV_TAG}.\n\n"
-          NOTES+="## What's Changed\n\n"
+          NOTES="# Notix v${VERSION} 发布说明\n\n"
+          NOTES+="本次版本相较于上一版本的更新内容：\n\n"
+          NOTES+="## 更新内容\n\n"
           
           # Categorize commits - support both English (feat/fix/chore) and Chinese (功能/优化/修复) prefixes
           ALL_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD)
-          FEATS=$(echo "$ALL_COMMITS" | grep -iE "^- (feat|功能|新增|add)" || true)
-          FIXES=$(echo "$ALL_COMMITS" | grep -iE "^- (fix|修复|bug)" || true)
-          IMPROVED=$(echo "$ALL_COMMITS" | grep -iE "^- (优化|improve|perf|refactor|style)" || true)
+          FEATS=$(echo "$ALL_COMMITS" | grep -iE "^- (feat|功能|新增|add|实现)" || true)
+          FIXES=$(echo "$ALL_COMMITS" | grep -iE "^- (fix|修复|bug|解决)" || true)
+          IMPROVED=$(echo "$ALL_COMMITS" | grep -iE "^- (优化|改进|improve|perf|refactor|style|调整)" || true)
           CHORES=$(echo "$ALL_COMMITS" | grep -iE "^- (chore|docs|test|升版|v[0-9])" || true)
           
           if [ -n "$FEATS" ]; then
-            NOTES+="### Features\n$FEATS\n\n"
+            NOTES+="### 新增功能\n$FEATS\n\n"
           fi
           if [ -n "$IMPROVED" ]; then
-            NOTES+="### Improved\n$IMPROVED\n\n"
+            NOTES+="### 改进优化\n$IMPROVED\n\n"
           fi
           if [ -n "$FIXES" ]; then
-            NOTES+="### Bug Fixes\n$FIXES\n\n"
+            NOTES+="### 问题修复\n$FIXES\n\n"
           fi
           if [ -n "$CHORES" ]; then
-            NOTES+="### Maintenance\n$CHORES\n\n"
+            NOTES+="### 维护更新\n$CHORES\n\n"
           fi
           
           echo -e "$NOTES" > RELEASE_NOTES_GENERATED.md
@@ -151,4 +151,5 @@ jobs:
           files: app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
