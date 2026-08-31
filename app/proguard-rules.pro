@@ -1,38 +1,29 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ============ Gson 序列化保护（release R8 混淆）============
+# 背景：release 开启 R8 混淆。toParamsJson()/asParams()/规则存储均用 Gson 反射，
+# 按字段名输出 JSON key。若字段被混淆（如 ClickButtonParams.buttonLabel -> a），
+# 读取端硬编码 get("buttonLabel") 查不到 → 动作参数/规则字段丢失（release 专有 bug，debug 无）。
+# 修复：保持所有参与 Gson 序列化的 data class 字段名 + 枚举常量名。
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# 规则与动作规格（RuleStorage 整规则 JSON 存储 + RuleImport 导入导出）
+-keepclassmembers class com.enlpot.notix.BlockerRule { <fields>; }
+-keepclassmembers class com.enlpot.notix.ActionSpec { <fields>; }
+-keepclassmembers class com.enlpot.notix.RuleCondition { <fields>; }
+-keepclassmembers class com.enlpot.notix.ExtraCondition { <fields>; }
+-keepclassmembers class com.enlpot.notix.TimeCondition { <fields>; }
+-keepclassmembers class com.enlpot.notix.SourceApp { <fields>; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# 动作参数 data class（toParamsJson/asParams 反射，字段名即 JSON key）
+-keepclassmembers class com.enlpot.notix.ClickButtonParams { <fields>; }
+-keepclassmembers class com.enlpot.notix.CopyParams { <fields>; }
+-keepclassmembers class com.enlpot.notix.DelayParams { <fields>; }
+-keepclassmembers class com.enlpot.notix.TtsParams { <fields>; }
+-keepclassmembers class com.enlpot.notix.DismissParams { <fields>; }
+-keepclassmembers class com.enlpot.notix.StrongRemindParams { <fields>; }
+-keepclassmembers class com.enlpot.notix.PostponeParams { <fields>; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
-
-# Keep all Gson-serialized model classes and enums with their original field names.
-# R8 would otherwise rename fields (action -> g, etc.) and break Gson's reflective
-# serialization, producing rules.json without the action field -> rules dropped on load
-# ("rules disappear after app update" bug). Field names must stay stable across versions.
--keep class com.enlpot.notix.BlockerRule { *; }
--keep class com.enlpot.notix.SourceApp { *; }
--keep class com.enlpot.notix.RuleCondition { *; }
--keep class com.enlpot.notix.ExtraCondition { *; }
--keep class com.enlpot.notix.TimeCondition { *; }
--keep class com.enlpot.notix.ActionSpec { *; }
--keep class com.enlpot.notix.DismissParams { *; }
--keep class com.enlpot.notix.SnoozeDurations { *; }
+# 枚举：Gson 序列化用 name()、反序列化用 valueOf()，必须保留枚举常量与 valueOf
 -keep enum com.enlpot.notix.RuleAction { *; }
+-keep enum com.enlpot.notix.CopyMode { *; }
 -keep enum com.enlpot.notix.MatchMode { *; }
 -keep enum com.enlpot.notix.ScreenState { *; }
 -keep enum com.enlpot.notix.ChargingState { *; }
