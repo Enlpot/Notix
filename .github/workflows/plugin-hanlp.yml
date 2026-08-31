@@ -69,6 +69,10 @@ jobs:
           cd plugin_dist
           mv classes.dex word_tokenizer_hanlp.dex
           unzip -q "$HANLP_JAR" "data/*"
+          # v8.48：内置增强自定义词典（现代汉语常用词表+网络新词+通知词，覆盖 HanLP 默认 1998 小词典）
+          mkdir -p data/dictionary/custom
+          rm -f data/dictionary/custom/CustomDictionary.txt.bin
+          cp "$GITHUB_WORKSPACE/plugins/word-tokenizer/src/main/assets/custom_dict.txt" data/dictionary/custom/CustomDictionary.txt
           zip -qr word_tokenizer_hanlp.zip word_tokenizer_hanlp.dex data
           echo "Plugin zip: $(du -h word_tokenizer_hanlp.zip | cut -f1)"
           cd ..

@@ -31,11 +31,17 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.TipsAndUpdates
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,6 +68,7 @@ import com.enlpot.notix.ui.theme.notixSpacing
 import com.enlpot.notix.ui.theme.notixType
 import com.enlpot.notix.ui.components.WordCloud
 import com.enlpot.notix.data.repository.WordFrequencyRepository
+import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -82,6 +89,17 @@ import java.time.format.DateTimeFormatter
  * - 规则命中次数统计
  * - 已过滤通知数量
  */
+
+/** v8.48：统计页可开关模块 */
+private enum class StatModule(val key: String, val title: String, val needPlugin: Boolean) {
+    HOTWORDS("hotwords", "通知热词", true),
+    HEALTH("health", "通知健康度", false),
+    TREND("trend", "通知趋势", false),
+    HEATMAP("heatmap", "24小时分布", false),
+    PIE("pie", "App 通知占比", false),
+    RULE_RANK("rule_rank", "规则效果排行", false),
+    APP_RANK("app_rank", "App 通知排行", false),
+}
 @Composable
 fun StatisticsScreen(
     historyEntries: List<NotificationHistoryEntry>,
@@ -93,6 +111,19 @@ fun StatisticsScreen(
 
     // v8.43.0：词云数据
     val context = LocalContext.current
+
+    // v8.48：统计模块开关（右上角按钮打开弹窗设置；热词模块依赖分词插件）
+    val pluginLoaded = com.enlpot.notix.plugin.WordTokenizerManager.isPluginLoaded()
+    val statPrefs = context.getSharedPreferences("stat_module_prefs", Context.MODE_PRIVATE)
+    var moduleEnabled by remember {
+        mutableStateOf(StatModule.entries.associateWith { statPrefs.getBoolean(it.key, true) })
+    }
+    var showModuleDialog by remember { mutableStateOf(false) }
+    fun toggleModule(m: StatModule, on: Boolean) {
+        statPrefs.edit().putBoolean(m.key, on).apply()
+        moduleEnabled = moduleEnabled + (m to on)
+    }
+
     var wordCloudWords by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     var selectedTimeRange by remember { mutableStateOf(WordFrequencyRepository.TIME_RANGE_WEEK) }
     var wordCloudLoading by remember { mutableStateOf(true) }
@@ -206,21 +237,36 @@ fun StatisticsScreen(
             .padding(horizontal = MaterialTheme.notixSpacing.md),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.notixSpacing.md),
     ) {
-        // 页面标题
+        // 页面标题 + 模块设置按钮
         item {
             Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
-            Text(
-                text = "统计",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.notix.contentPrimary,
-            )
-            Spacer(Modifier.height(MaterialTheme.notixSpacing.xs))
-            Text(
-                text = "通知数据概览",
-                style = MaterialTheme.notixType.body,
-                color = MaterialTheme.notix.contentSecondary,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "统计",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.notix.contentPrimary,
+                    )
+                    Spacer(Modifier.height(MaterialTheme.notixSpacing.xs))
+                    Text(
+                        text = "通知数据概览",
+                        style = MaterialTheme.notixType.body,
+                        color = MaterialTheme.notix.contentSecondary,
+                    )
+                }
+                // v8.48：右上角模块设置按钮
+                IconButton(onClick = { showModuleDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "统计模块设置",
+                        tint = MaterialTheme.notix.contentSecondary,
+                    )
+                }
+            }
         }
 
         // 通知总量卡片
@@ -236,7 +282,8 @@ fun StatisticsScreen(
             )
         }
 
-        // v8.43.0：通知热词词云卡片
+                if (moduleEnabled[StatModule.HOTWORDS] == true && pluginLoaded) {
+// v8.43.0：通知热词词云卡片
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -335,6 +382,7 @@ fun StatisticsScreen(
                 }
             }
         }
+        }
 
         // 过滤与规则命中卡片
         item {
@@ -357,7 +405,8 @@ fun StatisticsScreen(
             }
         }
 
-        // 通知健康度评分
+                if (moduleEnabled[StatModule.HEALTH] == true) {
+// 通知健康度评分
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -464,9 +513,10 @@ fun StatisticsScreen(
                 }
             }
         }
+        }
 
-        // 改进建议
-        if (suggestions.isNotEmpty()) {
+        // 改进建议（跟随健康度开关）
+        if (moduleEnabled[StatModule.HEALTH] == true && suggestions.isNotEmpty()) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -522,7 +572,8 @@ fun StatisticsScreen(
             }
         }
 
-        // 通知趋势折线图
+                if (moduleEnabled[StatModule.TREND] == true) {
+// 通知趋势折线图
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -558,8 +609,10 @@ fun StatisticsScreen(
                 }
             }
         }
+        }
 
-        // 24小时热力图
+                if (moduleEnabled[StatModule.HEATMAP] == true) {
+// 24小时热力图
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -608,8 +661,10 @@ fun StatisticsScreen(
                 }
             }
         }
+        }
 
-        // App通知占比环形图
+                if (moduleEnabled[StatModule.PIE] == true) {
+// App通知占比环形图
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -701,8 +756,10 @@ fun StatisticsScreen(
                 }
             }
         }
+        }
 
-        // 规则效果排行
+                if (moduleEnabled[StatModule.RULE_RANK] == true) {
+// 规则效果排行
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -793,8 +850,10 @@ fun StatisticsScreen(
                 }
             }
         }
+        }
 
-        // 各 app 通知排行
+                if (moduleEnabled[StatModule.APP_RANK] == true) {
+// 各 app 通知排行
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -862,11 +921,59 @@ fun StatisticsScreen(
                 }
             }
         }
+        }
 
         // 底部留白
         item {
             Spacer(Modifier.height(80.dp))
         }
+    }
+
+    // v8.48：统计模块设置弹窗
+    if (showModuleDialog) {
+        AlertDialog(
+            onDismissRequest = { showModuleDialog = false },
+            title = { Text("统计模块设置", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    StatModule.entries.forEach { m ->
+                        val pluginMissing = m.needPlugin && !pluginLoaded
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = m.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (pluginMissing) MaterialTheme.notix.contentTertiary
+                                            else MaterialTheme.notix.contentPrimary,
+                                )
+                                if (pluginMissing) {
+                                    Text(
+                                        text = "需安装分词插件",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.notix.contentTertiary,
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Switch(
+                                checked = moduleEnabled[m] == true,
+                                onCheckedChange = { toggleModule(m, it) },
+                                enabled = !pluginMissing,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showModuleDialog = false }) { Text("完成") }
+            },
+        )
     }
 }
 

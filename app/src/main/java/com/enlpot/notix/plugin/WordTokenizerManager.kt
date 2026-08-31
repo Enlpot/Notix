@@ -237,7 +237,8 @@ object WordTokenizerManager {
     }
 
     @Volatile
-    private var currentTokenizer: WordTokenizer = SimpleWordTokenizer()
+    // v8.48：无内置分词器，未装插件时为 null（统计页热词模块随之隐藏）
+    private var currentTokenizer: WordTokenizer? = null
 
     @Volatile
     private var pluginLoaded = false
@@ -246,8 +247,8 @@ object WordTokenizerManager {
     @Volatile
     private var lastLoadError: String? = null
 
-    /** 获取当前分词器 */
-    fun getTokenizer(): WordTokenizer = currentTokenizer
+    /** 获取当前分词器（未装插件返回 null） */
+    fun getTokenizer(): WordTokenizer? = currentTokenizer
 
     /** 检查插件是否已加载 */
     fun isPluginLoaded(): Boolean = pluginLoaded
@@ -324,8 +325,8 @@ object WordTokenizerManager {
             pluginLoaded = true
             lastLoadError = null
 
-            Log.i(TAG, "插件加载成功: ${currentTokenizer.name()}")
-            DebugLogManager.i(TAG, "插件加载成功: ${currentTokenizer.name()} | dex=${dexFile.length()} bytes")
+            Log.i(TAG, "插件加载成功: ${currentTokenizer?.name() ?: "HanLP 高级分词"}")
+            DebugLogManager.i(TAG, "插件加载成功: ${currentTokenizer?.name() ?: "HanLP 高级分词"} | dex=${dexFile.length()} bytes")
             true
         } catch (e: Throwable) {
             // v8.47.0：捕获 Throwable（含 OOM），崩溃优雅回退而非直接崩溃
@@ -341,17 +342,17 @@ object WordTokenizerManager {
                 }
             }
             if (causeChain.isNotEmpty()) lastLoadError += causeChain
-            Log.e(TAG, "插件加载失败，回退到内置分词器", e)
+            Log.e(TAG, "插件加载失败", e)
             DebugLogManager.e(TAG, "插件加载失败: $lastLoadError", e)
-            currentTokenizer = SimpleWordTokenizer()
+            currentTokenizer = null
             pluginLoaded = false
             false
         }
     }
 
-    /** 卸载插件，回退到内置分词器 */
+    /** 卸载插件 */
     fun unloadPlugin(context: Context) {
-        currentTokenizer = SimpleWordTokenizer()
+        currentTokenizer = null
         pluginLoaded = false
         try {
             val dir = getPluginDir(context)

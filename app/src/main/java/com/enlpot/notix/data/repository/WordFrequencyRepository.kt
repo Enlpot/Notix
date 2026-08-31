@@ -72,7 +72,8 @@ class WordFrequencyRepository(context: Context) {
         val combinedText = listOfNotNull(title, text).joinToString(" ")
         if (combinedText.isBlank()) return@withContext
 
-        val words = WordTokenizerManager.getTokenizer().segment(combinedText)
+        val tokenizer = WordTokenizerManager.getTokenizer() ?: return@withContext
+        val words = tokenizer.segment(combinedText)
         if (words.isEmpty()) return@withContext
 
         val timestamp = System.currentTimeMillis()
@@ -115,7 +116,7 @@ class WordFrequencyRepository(context: Context) {
                 val combinedText = listOfNotNull(change.title, change.text).joinToString(" ")
                 if (combinedText.isBlank()) continue
 
-                val words = WordTokenizerManager.getTokenizer().segment(combinedText)
+                val words = WordTokenizerManager.getTokenizer()?.segment(combinedText) ?: continue
                 for (word in words) {
                     for (timeRange in timeRanges) {
                         try {
@@ -144,7 +145,8 @@ class WordFrequencyRepository(context: Context) {
         val combinedText = listOfNotNull(title, text).joinToString(" ")
         if (combinedText.isBlank()) return@withContext
 
-        val words = WordTokenizerManager.getTokenizer().segment(combinedText)
+        val tokenizer = WordTokenizerManager.getTokenizer() ?: return@withContext
+        val words = tokenizer.segment(combinedText)
         if (words.isEmpty()) return@withContext
 
         val timestamp = System.currentTimeMillis()
