@@ -182,12 +182,12 @@ fun RuleCard(
             if (keywordSummary.isNotBlank()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Label,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp).padding(top = 2.dp),
+                        modifier = Modifier.size(14.dp),
                         tint = actionFg,
                     )
                     Spacer(Modifier.width(6.dp))
@@ -210,12 +210,12 @@ fun RuleCard(
             if (phoneStateSummary.isNotBlank()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.PhoneAndroid,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp).padding(top = 2.dp),
+                        modifier = Modifier.size(14.dp),
                         tint = weakFg,
                     )
                     Spacer(Modifier.width(6.dp))
@@ -238,12 +238,12 @@ fun RuleCard(
             if (timeSummary.isNotBlank()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.AccessTime,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp).padding(top = 2.dp),
+                        modifier = Modifier.size(14.dp),
                         tint = weakFg,
                     )
                     Spacer(Modifier.width(6.dp))
