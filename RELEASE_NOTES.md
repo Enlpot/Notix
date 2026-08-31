@@ -1,5 +1,13 @@
 ﻿# Notix Release Notes
 
+## v8.41.4 (2026-08-31)
+
+### Fixed
+- **常驻通知聚合修复（真正根因修复）**：v8.41.3 的数据修复方法 ixOngoingGroups() 被错误地放在了 if (legacyBlocked.isNotEmpty()) 代码块内，导致大多数用户（没有旧被过滤通知需要迁移）从未执行过该修复，旧常驻通知组的 was_ongoing 字段始终为 0，getLatestNormal() 仍把常驻通知误判为普通通知返回。
+  - 将 ixOngoingGroups() 调用移到 if 块外部，确保每次启动都会执行
+  - getLatestNormal() SQL 增加双重排除：不仅排除 was_ongoing=1 的组，还通过子查询排除"组内存在 was_ongoing=1 的 change"的组，兼容旧数据未修复的情况
+
+---
 ## v8.41.3 (2026-08-31)
 
 ### Fixed
@@ -137,6 +145,7 @@
 
 ### Notes
 - `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells; their real execution lands in a future release.
+
 
 
 

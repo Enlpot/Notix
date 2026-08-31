@@ -33,10 +33,21 @@ interface NotificationGroupDao {
     suspend fun getPaged(limit: Int, offset: Int): List<NotificationGroupEntity>
 
     /**
-     * v8.41.2：直接获取最新的普通通知聚合组（排除常驻通知）。
-     * 用于普通通知聚合判断，避免查询多条后在代码中过滤常驻通知。
+     * v8.41.4：直接获取最新的普通通知聚合组（排除常驻通知）。
+     * 双重排除：1) group.was_ongoing = 1；2) 组内有 was_ongoing=1 的 change（兼容旧数据未修复的情况）。
+     * 用于普通通知聚合判断，避免常驻通知频繁更新打断普通通知的聚合连续性。
      */
-    @Query("SELECT * FROM notification_group WHERE was_ongoing = 0 ORDER BY last_timestamp DESC LIMIT 1")
+    @Query(
+        """
+        SELECT * FROM notification_group 
+        WHERE was_ongoing = 0 
+        AND id NOT IN (
+            SELECT DISTINCT group_id FROM notification_change WHERE was_ongoing = 1
+        )
+        ORDER BY last_timestamp DESC 
+        LIMIT 1
+        """
+    )
     suspend fun getLatestNormal(): NotificationGroupEntity?
 
     /**
@@ -83,5 +94,6 @@ interface NotificationGroupDao {
     )
     suspend fun markBlockedBySbnKeyAndPostTime(sbnKey: String, postTime: Long)
 }
+
 
 

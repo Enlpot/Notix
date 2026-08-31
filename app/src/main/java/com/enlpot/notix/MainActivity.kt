@@ -199,10 +199,11 @@ class MainActivity : ComponentActivity() {
         val legacyBlocked = blockedNotificationHistoryStorage.getHistory()
         if (legacyBlocked.isNotEmpty()) {
             kotlinx.coroutines.runBlocking { notificationHistoryRepository.mergeBlockedNotifications(legacyBlocked) }
-        // v8.41.3：修复旧数据中常驻通知组的 was_ongoing 字段（历史迁移时未设置）
-        kotlinx.coroutines.runBlocking { notificationHistoryRepository.fixOngoingGroups() }
             blockedNotificationHistoryStorage.clearHistory()
         }
+        // v8.41.4：修复旧数据中常驻通知组的 was_ongoing 字段（历史迁移时未设置）
+        // 必须在if块外面，确保每次启动都会执行（之前放在if块里面导致大多数用户不会执行）
+        kotlinx.coroutines.runBlocking { notificationHistoryRepository.fixOngoingGroups() }
 
         isServiceEnabled = isNotificationServiceEnabled()
         wizardShowsWelcome = !isServiceEnabled && SetupState.lastSeenSetupVersion(this) == 0
@@ -1300,6 +1301,7 @@ class MainActivity : ComponentActivity() {
 fun Color.luminance(): Float {
     return (this.red * 0.2126f + this.green * 0.7152f + this.blue * 0.0722f)
 }
+
 
 
 
