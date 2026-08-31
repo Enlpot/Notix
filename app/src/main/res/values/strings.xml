@@ -209,7 +209,7 @@
     <string name="report_an_issue">Report an Issue</string>
     <string name="app_version">Notix v%s</string>
     <!-- Settings sections and descriptions -->
-    <string name="settings_section_general">General</string>
+    <string name="settings_section_general">常规</string>
     <string name="settings_extract_remoteviews_title">Extract button text from textless notifications</string>
     <string name="settings_extract_remoteviews_desc">When enabled, notifications without title/text will try to extract button text for rule matching (off by default)</string>
     <string name="settings_dynamic_color_title">Dynamic color theming</string>
@@ -220,14 +220,17 @@
     <string name="resume_selected_apps">Resume selected apps</string>
     <string name="no_unmonitored_apps">No unmonitored apps</string>
     <string name="toast_monitoring_resumed">Monitoring resumed</string>
-    <string name="settings_section_rules">Rules &amp; Data</string>
+    <string name="settings_section_rules">规则</string>
     <string name="settings_restore_snoozed">Restore ongoing notifications</string>
     <string name="settings_restore_snoozed_desc">Bring back ongoing notifications that were frozen by rules</string>
     <string name="settings_restore_snoozed_confirm_title">Restore ongoing notifications</string>
     <string name="settings_restore_snoozed_confirm_body">This will restore all ongoing notifications that were frozen (removed) by rules, such as music, foreground services or picture-in-picture.</string>
     <string name="settings_restore_snoozed_done">Restored %1$d ongoing notification(s)</string>
     <string name="settings_restore_snoozed_none">No frozen ongoing notifications to restore</string>
-    <string name="settings_section_about">Support &amp; About</string>
+    <string name="settings_section_plugins">插件</string>
+    <string name="settings_section_notification">通知</string>
+    <string name="settings_section_statistics">统计</string>
+    <string name="settings_section_about">关于</string>
     <string name="history_retention">History retention</string>
     <string name="history_retention_desc">Notifications older than this are deleted automatically</string>
     <string name="days_unit">days</string>
@@ -289,7 +292,7 @@
     <string name="settings_permission_battery_desc">Prevents background service from being killed.</string>
     <string name="settings_permission_go_to_settings">Go to Settings</string>
     <!-- v8.6：权限管理二级界面 -->
-    <string name="settings_permission_section_title">Permissions</string>
+    <string name="settings_permission_section_title">权限</string>
     <string name="settings_permission_monitoring_subtitle">Monitoring 4 system permissions in real time</string>
     <string name="settings_permission_all_normal">Normal</string>
     <string name="settings_permission_n_abnormal">%d abnormal</string>

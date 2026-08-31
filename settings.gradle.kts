@@ -21,7 +21,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Notix"
 include(":app")
-include(":plugin-word-tokenizer")
+include(":plugins:word-tokenizer")
 
 
 

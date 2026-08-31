@@ -80,7 +80,7 @@ jobs:
       - name: Build HanLP plugin package
         run: |
           # 构建插件模块（会自动拉取 HanLP 依赖）
-          ./gradlew :plugin-word-tokenizer:assembleRelease
+          ./gradlew :plugins:word-tokenizer:assembleRelease
           # 定位 HanLP jar（gradle 缓存）
           HANLP_JAR=$(find "$HOME/.gradle/caches" -name "hanlp-portable-1.6.8.jar" | head -1)
           if [ -z "$HANLP_JAR" ]; then
@@ -89,7 +89,7 @@ jobs:
           fi
           echo "HanLP jar: $HANLP_JAR"
           # 插件模块的 classes.jar
-          PLUGIN_JAR=plugin-word-tokenizer/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar
+          PLUGIN_JAR=plugins/word-tokenizer/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar
           if [ ! -f "$PLUGIN_JAR" ]; then
             echo "::error::Plugin classes.jar not found: $PLUGIN_JAR"
             exit 1

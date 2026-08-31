@@ -1055,24 +1055,8 @@ fun SettingsScreen(
             ) {
                 // 标题区域占位（原标题：8dp + display 34sp + 8dp ≈ 50dp）
                 Spacer(modifier = Modifier.height(50.dp))
+            // ===== 常规：不属于功能分区的全局/系统设置 =====
             SettingsSection(title = stringResource(R.string.settings_section_general)) {
-                // v7.45：无文本通知文字提取开关（默认关）
-                SettingsRow(
-                    icon = Icons.Filled.TextFields,
-                    title = stringResource(R.string.settings_extract_remoteviews_title),
-                    subtitle = stringResource(R.string.settings_extract_remoteviews_desc),
-                    onClick = null,
-                    trailing = {
-                        NotixSwitch(
-                            checked = extractRemoteViewsEnabled,
-                            onCheckedChange = { enabled ->
-                                extractRemoteViewsEnabled = enabled
-                                NotificationBlockerService.setRemoteViewsTextExtractionEnabled(context, enabled)
-                            }
-                        )
-                    }
-                )
-                // v8.20：动态取色开关（默认开）
                 SettingsRow(
                     icon = Icons.Filled.Palette,
                     title = stringResource(R.string.settings_dynamic_color_title),
@@ -1088,138 +1072,14 @@ fun SettingsScreen(
                         )
                     }
                 )
-                // v8.43.0：词云 - 每日全量重建开关（默认关）
-                SettingsRow(
-                    icon = Icons.Filled.Refresh,
-                    title = "每日重建词频",
-                    subtitle = "每天凌晨3点全量重建词频，防止增量误差（默认关闭）",
-                    onClick = null,
-                    trailing = {
-                        NotixSwitch(
-                            checked = dailyRebuildEnabled,
-                            onCheckedChange = { enabled ->
-                                dailyRebuildEnabled = enabled
-                                com.enlpot.notix.data.repository.WordFrequencyRepository.setDailyRebuildEnabled(context, enabled)
-                            }
-                        )
-                    }
-                )
-                // v8.43.0：词云 - 高级分词插件管理
-                SettingsRow(
-                    icon = Icons.Filled.TextFields,
-                    title = "高级分词插件",
-                    subtitle = when {
-                        pluginInstalling -> {
-                            when (pluginStage) {
-                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "正在下载插件 $pluginInstallProgress%"
-                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "正在解压插件…"
-                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "正在加载插件…"
-                                else -> "正在安装插件…"
-                            }
-                        }
-                        pluginInstalled -> "已安装 HanLP 高级分词，分词更精准"
-                        else -> "未安装，当前使用内置简单分词（约5MB）"
-                    },
-                    onClick = {
-                        if (pluginInstalled) {
-                            // 卸载插件
-                            com.enlpot.notix.plugin.WordTokenizerManager.unloadPlugin(context)
-                            pluginInstalled = false
-                        } else if (!pluginInstalling) {
-                            // 安装插件（全自动：下载→解压→加载，阶段进度提示）
-                            pluginInstalling = true
-                            pluginInstallProgress = 0
-                            pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
-                            pluginScope.launch {
-                                val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { stage, progress ->
-                                    pluginStage = stage
-                                    if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
-                                        pluginInstallProgress = progress
-                                    }
-                                }
-                                pluginInstalling = false
-                                pluginInstalled = success
-                                pluginStage = null
-                            }
-                        }
-                    },
-                    trailing = {
-                        when {
-                            pluginInstalling -> Text(
-                                text = when (pluginStage) {
-                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "$pluginInstallProgress%"
-                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "解压中"
-                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "加载中"
-                                    else -> "安装中"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            pluginInstalled -> Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
-                            else -> Icon(Icons.Filled.ImportExport, null, tint = MaterialTheme.notix.contentTertiary)
-                        }
-                    }
-                )
-                // v8.21：未监控应用管理入口
-                SettingsRow(
-                    icon = Icons.Filled.NotificationsOff,
-                    title = stringResource(R.string.settings_unmonitored_apps_title),
-                    subtitle = if (unmonitoredApps.isNotEmpty()) stringResource(R.string.unmonitored_apps, unmonitoredApps.size) else stringResource(R.string.settings_unmonitored_apps_desc),
-                    onClick = { showUnmonitoredAppsDialog = true },
-                )
-                SettingsRow(
-                    icon = Icons.Filled.History,
-                    title = stringResource(R.string.clear_history),
-                    subtitle = stringResource(R.string.clear_history_desc),
-                    onClick = { showClearModeDialog = true },
-                )
-                // v7.50：存储占用入口（常规分区）
-                SettingsRow(
-                    icon = Icons.Filled.Storage,
-                    title = stringResource(R.string.settings_storage_usage),
-                    subtitle = formatStorageBytes(storageTotalBytes),
-                    onClick = { showStorageUsageScreen = true },
-                )
-                // v8.31：刷新应用信息——清除缓存的应用名称和图标
+
                 SettingsRow(
                     icon = Icons.Filled.Refresh,
                     title = "刷新应用信息",
                     subtitle = "立即根据包名重新获取所有应用的名称和图标",
                     onClick = { showRefreshAppInfoDialog = true },
                 )
-            }
 
-            SettingsSection(title = stringResource(R.string.settings_section_rules)) {
-                SettingsRow(
-                    icon = Icons.Filled.ImportExport,
-                    title = stringResource(R.string.export_import_rules),
-                    subtitle = stringResource(R.string.export_import_rules_desc),
-                    onClick = { showExportImportDialog = true },
-                )
-                // v8.14：恢复常驻通知——恢复所有被规则冻结（snooze）的常驻通知
-                SettingsRow(
-                    icon = Icons.Filled.Notifications,
-                    title = stringResource(R.string.settings_restore_snoozed),
-                    subtitle = stringResource(R.string.settings_restore_snoozed_desc),
-                    onClick = { showRestoreSnoozedDialog = true },
-                )
-            }
-
-            // v7.13：崩溃日志入口
-            SettingsSection(title = stringResource(R.string.settings_crash_log)) {
-                SettingsRow(
-                    icon = Icons.Filled.BugReport,
-                    title = stringResource(R.string.settings_crash_log),
-                    subtitle = stringResource(
-                        if (crashLogEnabled) R.string.settings_crash_log_summary_on
-                        else R.string.settings_crash_log_summary_off
-                    ),
-                    onClick = { showCrashLogDialog = true },
-                )
-            }
-
-            // v8.6：权限管理——入口（仅展示实时状态，点击进入二级界面）
-            SettingsSection(title = stringResource(R.string.settings_permission_section_title)) {
                 // Stage 8：Token 化颜色 / 字体 / 间距；保留 Notix 图标圆圈视觉
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -1283,17 +1143,163 @@ fun SettingsScreen(
                 }
             }
 
-            // v8.17：关于分组改为弹窗形式（点击卡片打开 NotixDialog，与其他弹窗风格一致）
-            SettingsSection(title = stringResource(R.string.about)) {
+            // ===== 插件：可选功能插件 =====
+            SettingsSection(title = stringResource(R.string.settings_section_plugins)) {
+                SettingsRow(
+                    icon = Icons.Filled.TextFields,
+                    title = "高级分词插件",
+                    subtitle = when {
+                        pluginInstalling -> {
+                            when (pluginStage) {
+                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "正在下载插件 $pluginInstallProgress%"
+                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "正在解压插件…"
+                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "正在加载插件…"
+                                else -> "正在安装插件…"
+                            }
+                        }
+                        pluginInstalled -> "已安装 HanLP 高级分词，分词更精准"
+                        else -> "未安装，当前使用内置简单分词（约5MB）"
+                    },
+                    onClick = {
+                        if (pluginInstalled) {
+                            // 卸载插件
+                            com.enlpot.notix.plugin.WordTokenizerManager.unloadPlugin(context)
+                            pluginInstalled = false
+                        } else if (!pluginInstalling) {
+                            // 安装插件（全自动：下载→解压→加载，阶段进度提示）
+                            pluginInstalling = true
+                            pluginInstallProgress = 0
+                            pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
+                            pluginScope.launch {
+                                val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { stage, progress ->
+                                    pluginStage = stage
+                                    if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
+                                        pluginInstallProgress = progress
+                                    }
+                                }
+                                pluginInstalling = false
+                                pluginInstalled = success
+                                pluginStage = null
+                            }
+                        }
+                    },
+                    trailing = {
+                        when {
+                            pluginInstalling -> Text(
+                                text = when (pluginStage) {
+                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "$pluginInstallProgress%"
+                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "解压中"
+                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "加载中"
+                                    else -> "安装中"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            pluginInstalled -> Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
+                            else -> Icon(Icons.Filled.ImportExport, null, tint = MaterialTheme.notix.contentTertiary)
+                        }
+                    }
+                )
+            }
+
+            // ===== 通知：通知处理与通知历史数据管理 =====
+            SettingsSection(title = stringResource(R.string.settings_section_notification)) {
+                SettingsRow(
+                    icon = Icons.Filled.TextFields,
+                    title = stringResource(R.string.settings_extract_remoteviews_title),
+                    subtitle = stringResource(R.string.settings_extract_remoteviews_desc),
+                    onClick = null,
+                    trailing = {
+                        NotixSwitch(
+                            checked = extractRemoteViewsEnabled,
+                            onCheckedChange = { enabled ->
+                                extractRemoteViewsEnabled = enabled
+                                NotificationBlockerService.setRemoteViewsTextExtractionEnabled(context, enabled)
+                            }
+                        )
+                    }
+                )
+
+                SettingsRow(
+                    icon = Icons.Filled.Notifications,
+                    title = stringResource(R.string.settings_restore_snoozed),
+                    subtitle = stringResource(R.string.settings_restore_snoozed_desc),
+                    onClick = { showRestoreSnoozedDialog = true },
+                )
+
+                SettingsRow(
+                    icon = Icons.Filled.NotificationsOff,
+                    title = stringResource(R.string.settings_unmonitored_apps_title),
+                    subtitle = if (unmonitoredApps.isNotEmpty()) stringResource(R.string.unmonitored_apps, unmonitoredApps.size) else stringResource(R.string.settings_unmonitored_apps_desc),
+                    onClick = { showUnmonitoredAppsDialog = true },
+                )
+
+                SettingsRow(
+                    icon = Icons.Filled.History,
+                    title = stringResource(R.string.clear_history),
+                    subtitle = stringResource(R.string.clear_history_desc),
+                    onClick = { showClearModeDialog = true },
+                )
+
+                SettingsRow(
+                    icon = Icons.Filled.Storage,
+                    title = stringResource(R.string.settings_storage_usage),
+                    subtitle = formatStorageBytes(storageTotalBytes),
+                    onClick = { showStorageUsageScreen = true },
+                )
+            }
+
+            // ===== 规则 =====
+            SettingsSection(title = stringResource(R.string.settings_section_rules)) {
+                SettingsRow(
+                    icon = Icons.Filled.ImportExport,
+                    title = stringResource(R.string.export_import_rules),
+                    subtitle = stringResource(R.string.export_import_rules_desc),
+                    onClick = { showExportImportDialog = true },
+                )
+            }
+
+            // ===== 统计 =====
+            SettingsSection(title = stringResource(R.string.settings_section_statistics)) {
+                SettingsRow(
+                    icon = Icons.Filled.Refresh,
+                    title = "每日重建词频",
+                    subtitle = "每天凌晨3点全量重建词频，防止增量误差（默认关闭）",
+                    onClick = null,
+                    trailing = {
+                        NotixSwitch(
+                            checked = dailyRebuildEnabled,
+                            onCheckedChange = { enabled ->
+                                dailyRebuildEnabled = enabled
+                                com.enlpot.notix.data.repository.WordFrequencyRepository.setDailyRebuildEnabled(context, enabled)
+                            }
+                        )
+                    }
+                )
+            }
+
+            // ===== 关于 =====
+            SettingsSection(title = stringResource(R.string.settings_section_about)) {
                 SettingsRow(
                     icon = Icons.Filled.Info,
                     title = stringResource(R.string.about_features_title),
                     onClick = { showAboutFeaturesDialog = true }
                 )
+
                 SettingsRow(
                     icon = Icons.Filled.Lock,
                     title = stringResource(R.string.settings_privacy_security_title),
                     onClick = { showAboutPrivacyDialog = true }
+                )
+
+                SettingsRow(
+                    icon = Icons.Filled.BugReport,
+                    title = stringResource(R.string.settings_crash_log),
+                    subtitle = stringResource(
+                        if (crashLogEnabled) R.string.settings_crash_log_summary_on
+                        else R.string.settings_crash_log_summary_off
+                    ),
+                    onClick = { showCrashLogDialog = true },
                 )
             }
 
