@@ -119,7 +119,7 @@ jobs:
           NOTES_FROM_FILE=""
           if [ -f RELEASE_NOTES.md ]; then
             # 提取 ## v${VERSION} 到下一个 ## v 之间的内容（不含标题行和分隔线）
-            NOTES_FROM_FILE=$(awk "/^## v${VERSION}/{flag=1; next} /^## v/{flag=0} flag" RELEASE_NOTES.md | sed "/^---$/d" | sed "s/^[[:space:]]*//" | awk "NF")
+            NOTES_FROM_FILE=$(awk "/^## v${VERSION}/{flag=1; next} /^## v/{flag=0} flag" RELEASE_NOTES.md | grep -v "^---$" | grep -v "^$")
           fi
 
           if [ -n "$NOTES_FROM_FILE" ]; then
