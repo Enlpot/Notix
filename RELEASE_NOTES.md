@@ -1,5 +1,11 @@
 ﻿# Notix Release Notes
 
+## v8.41.1 (2026-08-31)
+
+### Fixed
+- **常驻通知聚合优化修复**：扩大普通通知聚合查询范围从5条到50条，确保在多个常驻通知（下载、音乐、导航等）频繁更新的场景下，仍能正确跳过所有常驻通知找到第一个普通通知组进行聚合判断。同 app 同标题的普通通知（如微信消息）现在能正常聚合显示变更计数，不被常驻通知打断。
+
+---
 ## v8.41.0 (2026-08-31)
 
 ### Improved
@@ -117,4 +123,5 @@
 
 ### Notes
 - `STRONG_REMIND` and `POSTPONE` actions remain UI-only shells; their real execution lands in a future release.
+
 
