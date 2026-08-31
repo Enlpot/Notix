@@ -1,4 +1,4 @@
-**English** | [简体中文](README.zh-CN.md)
+﻿**English** | [简体中文](README.zh-CN.md)
 
 # Notix
 
@@ -98,3 +98,4 @@ Notix is at **v8.9** and actively developed. The v1 scope focuses on the notific
 ## License
 
 MIT License — see [LICENSE](LICENSE).
+

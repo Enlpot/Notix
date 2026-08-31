@@ -1,4 +1,4 @@
-# Notix Version History
+﻿# Notix Version History
 
 > This file is the local cumulative version history, ordered newest-first.
 > Release notes are now auto-generated from git log by the GitHub Actions workflow (see .github/workflows/release.yml).
@@ -6,6 +6,112 @@
 
 ---
 
+
+## 8.41.0 (2026-08-31)
+
+**Improved**
+- **Ongoing notification aggregation optimization.** Normal notifications (e.g. WeChat) now skip ongoing notification groups when checking for aggregation, so they are no longer broken by frequently-updating ongoing notifications (download progress, music playback, etc.). Same-title WeChat messages still aggregate correctly even when an ongoing notification update occurs between them.
+
+**Technical**
+- NotificationGroupEntity gained was_ongoing field to mark ongoing notification groups.
+- Database version bumped to v3.
+
+---
+
+## 8.40.0 (2026-08-31)
+
+**New**
+- **Statistics page wave 1**: Notification trend line chart (last 7 days, Canvas with gradient fill and data points), 24-hour distribution heatmap (last 7 days x 24 hours grid, tap for details).
+- **Statistics page wave 2**: App notification share donut chart (top 5 apps individually, rest grouped as "Other"), rule effectiveness ranking (by hit count descending, horizontal progress bars).
+- **Statistics page wave 3**: Notification health score (0-100, circular progress + level label), score dimension details (7-day average count, source diversity, rule filter efficiency), personalized improvement suggestions.
+
+---
+
+## 8.39.0 (2026-08-30)
+
+**New**
+- **Statistics tab**: 4th bottom navigation tab showing total notifications (today/week/month), filtered count, rule hit count, top 5 apps ranking.
+- **Rule merge suggestion**: When creating a rule, if an existing rule matches all conditions except keywords (app, phone state, time, action flow, match mode), a merge prompt appears.
+- **Rule card divider**: Divider between condition area (keywords/state/time) and action flow.
+
+**Improved**
+- **Smooth scroll-to-top animation**: Rules and Settings tabs now use smooth animation when tapping bottom tab, consistent with History tab.
+
+**Fixed**
+- **Statistics page blank in portrait**: The portrait (else) branch had an independent Box structure that did not call screenContent(), so the Statistics page Box was missing. Fixed in both branches.
+- **Settings tab scroll-to-top not working**: After changing from 3 to 4 tabs, Settings index changed from 2 to 3, but the scroll-to-top condition still checked index == 2 (which is now Statistics). Fixed to index == 3.
+
+---
+
+## 8.38.0 (2026-08-30)
+
+**New**
+- **Custom compact Switch component**: Replaced system Switch with custom design; off state also draws capsule outline (no fill), more compact and consistent.
+
+**Improved**
+- **Rule card layout**: Rule name font enlarged, divider between title row and app name row, overall more compact.
+
+---
+
+## 8.37.0 (2026-08-30)
+
+**Improved**
+- **Rule card layout optimization**: Further compactness adjustments to rule card title row and spacing.
+
+---
+
+## 8.36.0 (2026-08-30)
+
+**Improved**
+- **Rule condition keyword input**: Changed from small input field with plus button to a large clickable card that opens a dialog for keyword input. Tags displayed below the card.
+
+---
+
+## 8.35.0 (2026-08-30)
+
+**Improved**
+- **Rule card layout optimization**: Rule description area reorganized into 3 rows (keywords, phone state, time), hidden if unlimited.
+- **Storage usage dialog fix**: Fixed incorrect file listing (removed stale "history.json" entry) and updated size calculation and labels.
+
+---
+
+## 8.34.0 (2026-08-30)
+
+**New**
+- **Notification detail dialog persistence type**: Shows "Ongoing notification" or "Normal notification" in title area with theme color + bold.
+- **Filtered tag moved to title row**: The "已过滤" tag in notification detail dialog moved to the same row as persistence type, 4pt spacing.
+
+---
+
+## 8.33.0 (2026-08-30)
+
+**Fixed**
+- **Filtered tab empty-state overscroll**: Fixed the "已过滤" tab allowing excessive upward scroll when empty (chart scrolled off screen).
+- **Rules/Settings tab scroll-to-top**: Tapping the bottom tab while on Rules or Settings page now scrolls the list back to top.
+
+---
+
+## 8.32.0 (2026-08-30)
+
+**Improved**
+- **App info refresh optimization**: "Refresh app info" in Settings now immediately re-fetches app info via PackageManager instead of clearing cache.
+- **Unmonitored app state sync**: Stopping monitoring an app in the app group now immediately refreshes the unmonitored app list in Settings.
+
+---
+
+## 8.30.0 (2026-08-30)
+
+**Fixed**
+- **Bottom tab switch scroll position loss**: Switching tabs no longer destroys and recreates the History screen, preserving scroll position and fold/expand state.
+
+---
+
+## 8.29.0 (2026-08-30)
+
+**Fixed**
+- **Bottom tab switch scroll position loss**: Initial fix for scroll position being lost when switching between tabs.
+
+---
 ## 8.28.0 (2026-08-29)
 
 **Fixed**
@@ -551,3 +657,4 @@ Changes since the previous released version 7.47.
 
 - Initial release notes entry. Full changelog: https://github.com/Enlpot/Notix/commits/v7.38
 - Notification detail dialog button display anomaly.
+

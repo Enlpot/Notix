@@ -1,3 +1,4 @@
+﻿> **已归档（2026-08-31）**：本文件为 v8.2 ~ v8.28 期间的 UI 改造清单。改造已完成，后续版本更新请参见 VERSION_HISTORY.md 和 RELEASE_NOTES.md。
 # Notix UI 改造清单（v8.3 · 一致性规范）
 
 > 基线：v8.2（versionCode=115 / versionName="8.2"）
@@ -842,3 +843,4 @@ otification_history.json）迁移到 Room/SQLite 数据库，支持快速查询�
 - 边界：仅 History 7 个子函数；未动 Settings/RuleWizard/SetupWizard、未动 NotificationColorEngine、未删死代码、未决定导航框架。
 - `git diff --stat` 只含 HistoryScreen.kt + STAGE7_PROGRESS.md（CHANGELOG.md 留工作区外累积），符合 stage7 §八 7 要求。
 - 未升版（用户未要求本轮发版）。
+

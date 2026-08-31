@@ -1,4 +1,4 @@
-[English](README.md) | **简体中文**
+﻿[English](README.md) | **简体中文**
 
 # Notix
 
@@ -98,3 +98,4 @@ Notix 当前为 **v8.9**，处于活跃开发阶段。v1 范围聚焦于通知�
 ## License
 
 MIT License — 详见 [LICENSE](LICENSE)。
+
