@@ -8,6 +8,7 @@ import dalvik.system.InMemoryDexClassLoader
 import com.enlpot.notix.DebugLogManager
 import java.nio.ByteBuffer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
@@ -289,17 +290,21 @@ object WordTokenizerManager {
     /**
      * 下载并安装插件（多源自动切换：按延迟升序依次尝试官方源和用户镜像源）。
      * 下载中监控速率，卡住/异常自动中断并尝试下一个源；全部失败返回可读原因。
+     * 切换源前会断开前一个连接；协程被取消时立即终止整个流程（不再继续换源）。
      *
      * @param onStage 阶段回调（stage, progress），progress 仅 DOWNLOADING 阶段有意义（0-100）
      * @param onSourceChanged 当前使用的源回调（prefix；空字符串=官方源）
+     * @param onStatus 状态信息回调（中文，供 UI 展示"尝试X源→超时→切换→下载成功→解压中→加载中→安装完成"）
      * @return [PluginInstallResult]
      */
     suspend fun downloadAndInstallPlugin(
         context: Context,
         onStage: (InstallStage, Int) -> Unit = { _, _ -> },
-        onSourceChanged: (String) -> Unit = {}
+        onSourceChanged: (String) -> Unit = {},
+        onStatus: (String) -> Unit = {}
     ): PluginInstallResult = withContext(Dispatchers.IO) {
         val tmpZip = File(context.cacheDir, PLUGIN_ZIP_NAME)
+        fun sourceName(prefix: String): String = if (prefix.isEmpty()) "官方" else prefix
 
         // 组装源列表：[官方] + 用户镜像，按延迟升序（测试失败放最后）
         val prefixes = listOf(OFFICIAL_PREFIX) + getMirrorPrefixes(context)
@@ -311,11 +316,14 @@ object WordTokenizerManager {
 
         var lastError = "未知错误"
         for (prefix in sorted) {
+            var connection: HttpURLConnection? = null
             try {
+                coroutineContext.ensureActive()
                 // ---- 1. 下载（当前源）----
                 onStage(InstallStage.DOWNLOADING, 0)
                 onSourceChanged(prefix)
-                val connection = URL(buildDownloadUrl(prefix)).openConnection() as HttpURLConnection
+                onStatus("尝试 ${sourceName(prefix)} 源")
+                connection = URL(buildDownloadUrl(prefix)).openConnection() as HttpURLConnection
                 connection.connectTimeout = LATENCY_TIMEOUT_MS
                 connection.readTimeout = READ_TIMEOUT_MS
                 connection.instanceFollowRedirects = true
@@ -324,9 +332,9 @@ object WordTokenizerManager {
                 val code = connection.responseCode
                 if (code != HttpURLConnection.HTTP_OK) {
                     lastError = describeError(null, code)
-                    connection.disconnect()
+                    onStatus("${sourceName(prefix)} 源失败（$lastError），切换下一镜像源")
                     Log.w(TAG, "源[$prefix]下载失败: $lastError")
-                    DebugLogManager.w(TAG, "源[${if (prefix.isEmpty()) "官方" else prefix}]下载失败: $lastError")
+                    DebugLogManager.w(TAG, "源[${sourceName(prefix)}]下载失败: $lastError")
                     continue
                 }
 
@@ -341,6 +349,7 @@ object WordTokenizerManager {
                 var lastCheckTime = t0
                 var lastCheckBytes = 0L
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    coroutineContext.ensureActive()
                     outputStream.write(buffer, 0, bytesRead)
                     downloaded += bytesRead
                     if (totalLength > 0) {
@@ -360,11 +369,14 @@ object WordTokenizerManager {
                 outputStream.close()
                 inputStream.close()
                 connection.disconnect()
+                connection = null
                 Log.i(TAG, "插件下载完成（源=$prefix）: $downloaded bytes")
-                DebugLogManager.i(TAG, "下载完成（源=${if (prefix.isEmpty()) "官方" else prefix}）: $downloaded bytes, 期望 $totalLength")
+                DebugLogManager.i(TAG, "下载完成（源=${sourceName(prefix)}）: $downloaded bytes, 期望 $totalLength")
+                onStatus("下载成功（${sourceName(prefix)} 源，$downloaded bytes）")
 
                 // ---- 2. 解压 ----
                 onStage(InstallStage.EXTRACTING, 0)
+                onStatus("解压中")
                 val pluginDir = getPluginDir(context)
                 if (pluginDir.exists()) pluginDir.deleteRecursively()
                 pluginDir.mkdirs()
@@ -374,33 +386,46 @@ object WordTokenizerManager {
 
                 // ---- 3. 加载 ----
                 onStage(InstallStage.LOADING, 0)
+                onStatus("加载中")
                 val loaded = loadPlugin(context)
                 tmpZip.delete()
                 if (loaded) {
                     DebugLogManager.i(TAG, "安装成功")
+                    onStatus("安装完成")
                     return@withContext PluginInstallResult.Success
                 } else {
                     // v8.47.0：解压成功但加载失败——可能是该源返回了损坏的 zip，
                     // 记录具体原因并删除坏文件，自动切下个源重下
                     val reason = lastLoadError ?: "插件解压成功但加载失败"
                     lastError = reason
-                    DebugLogManager.e(TAG, "源[${if (prefix.isEmpty()) "官方" else prefix}]$reason，切换下一个源重试")
+                    onStatus("${sourceName(prefix)} 源加载失败（$reason），切换下一镜像源")
+                    DebugLogManager.e(TAG, "源[${sourceName(prefix)}]$reason，切换下一个源重试")
                     try {
                         if (pluginDir.exists()) pluginDir.deleteRecursively()
                     } catch (_: Exception) { }
                     continue
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // 协程被取消（用户中断/页面退出）：断开连接，立即终止整个流程，不再换源
+                try { connection?.disconnect() } catch (_: Exception) { }
+                throw e
             } catch (e: Exception) {
+                try { connection?.disconnect() } catch (_: Exception) { }
                 lastError = describeError(e)
+                onStatus("${sourceName(prefix)} 源失败（$lastError），切换下一镜像源")
                 Log.w(TAG, "源[$prefix]下载异常: $lastError")
-                DebugLogManager.w(TAG, "源[${if (prefix.isEmpty()) "官方" else prefix}]下载异常: $lastError | ${e.javaClass.simpleName}: ${e.message}")
+                DebugLogManager.w(TAG, "源[${sourceName(prefix)}]下载异常: $lastError | ${e.javaClass.simpleName}: ${e.message}")
                 try {
                     tmpZip.delete()
                     val dir = getPluginDir(context)
                     if (dir.exists()) dir.deleteRecursively()
                 } catch (_: Exception) { }
+            } finally {
+                // 换源前确保前一个连接已断开（防止重复下载/连接泄漏）
+                try { connection?.disconnect() } catch (_: Exception) { }
             }
         }
+        onStatus("安装失败：$lastError")
         PluginInstallResult.Failure(lastError)
     }
 

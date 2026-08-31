@@ -64,6 +64,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -196,6 +197,8 @@ fun SettingsScreen(
     var pluginInstalling by remember { mutableStateOf(false) }
     var pluginInstallProgress by remember { mutableStateOf(0) }
     var pluginStage by remember { mutableStateOf<com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?>(null) }
+    // v8.47.1：插件安装状态信息流（尝试源/切换/下载/解压/加载/完成）
+    var pluginStatusLog by remember { mutableStateOf<List<String>>(emptyList()) }
     val pluginScope = rememberCoroutineScope()
     // v8.45.1：插件市场弹窗状态
     var showPluginMarketDialog by remember { mutableStateOf(false) }
@@ -1020,12 +1023,14 @@ fun SettingsScreen(
                                 installing = pluginInstalling,
                                 installProgress = pluginInstallProgress,
                                 installStage = pluginStage,
+                                statusLog = pluginStatusLog,
                                 onInstall = {
                                     if (!installed && !pluginInstalling) {
                                         pluginInstalling = true
                                         pluginInstallProgress = 0
                                         pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
                                         pluginInstallError = null
+                                        pluginStatusLog = emptyList()
                                         pluginScope.launch {
                                             val result = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(
                                                 context,
@@ -1035,7 +1040,8 @@ fun SettingsScreen(
                                                         pluginInstallProgress = progress
                                                     }
                                                 },
-                                                { _ -> }
+                                                { _ -> },
+                                                { msg -> pluginStatusLog = pluginStatusLog + msg }
                                             )
                                             pluginInstalling = false
                                             pluginStage = null
@@ -1761,6 +1767,7 @@ private fun PluginMarketRow(
     installing: Boolean,
     installProgress: Int,
     installStage: com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?,
+    statusLog: List<String>,
     onInstall: () -> Unit
 ) {
     val c = MaterialTheme.notix
@@ -1808,14 +1815,10 @@ private fun PluginMarketRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = c.contentTertiary
             )
-            installing -> Text(
-                text = when (installStage) {
-                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "安装中 $installProgress%"
-                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "解压中"
-                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "加载中"
-                    else -> "安装中"
-                },
-                style = MaterialTheme.typography.labelMedium,
+            // v8.47.1：安装中按钮变加载圆圈
+            installing -> CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                strokeWidth = 2.5.dp,
                 color = MaterialTheme.colorScheme.primary
             )
             else -> NotixDialogButton(
@@ -1824,6 +1827,23 @@ private fun PluginMarketRow(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
+        }
+    }
+    // v8.47.1：待安装插件下方显示安装状态信息（尝试源/切换/下载/解压/加载/完成）
+    if (statusLog.isNotEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 40.dp + sp.lg)
+        ) {
+            statusLog.forEach { msg ->
+                Text(
+                    text = msg,
+                    style = MaterialTheme.typography.labelSmall,
+                    lineHeight = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
