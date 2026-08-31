@@ -77,6 +77,42 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
+      - name: Build HanLP plugin package
+        run: |
+          # 构建插件模块（会自动拉取 HanLP 依赖）
+          ./gradlew :plugin-word-tokenizer:assembleRelease
+          # 定位 HanLP jar（gradle 缓存）
+          HANLP_JAR=$(find "$HOME/.gradle/caches" -name "hanlp-portable-1.6.8.jar" | head -1)
+          if [ -z "$HANLP_JAR" ]; then
+            echo "::error::HanLP jar not found in gradle cache"
+            exit 1
+          fi
+          echo "HanLP jar: $HANLP_JAR"
+          # 插件模块的 classes.jar
+          PLUGIN_JAR=plugin-word-tokenizer/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar
+          if [ ! -f "$PLUGIN_JAR" ]; then
+            echo "::error::Plugin classes.jar not found: $PLUGIN_JAR"
+            exit 1
+          fi
+          # 定位 d8（Android SDK build-tools）
+          D8=$(find "$ANDROID_SDK_ROOT/build-tools" -name "d8" -type f | sort -V | tail -1)
+          if [ -z "$D8" ]; then
+            echo "::error::d8 not found in ANDROID_SDK_ROOT"
+            exit 1
+          fi
+          echo "Using d8: $D8"
+          # 合并插件类 + HanLP 类转 dex
+          mkdir -p plugin_dist
+          "$D8" --output plugin_dist --min-api 26 "$PLUGIN_JAR" "$HANLP_JAR"
+          # 整理：重命名 dex、提取词典、打包单 zip
+          cd plugin_dist
+          mv classes.dex word_tokenizer_hanlp.dex
+          unzip -q "$HANLP_JAR" "data/*"
+          zip -qr word_tokenizer_hanlp.zip word_tokenizer_hanlp.dex data
+          echo "Plugin zip: $(du -h word_tokenizer_hanlp.zip | cut -f1)"
+          cd ..
+          ls -la plugin_dist/
+
       - name: Rename APK with version
         run: |
           VERSION=${{ needs.check-version.outputs.version }}
@@ -157,7 +193,9 @@ jobs:
           tag_name: v${{ needs.check-version.outputs.version }}
           name: v${{ needs.check-version.outputs.version }}
           body_path: RELEASE_NOTES_GENERATED.md
-          files: app/build/outputs/apk/release/*.apk
+          files: |
+            app/build/outputs/apk/release/*.apk
+            plugin_dist/word_tokenizer_hanlp.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

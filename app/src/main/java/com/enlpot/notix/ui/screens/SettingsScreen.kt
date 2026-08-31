@@ -187,6 +187,7 @@ fun SettingsScreen(
     }
     var pluginInstalling by remember { mutableStateOf(false) }
     var pluginInstallProgress by remember { mutableStateOf(0) }
+    var pluginStage by remember { mutableStateOf<com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?>(null) }
     val pluginScope = rememberCoroutineScope()
 
     // v8.21：未监控应用管理（v8.31：状态由 MainActivity 统一管理，确保历史页和设置页同步刷新）
@@ -1107,32 +1108,55 @@ fun SettingsScreen(
                 SettingsRow(
                     icon = Icons.Filled.TextFields,
                     title = "高级分词插件",
-                    subtitle = if (pluginInstalled) "已安装 HanLP 高级分词，分词更精准" else "未安装，当前使用内置简单分词（约5MB）",
+                    subtitle = when {
+                        pluginInstalling -> {
+                            when (pluginStage) {
+                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "正在下载插件 $pluginInstallProgress%"
+                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "正在解压插件…"
+                                com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "正在加载插件…"
+                                else -> "正在安装插件…"
+                            }
+                        }
+                        pluginInstalled -> "已安装 HanLP 高级分词，分词更精准"
+                        else -> "未安装，当前使用内置简单分词（约5MB）"
+                    },
                     onClick = {
                         if (pluginInstalled) {
                             // 卸载插件
                             com.enlpot.notix.plugin.WordTokenizerManager.unloadPlugin(context)
                             pluginInstalled = false
                         } else if (!pluginInstalling) {
-                            // 安装插件
+                            // 安装插件（全自动：下载→解压→加载，阶段进度提示）
                             pluginInstalling = true
                             pluginInstallProgress = 0
+                            pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
                             pluginScope.launch {
-                                val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { progress ->
-                                    pluginInstallProgress = progress
+                                val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { stage, progress ->
+                                    pluginStage = stage
+                                    if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
+                                        pluginInstallProgress = progress
+                                    }
                                 }
                                 pluginInstalling = false
                                 pluginInstalled = success
+                                pluginStage = null
                             }
                         }
                     },
                     trailing = {
-                        if (pluginInstalling) {
-                            Text("%", style = MaterialTheme.typography.labelSmall)
-                        } else if (pluginInstalled) {
-                            Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
-                        } else {
-                            Icon(Icons.Filled.ImportExport, null, tint = MaterialTheme.notix.contentTertiary)
+                        when {
+                            pluginInstalling -> Text(
+                                text = when (pluginStage) {
+                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING -> "$pluginInstallProgress%"
+                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.EXTRACTING -> "解压中"
+                                    com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.LOADING -> "加载中"
+                                    else -> "安装中"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            pluginInstalled -> Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
+                            else -> Icon(Icons.Filled.ImportExport, null, tint = MaterialTheme.notix.contentTertiary)
                         }
                     }
                 )
@@ -1831,6 +1855,7 @@ private fun isKeepaliveServiceRunning(context: Context): Boolean {
         it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }
+
 
 
 

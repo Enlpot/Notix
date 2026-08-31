@@ -9,7 +9,7 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
+build/
 /captures
 .externalNativeBuild
 .cxx
@@ -47,4 +47,5 @@ keystore_secrets.txt
 
 # 项目待办清单（仅本地，不推送远程）
 TODO.md
+
 

@@ -1,4 +1,4 @@
-pluginManagement {
+﻿pluginManagement {
     repositories {
         google {
             content {
@@ -21,3 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "Notix"
 include(":app")
+include(":plugin-word-tokenizer")
+
+
+
+
