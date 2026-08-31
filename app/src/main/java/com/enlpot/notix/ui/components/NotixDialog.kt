@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.components
+﻿package com.enlpot.notix.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,9 +11,12 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -85,7 +88,9 @@ fun NotixDialog(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onDismiss
-                ),
+                )
+                // v8.43.1：软键盘弹出时弹窗整体上移到键盘上方，避免底部按钮被遮挡
+                .imePadding(),
             contentAlignment = Alignment.Center
         ) {
             BoxWithConstraints {
@@ -122,7 +127,12 @@ fun NotixDialog(
                             titleTrailing?.invoke()
                         }
                         Spacer(Modifier.height(sp.md))
-                        Column {
+                        // v8.43.1：内容区可滚动——键盘弹出后弹窗高度收缩时，仍可滚动到保存/确认按钮
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                        ) {
                             content()
                             buttons()
                         }
@@ -197,3 +207,4 @@ fun NotixDangerButton(
         contentColor = c.onError
     )
 }
+
