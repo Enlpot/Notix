@@ -660,6 +660,7 @@ fun SettingsScreen(
         NotixDialog(
             onDismiss = { showClearByAppDialog = false },
             title = stringResource(R.string.clear_by_app_title),
+            contentScrollable = false,
             content = {
                 Text(
                     text = stringResource(R.string.clear_by_app_hint),
@@ -789,6 +790,7 @@ fun SettingsScreen(
                 selectedUnmonitoredPackages = setOf()
             },
             title = stringResource(R.string.settings_unmonitored_apps_title),
+            contentScrollable = false,
             content = {
                 Text(
                     text = stringResource(R.string.unmonitored_apps_dialog_hint),
@@ -1615,6 +1617,7 @@ fun PermissionScreen(
     NotixDialog(
         onDismiss = onBack,
         title = stringResource(R.string.settings_permission_section_title),
+        contentScrollable = false,
         titleTrailing = {
             Box(
                 modifier = Modifier

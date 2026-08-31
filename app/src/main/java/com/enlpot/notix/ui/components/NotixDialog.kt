@@ -63,6 +63,7 @@ fun NotixDialog(
     title: String,
     modifier: Modifier = Modifier,
     titleTrailing: @Composable (() -> Unit)? = null,
+    contentScrollable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit = {},
     buttons: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -128,13 +129,21 @@ fun NotixDialog(
                         }
                         Spacer(Modifier.height(sp.md))
                         // v8.43.1：内容区可滚动——键盘弹出后弹窗高度收缩时，仍可滚动到保存/确认按钮
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState()),
-                        ) {
-                            content()
-                            buttons()
+                        // v8.44.1：contentScrollable=false 时（content 内含 LazyColumn 等自带滚动组件）不再套外层滚动，避免嵌套滚动崩溃
+                        if (contentScrollable) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState()),
+                            ) {
+                                content()
+                                buttons()
+                            }
+                        } else {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                content()
+                                buttons()
+                            }
                         }
                     }
                 }
