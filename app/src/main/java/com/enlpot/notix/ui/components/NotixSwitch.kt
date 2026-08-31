@@ -1,4 +1,4 @@
-package com.enlpot.notix.ui.components
+﻿package com.enlpot.notix.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -30,15 +30,15 @@ import com.enlpot.notix.ui.theme.notix
  * 保持开关的滑动动画和交互习惯，只是缩小尺寸，更紧凑。
  *
  * 开启状态：填充主题色背景，白色滑块。
- * 关闭状态：透明背景 + 灰色胶囊边框，灰色滑块。
+ * 关闭状态：透明背景 + 中灰胶囊边框，中灰滑块。
  *
  * @param checked 是否开启
  * @param onCheckedChange 状态变化回调
  * @param modifier 修饰符
  * @param checkedColor 开启时的背景色，默认用主题色
- * @param uncheckedBorderColor 关闭时的边框色，默认用灰色
+ * @param uncheckedBorderColor 关闭时的边框色，默认用中灰
  * @param checkedThumbColor 开启时的滑块颜色，默认白色
- * @param uncheckedThumbColor 关闭时的滑块颜色，默认灰色
+ * @param uncheckedThumbColor 关闭时的滑块颜色，默认中灰
  */
 @Composable
 fun NotixSwitch(
@@ -46,9 +46,9 @@ fun NotixSwitch(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     checkedColor: Color = MaterialTheme.notix.primary,
-    uncheckedBorderColor: Color = MaterialTheme.notix.outlineVariant,
+    uncheckedBorderColor: Color = MaterialTheme.notix.outline,
     checkedThumbColor: Color = Color.White,
-    uncheckedThumbColor: Color = MaterialTheme.notix.outlineVariant,
+    uncheckedThumbColor: Color = MaterialTheme.notix.outline,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val thumbOffset by animateDpAsState(
