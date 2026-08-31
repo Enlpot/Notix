@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.History
@@ -176,6 +177,17 @@ fun SettingsScreen(
     var dynamicColorEnabled by remember {
         mutableStateOf(NotificationColorEngine.isDynamicColorEnabled(context))
     }
+
+    // v8.43.0：词云相关设置
+    var dailyRebuildEnabled by remember {
+        mutableStateOf(com.enlpot.notix.data.repository.WordFrequencyRepository.isDailyRebuildEnabled(context))
+    }
+    var pluginInstalled by remember {
+        mutableStateOf(com.enlpot.notix.plugin.WordTokenizerManager.isPluginLoaded())
+    }
+    var pluginInstalling by remember { mutableStateOf(false) }
+    var pluginInstallProgress by remember { mutableStateOf(0) }
+    val pluginScope = rememberCoroutineScope()
 
     // v8.21：未监控应用管理（v8.31：状态由 MainActivity 统一管理，确保历史页和设置页同步刷新）
     val unmonitoredStorage = remember { UnmonitoredAppsStorage(context) }
@@ -1075,6 +1087,55 @@ fun SettingsScreen(
                         )
                     }
                 )
+                // v8.43.0：词云 - 每日全量重建开关（默认关）
+                SettingsRow(
+                    icon = Icons.Filled.Refresh,
+                    title = "每日重建词频",
+                    subtitle = "每天凌晨3点全量重建词频，防止增量误差（默认关闭）",
+                    onClick = null,
+                    trailing = {
+                        NotixSwitch(
+                            checked = dailyRebuildEnabled,
+                            onCheckedChange = { enabled ->
+                                dailyRebuildEnabled = enabled
+                                com.enlpot.notix.data.repository.WordFrequencyRepository.setDailyRebuildEnabled(context, enabled)
+                            }
+                        )
+                    }
+                )
+                // v8.43.0：词云 - 高级分词插件管理
+                SettingsRow(
+                    icon = Icons.Filled.TextFields,
+                    title = "高级分词插件",
+                    subtitle = if (pluginInstalled) "已安装 HanLP 高级分词，分词更精准" else "未安装，当前使用内置简单分词（约5MB）",
+                    onClick = {
+                        if (pluginInstalled) {
+                            // 卸载插件
+                            com.enlpot.notix.plugin.WordTokenizerManager.unloadPlugin(context)
+                            pluginInstalled = false
+                        } else if (!pluginInstalling) {
+                            // 安装插件
+                            pluginInstalling = true
+                            pluginInstallProgress = 0
+                            pluginScope.launch {
+                                val success = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(context) { progress ->
+                                    pluginInstallProgress = progress
+                                }
+                                pluginInstalling = false
+                                pluginInstalled = success
+                            }
+                        }
+                    },
+                    trailing = {
+                        if (pluginInstalling) {
+                            Text("%", style = MaterialTheme.typography.labelSmall)
+                        } else if (pluginInstalled) {
+                            Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        } else {
+                            Icon(Icons.Filled.ImportExport, null, tint = MaterialTheme.notix.contentTertiary)
+                        }
+                    }
+                )
                 // v8.21：未监控应用管理入口
                 SettingsRow(
                     icon = Icons.Filled.NotificationsOff,
@@ -1770,6 +1831,12 @@ private fun isKeepaliveServiceRunning(context: Context): Boolean {
         it.service.className == NotificationBlockerService::class.java.name && it.foreground
     }
 }
+
+
+
+
+
+
 
 
 

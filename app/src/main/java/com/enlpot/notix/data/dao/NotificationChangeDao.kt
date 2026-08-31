@@ -61,5 +61,11 @@ interface NotificationChangeDao {
      */
     @Query("SELECT * FROM notification_change WHERE group_id = :groupId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestByGroupId(groupId: String): NotificationChangeEntity?
+
+    /**
+     * v8.43.0：查询最近的 N 条通知变更（用于词频全量重建）。
+     */
+    @Query("SELECT * FROM notification_change ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentChanges(limit: Int): List<NotificationChangeEntity>
 }
 
