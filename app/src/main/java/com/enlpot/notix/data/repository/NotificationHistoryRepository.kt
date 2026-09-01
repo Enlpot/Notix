@@ -89,35 +89,59 @@ class NotificationHistoryRepository(context: Context) {
             if (ongoingMergeStorage.shouldMerge(notification.packageName ?: "")) {
                 val lastRemovedAt = ongoingRemovedAt[sbnKey] ?: 0L
                 val isNewLifecycle = lastRemovedAt > 0L && (now - lastRemovedAt) > LIFECYCLE_GAP_MS
+                val latestChange = changeDao.getLatestByGroupId(existing.id)
 
-                val updatedGroup = existing.copy(
-                    app_label = notification.appLabel,
-                    title = notification.title,
-                    count = if (isNewLifecycle) existing.count + 1 else existing.count,
-                    last_timestamp = notification.timestamp,
-                    blocked = blockedInt,
-                    was_ongoing = 1
-                )
-                groupDao.update(updatedGroup)
-
-                if (isNewLifecycle) {
-                    // 新生命周期（重连/状态恢复）：记录一条 change，保留状态变化痕迹
-                    val change = notification.toChangeEntity(updatedGroup.id)
-                    changeDao.insert(change)
+                if (isNewLifecycle && latestChange != null &&
+                    latestChange.title == notification.title &&
+                    latestChange.text == notification.text
+                ) {
+                    // 跨生命周期但内容未变化（低频重复提示，如系统悬浮窗提醒）：仍合并，不新增记录，时间用最新
+                    val updatedGroup = existing.copy(
+                        app_label = notification.appLabel,
+                        title = notification.title,
+                        count = existing.count,
+                        last_timestamp = notification.timestamp,
+                        blocked = blockedInt,
+                        was_ongoing = 1
+                    )
+                    groupDao.update(updatedGroup)
+                    val updatedChange = latestChange.copy(
+                        title = notification.title,
+                        text = notification.text,
+                        timestamp = notification.timestamp
+                    )
+                    changeDao.insert(updatedChange)
                     ongoingRemovedAt[sbnKey] = 0L
-                    Log.d(TAG, "Ongoing new lifecycle recorded: sbnKey=$sbnKey, count=${updatedGroup.count}")
+                    Log.d(TAG, "Ongoing content same across lifecycle, keep merged: sbnKey=$sbnKey, count=${updatedGroup.count}")
                 } else {
-                    // 生命周期内：合并——更新最新 change 的内容与时间戳，不新增 change、不增加 count
-                    val latestChange = changeDao.getLatestByGroupId(existing.id)
-                    if (latestChange != null) {
-                        val updatedChange = latestChange.copy(
-                            title = notification.title,
-                            text = notification.text,
-                            timestamp = notification.timestamp
-                        )
-                        changeDao.insert(updatedChange)
+                    val updatedGroup = existing.copy(
+                        app_label = notification.appLabel,
+                        title = notification.title,
+                        count = if (isNewLifecycle) existing.count + 1 else existing.count,
+                        last_timestamp = notification.timestamp,
+                        blocked = blockedInt,
+                        was_ongoing = 1
+                    )
+                    groupDao.update(updatedGroup)
+
+                    if (isNewLifecycle) {
+                        // 新生命周期（重连/状态恢复）：记录一条 change，保留状态变化痕迹
+                        val change = notification.toChangeEntity(updatedGroup.id)
+                        changeDao.insert(change)
+                        ongoingRemovedAt[sbnKey] = 0L
+                        Log.d(TAG, "Ongoing new lifecycle recorded: sbnKey=$sbnKey, count=${updatedGroup.count}")
+                    } else {
+                        // 生命周期内：合并——更新最新 change 的内容与时间戳，不新增 change、不增加 count
+                        if (latestChange != null) {
+                            val updatedChange = latestChange.copy(
+                                title = notification.title,
+                                text = notification.text,
+                                timestamp = notification.timestamp
+                            )
+                            changeDao.insert(updatedChange)
+                        }
+                        Log.d(TAG, "Ongoing merged in lifecycle: sbnKey=$sbnKey, count=${updatedGroup.count}")
                     }
-                    Log.d(TAG, "Ongoing merged in lifecycle: sbnKey=$sbnKey, count=${updatedGroup.count}")
                 }
                 false
             } else {
