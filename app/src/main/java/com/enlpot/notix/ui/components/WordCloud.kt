@@ -1,4 +1,4 @@
-﻿package com.enlpot.notix.ui.components
+package com.enlpot.notix.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -119,7 +119,8 @@ fun WordCloud(
 
         layout(width, height) {
             placeables.forEachIndexed { index, placeable ->
-                val position = positions[index]
+                // 放置失败（找不到不重叠位置）的词直接跳过，避免堆叠在中心造成重叠
+                val position = positions[index] ?: return@forEachIndexed
                 placeable.placeRelative(
                     x = position.x.toInt(),
                     y = position.y.toInt()
@@ -137,8 +138,17 @@ private data class WordStyle(
 )
 
 /**
- * 阿基米德螺旋布局算法。
- * 第一个词放在中心，后续每个词从中心开始沿螺旋向外移动，每步做 AABB 碰撞检测。
+ * 分层环形扫描布局算法（v8.48.2：修复词云重叠）。
+ *
+ * 第一个词放在画布中心，后续每个词从中心开始逐层向外（半径逐层增加），
+ * 每一层沿圆周均匀取多个候选点做 AABB 碰撞检测，找到第一个不重叠且
+ * 落在画布内的位置即放置。相比原阿基米德螺旋（半径增长慢、中心区域
+ * 很难转出去），本算法覆盖面更均匀、搜索效率更高。
+ *
+ * 若某个词在整个画布内都找不到不重叠位置，则返回 null（渲染时跳过该词），
+ * 绝不回退到中心导致重叠。
+ *
+ * @return 与 placeables 一一对应的位置列表；放不下的词对应 null
  */
 private fun calculateSpiralPositions(
     placeables: List<Placeable>,
@@ -146,14 +156,13 @@ private fun calculateSpiralPositions(
     centerY: Float,
     maxWidth: Int,
     maxHeight: Int
-): List<Offset> {
-    val positions = mutableListOf<Offset>()
+): List<Offset?> {
+    val positions = MutableList<Offset?>(placeables.size) { null }
     val placedRects = mutableListOf<Rect>()
 
-    // 螺旋参数
-    val spiralStep = 2f // 螺旋步长（像素）
-    val angleStep = 0.15f // 角度步长（弧度）
-    val maxRadius = sqrt(centerX * centerX + centerY * centerY) * 0.9f
+    // 半径从中心逐层向外搜索
+    val radiusStep = 6f // 每层半径增量（像素）
+    val maxRadius = sqrt(centerX * centerX + centerY * centerY)
 
     placeables.forEachIndexed { index, placeable ->
         val w = placeable.width.toFloat()
@@ -163,44 +172,38 @@ private fun calculateSpiralPositions(
             // 第一个词放在中心
             val x = centerX - w / 2
             val y = centerY - h / 2
-            positions.add(Offset(x, y))
+            positions[index] = Offset(x, y)
             placedRects.add(Rect(x, y, x + w, y + h))
             return@forEachIndexed
         }
 
-        // 沿阿基米德螺旋寻找不重叠的位置
-        var angle = 0f
-        var radius = 0f
-        var placed = false
-        var bestX = centerX - w / 2
-        var bestY = centerY - h / 2
+        // 从中心开始逐层向外搜索
+        var radius = radiusStep
+        search@ while (radius < maxRadius) {
+            // 该半径上的候选点数按周长自适应，保证每层约每 12px 一个候选点
+            val circumference = 2 * Math.PI * radius
+            val steps = maxOf(12, (circumference / 12).toInt())
+            for (i in 0 until steps) {
+                val angle = 2 * Math.PI * i / steps
+                val x = (centerX + radius * cos(angle)).toFloat() - w / 2
+                val y = (centerY + radius * sin(angle)).toFloat() - h / 2
 
-        while (radius < maxRadius && !placed) {
-            // 阿基米德螺旋：r = a * theta
-            val x = centerX + radius * cos(angle) - w / 2
-            val y = centerY + radius * sin(angle) - h / 2
-
-            // 检查是否在画布内
-            if (x >= 0 && y >= 0 && x + w <= maxWidth && y + h <= maxHeight) {
-                val newRect = Rect(x, y, x + w, y + h)
-                val overlaps = placedRects.any { rect ->
-                    rectsOverlap(rect, newRect, padding = 4f)
-                }
-                if (!overlaps) {
-                    bestX = x
-                    bestY = y
-                    placed = true
+                // 检查是否在画布内
+                if (x >= 0 && y >= 0 && x + w <= maxWidth && y + h <= maxHeight) {
+                    val newRect = Rect(x, y, x + w, y + h)
+                    val overlaps = placedRects.any { rect ->
+                        rectsOverlap(rect, newRect, padding = 6f)
+                    }
+                    if (!overlaps) {
+                        positions[index] = Offset(x, y)
+                        placedRects.add(newRect)
+                        break@search
+                    }
                 }
             }
-
-            // 沿螺旋移动
-            angle += angleStep
-            radius = spiralStep * angle
+            radius += radiusStep
         }
-
-        // 如果没找到不重叠的位置，放在最后找到的位置（可能重叠，但至少显示）
-        positions.add(Offset(bestX, bestY))
-        placedRects.add(Rect(bestX, bestY, bestX + w, bestY + h))
+        // 整个画布都找不到位置 → 保持 null，渲染时跳过
     }
 
     return positions
