@@ -78,9 +78,12 @@ class NotificationHistoryRepository(context: Context) {
                 latestChange.text == notification.text
 
             if (contentSame) {
-                // 内容相同：只更新 last_timestamp，不创建新 change，不增加 count
+                // 内容相同：刷新 last_timestamp 排序，同时把最新 change 的时间戳同步为当前时间，
+                // 使卡片显示时间跟随最新更新（不新增 change、不增加 count）
                 groupDao.update(existing.copy(last_timestamp = notification.timestamp))
-                Log.d(TAG, "Ongoing notification content same, skip count: sbnKey=$sbnKey")
+                val latestUpdated = latestChange.copy(timestamp = notification.timestamp)
+                changeDao.insert(latestUpdated)
+                Log.d(TAG, "Ongoing notification content same, skip count but refresh timestamp: sbnKey=$sbnKey")
                 return false
             }
 

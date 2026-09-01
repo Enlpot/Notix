@@ -426,6 +426,10 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         var title = notification.extras.getCharSequence("android.title")?.toString()
         var text = notification.extras.getCharSequence("android.text")?.toString()
         val currentTime = System.currentTimeMillis()
+        // v8.48.x：记录时间戳用真实投递时间 postTime（>0 时），实时回调下与 currentTime 几乎一致；
+        // 服务重启 syncActiveNotifications 补录通知栏现有通知时，用 currentTime 会显示成启动时间，
+        // 用 postTime 才能还原通知实际到达时间。
+        val recordTime = if (sbn.postTime > 0L) sbn.postTime else currentTime
 
         if (title.isNullOrBlank() && text.isNullOrBlank()) {
             // v7.45：无文本通知增强版（设置开关，默认关）——尝试提取按钮/自定义视图文字
@@ -497,7 +501,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         // v8.22：wasOngoing 从 notification.flags 读取真实状态，不再硬编码 false
         val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
         val simpleNotification = SimpleNotification(
-            appLabel, packageName, title, text, currentTime,
+            appLabel, packageName, title, text, recordTime,
             wasOngoing = isOngoing,
             sbnKey = sbn.key,
             postTime = sbn.postTime,
