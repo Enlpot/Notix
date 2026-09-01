@@ -1,6 +1,7 @@
 ﻿package com.enlpot.notix.data.dao
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -49,6 +50,34 @@ interface NotificationChangeDao {
     suspend fun searchCount(keyword: String): Int
 
     /**
+     * v8.49：增强搜索——多字段 AND 组合 + 时间范围，全量覆盖所有历史。
+     * 文本字段传空串表示不过滤；时间字段传 null 表示不限。
+     * COALESCE 处理 NULL 字段，避免 NULL LIKE 不命中导致 app_label 为空的通知漏掉。
+     * LEFT JOIN group 表带出 blocked 标记（供「已过滤」tab 展示）。
+     */
+    @Query(
+        """
+        SELECT c.*, g.blocked AS blocked 
+        FROM notification_change c
+        LEFT JOIN notification_group g ON g.id = c.group_id
+        WHERE COALESCE(c.app_label, '') LIKE '%' || :app || '%'
+          AND COALESCE(c.package_name, '') LIKE '%' || :pkg || '%'
+          AND COALESCE(c.title, '') LIKE '%' || :title || '%'
+          AND COALESCE(c.text, '') LIKE '%' || :text || '%'
+          AND COALESCE(c.channel_id, '') LIKE '%' || :channel || '%'
+          AND (:startTime IS NULL OR c.timestamp >= :startTime)
+          AND (:endTime IS NULL OR c.timestamp <= :endTime)
+        ORDER BY c.timestamp DESC
+        LIMIT :limit OFFSET :offset
+        """
+    )
+    suspend fun advancedSearch(
+        app: String, pkg: String, title: String, text: String, channel: String,
+        startTime: Long?, endTime: Long?,
+        limit: Int, offset: Int
+    ): List<ChangeWithBlocked>
+
+    /**
      * v8.25：全局按 sbnKey + postTime 查找是否存在相同的通知变更记录（防重复入库）。
      * 系统可能对同一条通知多次触发 onNotificationPosted，全局查找避免只检查头部导致的重复。
      * @return 匹配的记录数（>0 表示已存在）
@@ -68,4 +97,11 @@ interface NotificationChangeDao {
     @Query("SELECT * FROM notification_change ORDER BY timestamp DESC LIMIT :limit")
     suspend fun getRecentChanges(limit: Int): List<NotificationChangeEntity>
 }
+
+
+/** v8.49：增强搜索结果行——通知变更 + 所属聚合组的 blocked 标记。 */
+data class ChangeWithBlocked(
+    @Embedded val change: NotificationChangeEntity,
+    val blocked: Int
+)
 

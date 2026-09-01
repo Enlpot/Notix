@@ -344,6 +344,32 @@ class NotificationHistoryRepository(context: Context) {
         return changeDao.searchCount(keyword)
     }
 
+    /** v8.49：增强搜索——多字段 AND 组合 + 时间范围，全量覆盖所有历史。 */
+    suspend fun advancedSearch(
+        filters: AdvancedSearchFilters,
+        limit: Int = 50,
+        offset: Int = 0
+    ): List<NotificationSearchResult> {
+        if (filters.isEmpty) return emptyList()
+        val rows = changeDao.advancedSearch(
+            app = filters.app.trim(),
+            pkg = filters.packageName.trim(),
+            title = filters.title.trim(),
+            text = filters.text.trim(),
+            channel = filters.channelId.trim(),
+            startTime = filters.startTime,
+            endTime = filters.endTime,
+            limit = limit,
+            offset = offset
+        )
+        return rows.map { row ->
+            NotificationSearchResult(
+                notification = row.change.toDomain(),
+                blocked = row.blocked == 1
+            )
+        }
+    }
+
     // ========== 删除 ==========
 
     /** 清除全部历史。 */
@@ -498,6 +524,28 @@ class NotificationHistoryRepository(context: Context) {
         return groupDao.findBySbnKey(sbnKey) != null
     }
 }
+
+
+/** v8.49：增强搜索筛选条件（空字段表示不过滤）。 */
+data class AdvancedSearchFilters(
+    val app: String = "",
+    val packageName: String = "",
+    val title: String = "",
+    val text: String = "",
+    val channelId: String = "",
+    val startTime: Long? = null,
+    val endTime: Long? = null
+) {
+    val isEmpty: Boolean
+        get() = app.isBlank() && packageName.isBlank() && title.isBlank() &&
+            text.isBlank() && channelId.isBlank() && startTime == null && endTime == null
+}
+
+/** v8.49：增强搜索结果——通知 + 所属组 blocked 标记。 */
+data class NotificationSearchResult(
+    val notification: SimpleNotification,
+    val blocked: Boolean
+)
 
 
 

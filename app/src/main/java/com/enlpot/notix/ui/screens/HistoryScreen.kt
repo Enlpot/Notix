@@ -72,6 +72,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.Card
@@ -126,6 +127,8 @@ import com.enlpot.notix.NotificationBlockerService
 import com.enlpot.notix.NotificationColorEngine
 import com.enlpot.notix.NotificationColors
 import com.enlpot.notix.NotificationHistoryEntry
+import com.enlpot.notix.data.repository.AdvancedSearchFilters
+import com.enlpot.notix.data.repository.NotificationSearchResult
 import com.enlpot.notix.R
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.StatsStorage
@@ -177,6 +180,8 @@ fun HistoryScreen(
     onSelectedDayChange: (LocalDate?) -> Unit = {},
     // v8.22：全量搜索回调——接入 Repository 层搜索，覆盖所有历史数据
     onSearch: (suspend (String) -> List<SimpleNotification>)? = null,
+    // v8.49：增强搜索回调——多字段精准搜索全量历史
+    onAdvancedSearch: (suspend (AdvancedSearchFilters) -> List<NotificationSearchResult>)? = null,
     // v8.22：分页加载
     onLoadMore: () -> Unit = {},
     hasMore: Boolean = false,
@@ -186,6 +191,15 @@ fun HistoryScreen(
     // v7.40：旋转恢复——三 tab 及弹窗/搜索/展开等 UI 状态
     var selectedTab by rememberSaveable { mutableStateOf(HistoryTab.BY_TIME) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    // v8.49：增强搜索状态——模式 + 多字段条件（各字段独立 Saveable，旋转不丢失）
+    var advancedMode by rememberSaveable { mutableStateOf(false) }
+    var advApp by rememberSaveable { mutableStateOf("") }
+    var advPkg by rememberSaveable { mutableStateOf("") }
+    var advTitle by rememberSaveable { mutableStateOf("") }
+    var advText by rememberSaveable { mutableStateOf("") }
+    var advChannel by rememberSaveable { mutableStateOf("") }
+    var advTimeRange by rememberSaveable { mutableStateOf(SearchTimeRange.NONE.name) }
+    var advancedResults by remember { mutableStateOf<List<NotificationHistoryEntry>?>(null) }
     var showStopMonitoringDialog by rememberSaveable { mutableStateOf<Pair<String, String>?>(null) }
     // v7.8：通知监听铃铛二次确认对话框
     var showListenerPauseConfirm by rememberSaveable { mutableStateOf(false) }
@@ -374,14 +388,55 @@ fun HistoryScreen(
         }
     }
 
+    // v8.49：增强搜索条件派生（字段 + 时间范围 → 起止时间戳）
+    val advancedFilters = remember(advApp, advPkg, advTitle, advText, advChannel, advTimeRange) {
+        val range = try { SearchTimeRange.valueOf(advTimeRange) } catch (e: Exception) { SearchTimeRange.NONE }
+        val (start, end) = timeRangeToBounds(range)
+        AdvancedSearchFilters(
+            app = advApp, packageName = advPkg, title = advTitle,
+            text = advText, channelId = advChannel, startTime = start, endTime = end
+        )
+    }
+
+    // v8.49：增强搜索全量查询（防抖 300ms，多字段 AND 组合 + 时间范围）
+    LaunchedEffect(advancedMode, advancedFilters, onAdvancedSearch) {
+        if (!advancedMode || advancedFilters.isEmpty || onAdvancedSearch == null) {
+            advancedResults = null
+            return@LaunchedEffect
+        }
+        delay(300)
+        val results = try {
+            onAdvancedSearch(advancedFilters)
+        } catch (e: Exception) {
+            emptyList()
+        }
+        advancedResults = results.map { result ->
+            val n = result.notification
+            NotificationHistoryEntry(
+                id = n.id ?: java.util.UUID.randomUUID().toString(),
+                packageName = n.packageName,
+                appLabel = n.appLabel,
+                title = n.title,
+                count = 1,
+                firstTimestamp = n.timestamp,
+                lastTimestamp = n.timestamp,
+                blocked = result.blocked,
+                changes = listOf(n)
+            )
+        }
+    }
+
     val dayFilteredEntries = remember(entries, selectedDay) {
         val day = selectedDay
         if (day == null) entries
         else entries.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
     }
 
-    val filteredEntries = remember(dayFilteredEntries, searchQuery) {
-        if (searchQuery.isBlank()) dayFilteredEntries
+    val filteredEntries = remember(dayFilteredEntries, searchQuery, advancedMode, advancedFilters, advancedResults) {
+        if (advancedMode) {
+            // v8.49：增强模式——全量搜索结果；未输入任何条件则显示空列表
+            if (advancedFilters.isEmpty) emptyList() else (advancedResults ?: emptyList())
+        } else if (searchQuery.isBlank()) dayFilteredEntries
         else {
             val query = searchQuery.lowercase()
             dayFilteredEntries.filter { entry ->
@@ -395,20 +450,25 @@ fun HistoryScreen(
     }
 
     // v7.12：被过滤列表从统一历史按 blocked 标记派生（原 blockedNotifications 已并入统一历史）
-    val filteredBlocked = remember(entries, selectedDay, searchQuery) {
-        val day = selectedDay
-        var list = entries.filter { it.blocked }
-        list = if (day == null) list
-        else list.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
-        if (searchQuery.isBlank()) list
-        else {
-            val query = searchQuery.lowercase()
-            list.filter { entry ->
-                val n = entry.latest
-                val app = (n?.appLabel ?: n?.packageName.orEmpty()).lowercase()
-                val t = n?.title.orEmpty().lowercase()
-                val tx = n?.text.orEmpty().lowercase()
-                app.contains(query) || t.contains(query) || tx.contains(query)
+    val filteredBlocked = remember(entries, selectedDay, searchQuery, advancedMode, advancedResults) {
+        if (advancedMode) {
+            // v8.49：增强模式——全量结果中 blocked=1 的（已过滤 tab 展示）
+            (advancedResults ?: emptyList()).filter { it.blocked }
+        } else {
+            val day = selectedDay
+            var list = entries.filter { it.blocked }
+            list = if (day == null) list
+            else list.filter { entry -> entry.changes.any { isSameDay(it.timestamp, day) } }
+            if (searchQuery.isBlank()) list
+            else {
+                val query = searchQuery.lowercase()
+                list.filter { entry ->
+                    val n = entry.latest
+                    val app = (n?.appLabel ?: n?.packageName.orEmpty()).lowercase()
+                    val t = n?.title.orEmpty().lowercase()
+                    val tx = n?.text.orEmpty().lowercase()
+                    app.contains(query) || t.contains(query) || tx.contains(query)
+                }
             }
         }
     }
@@ -548,7 +608,21 @@ fun HistoryScreen(
                         onTabSelected = { tab ->
                             coroutineScope.launch { tabPagerState.animateScrollToPage(tab.ordinal) }
                         },
-                        onLongClickSearch = { showCrashLogDialog = true }
+                        onLongClickSearch = { showCrashLogDialog = true },
+                        advancedMode = advancedMode,
+                        onAdvancedModeChange = { advancedMode = it },
+                        advancedFields = advancedFilters,
+                        onAdvancedFieldChange = { field, value ->
+                            when (field) {
+                                "app" -> advApp = value
+                                "pkg" -> advPkg = value
+                                "title" -> advTitle = value
+                                "text" -> advText = value
+                                "channel" -> advChannel = value
+                            }
+                        },
+                        advancedTimeRange = try { SearchTimeRange.valueOf(advTimeRange) } catch (e: Exception) { SearchTimeRange.NONE },
+                        onAdvancedTimeRangeChange = { advTimeRange = it.name }
                     )
                 }
                 HorizontalPager(
@@ -1095,6 +1169,13 @@ private fun SubTabsHeader(
     selectedTab: HistoryTab,
     onTabSelected: (HistoryTab) -> Unit,
     onLongClickSearch: () -> Unit,
+    // v8.49：增强搜索
+    advancedMode: Boolean,
+    onAdvancedModeChange: (Boolean) -> Unit,
+    advancedFields: AdvancedSearchFilters,
+    onAdvancedFieldChange: (String, String) -> Unit,
+    advancedTimeRange: SearchTimeRange,
+    onAdvancedTimeRangeChange: (SearchTimeRange) -> Unit,
 ) {
     val headerMode = if (searchExpanded) SearchHeaderMode.SEARCH_EXPANDED else SearchHeaderMode.NORMAL
     AnimatedContent(
@@ -1136,51 +1217,175 @@ private fun SubTabsHeader(
                     onLongClick = onLongClickSearch
                 )
             }
-            SearchHeaderMode.SEARCH_EXPANDED -> Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                verticalAlignment = Alignment.CenterVertically
+            SearchHeaderMode.SEARCH_EXPANDED -> Column(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // v7.7：改用 BasicTextField 自绘紧凑输入框，显式指定文字/光标颜色修复不可见问题
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(32.dp)
-                        .focusRequester(searchFocusRequester)
-                        .clip(NotixCorner.Card)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .padding(horizontal = 12.dp),
-                    textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    singleLine = true,
-                    decorationBox = { innerTextField ->
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (searchQuery.isEmpty()) {
-                                Text(
-                                    text = stringResource(R.string.search_notifications),
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            innerTextField()
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // v8.49：增强搜索切换按钮（高亮表示开启）
+                    IconButton(onClick = { onAdvancedModeChange(!advancedMode) }) {
+                        Icon(
+                            Icons.Filled.Tune,
+                            contentDescription = if (advancedMode) "关闭增强搜索" else "增强搜索",
+                            tint = if (advancedMode) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                // v7.7：关闭搜索时清除搜索条件与输入内容，列表恢复显示全部
-                IconButton(onClick = {
-                    onSearchExpandedChange(false)
-                    onSearchQueryChange("")
-                }) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear_search))
+                    // v7.7：改用 BasicTextField 自绘紧凑输入框，显式指定文字/光标颜色修复不可见问题
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp)
+                            .focusRequester(searchFocusRequester)
+                            .clip(NotixCorner.Card)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(horizontal = 12.dp),
+                        textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        singleLine = true,
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.search_notifications),
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    // v7.7：关闭搜索时清除搜索条件与输入内容，列表恢复显示全部
+                    IconButton(onClick = {
+                        onSearchExpandedChange(false)
+                        onSearchQueryChange("")
+                    }) {
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear_search))
+                    }
+                }
+                if (advancedMode) {
+                    // v8.49：增强搜索字段面板（App/包名/标题/内容/渠道 + 时间范围）
+                    AdvancedSearchPanel(
+                        filters = advancedFields,
+                        onFieldChange = onAdvancedFieldChange,
+                        timeRange = advancedTimeRange,
+                        onTimeRangeChange = onAdvancedTimeRangeChange
+                    )
                 }
             }
         }
     }
+}
+
+/** v8.49：增强搜索时间范围选项。 */
+private enum class SearchTimeRange(val label: String) {
+    NONE("不限"), TODAY("今天"), WEEK("本周"), MONTH("本月")
+}
+
+/** v8.49：时间范围 → 起止时间戳（end 为 null 表示到当前）。 */
+private fun timeRangeToBounds(range: SearchTimeRange, now: LocalDate = LocalDate.now()): Pair<Long?, Long?> {
+    val zone = ZoneId.systemDefault()
+    return when (range) {
+        SearchTimeRange.NONE -> null to null
+        SearchTimeRange.TODAY -> now.atStartOfDay(zone).toInstant().toEpochMilli() to null
+        SearchTimeRange.WEEK -> now.with(DayOfWeek.MONDAY).atStartOfDay(zone).toInstant().toEpochMilli() to null
+        SearchTimeRange.MONTH -> now.withDayOfMonth(1).atStartOfDay(zone).toInstant().toEpochMilli() to null
+    }
+}
+
+/** v8.49：增强搜索字段面板——多字段 AND 组合 + 时间范围。 */
+@Composable
+private fun AdvancedSearchPanel(
+    filters: AdvancedSearchFilters,
+    onFieldChange: (String, String) -> Unit,
+    timeRange: SearchTimeRange,
+    onTimeRangeChange: (SearchTimeRange) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            AdvancedField("app", "App 名称", filters.app, onFieldChange, Modifier.weight(1f))
+            AdvancedField("pkg", "包名", filters.packageName, onFieldChange, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            AdvancedField("title", "标题", filters.title, onFieldChange, Modifier.weight(1f))
+            AdvancedField("text", "内容", filters.text, onFieldChange, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            AdvancedField("channel", "通知渠道", filters.channelId, onFieldChange, Modifier.weight(1f))
+        }
+        // 时间范围 chips
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("时间", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SearchTimeRange.entries.forEach { r ->
+                val selected = r == timeRange
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                        .clickable { onTimeRangeChange(r) }
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        r.label,
+                        fontSize = 12.sp,
+                        color = if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** v8.49：增强搜索单字段输入框。 */
+@Composable
+private fun AdvancedField(
+    field: String,
+    label: String,
+    value: String,
+    onFieldChange: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BasicTextField(
+        value = value,
+        onValueChange = { onFieldChange(field, it) },
+        modifier = modifier
+            .height(34.dp)
+            .clip(NotixCorner.Card)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(horizontal = 10.dp),
+        textStyle = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        singleLine = true,
+        decorationBox = { innerTextField ->
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) {
+                    Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                innerTextField()
+            }
+        }
+    )
 }
 
 // --- v7.7：标题行（"通知历史" + 总记录/今日统计 + 通知监听铃铛），作为列表项随内容滑出 ---

@@ -1205,7 +1205,9 @@ class MainActivity : ComponentActivity() {
                 onClearBlockedHistory = onClearBlockedHistory,
                 rules = rules,
                 selectedDay = selectedDay,
-                onSelectedDayChange = onSelectedDayChange
+                onSelectedDayChange = onSelectedDayChange,
+                // v8.49：增强搜索——多字段精准搜索全量历史
+                onAdvancedSearch = { filters -> notificationHistoryRepository.advancedSearch(filters) }
             )
 
             1 -> RulesScreen(rules, onRuleClick, onCreateRuleClick, onToggleAllRules,
