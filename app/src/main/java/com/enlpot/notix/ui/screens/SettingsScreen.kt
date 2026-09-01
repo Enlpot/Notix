@@ -58,6 +58,8 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -187,6 +189,14 @@ fun SettingsScreen(
     var dynamicColorEnabled by remember {
         mutableStateOf(NotificationColorEngine.isDynamicColorEnabled(context))
     }
+
+    // v8.48.3：常驻通知合并设置（全局开关 + 高频常驻应用管理）
+    val ongoingMergeStorage = remember { com.enlpot.notix.OngoingMergeStorage(context) }
+    var ongoingMergeEnabled by remember {
+        mutableStateOf(ongoingMergeStorage.isGlobalEnabled())
+    }
+    var showOngoingAppsDialog by remember { mutableStateOf(false) }
+    var ongoingApps by remember { mutableStateOf<List<com.enlpot.notix.data.dao.OngoingAppRow>>(emptyList()) }
 
     // v8.43.0：词云相关设置
     var dailyRebuildEnabled by remember {
@@ -1331,6 +1341,55 @@ fun SettingsScreen(
         )
     }
 
+    // v8.48.3：高频常驻应用管理弹窗（按包名单独设置是否合并常驻刷新）
+    if (showOngoingAppsDialog) {
+        NotixDialog(
+            onDismiss = { showOngoingAppsDialog = false },
+            title = "高频常驻应用",
+            content = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (ongoingApps.isEmpty()) {
+                        Text(
+                            text = "暂无常驻通知应用",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.notix.contentSecondary,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        ongoingApps.forEach { app ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = app.app_label ?: app.package_name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.notix.contentPrimary
+                                    )
+                                    Text(
+                                        text = app.package_name,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.notix.contentTertiary
+                                    )
+                                }
+                                Spacer(Modifier.width(MaterialTheme.notixSpacing.md))
+                                NotixSwitch(
+                                    checked = ongoingMergeStorage.shouldMerge(app.package_name),
+                                    onCheckedChange = { merge ->
+                                        ongoingMergeStorage.setMergeApp(app.package_name, merge)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
     // v8.16：吸顶标题——左上角"设置"随内容自然上滑，到达状态栏下沿后吸顶固定
     val scrollState = rememberScrollState()
 
@@ -1514,6 +1573,35 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_unmonitored_apps_title),
                     subtitle = if (unmonitoredApps.isNotEmpty()) stringResource(R.string.unmonitored_apps, unmonitoredApps.size) else stringResource(R.string.settings_unmonitored_apps_desc),
                     onClick = { showUnmonitoredAppsDialog = true },
+                )
+
+                // v8.48.3：常驻通知合并刷新（全局开关，默认开）
+                SettingsRow(
+                    icon = Icons.Filled.Repeat,
+                    title = "常驻通知合并刷新",
+                    subtitle = "同一常驻通知持续刷新时合并为一条，断开重连才新增记录",
+                    onClick = null,
+                    trailing = {
+                        NotixSwitch(
+                            checked = ongoingMergeEnabled,
+                            onCheckedChange = { enabled ->
+                                ongoingMergeEnabled = enabled
+                                ongoingMergeStorage.setGlobalEnabled(enabled)
+                            }
+                        )
+                    }
+                )
+
+                // v8.48.3：高频常驻应用管理（按包名单独设置是否合并）
+                SettingsRow(
+                    icon = Icons.Filled.Apps,
+                    title = "高频常驻应用",
+                    subtitle = "单独设置某应用是否合并常驻刷新",
+                    onClick = {
+                        val repo = com.enlpot.notix.data.repository.NotificationHistoryRepository(context)
+                        ongoingApps = kotlinx.coroutines.runBlocking { repo.getOngoingApps() }
+                        showOngoingAppsDialog = true
+                    },
                 )
 
                 SettingsRow(

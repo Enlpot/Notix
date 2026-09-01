@@ -1,4 +1,4 @@
-import java.util.Properties
+﻿import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -27,8 +27,8 @@ android {
         applicationId = "com.enlpot.notix"
         minSdk = 24
         targetSdk = 36
-versionCode = 183
-versionName = "8.48.2"
+versionCode = 184
+versionName = "8.48.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

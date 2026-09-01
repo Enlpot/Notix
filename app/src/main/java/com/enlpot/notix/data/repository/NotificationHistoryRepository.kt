@@ -1,4 +1,4 @@
-﻿package com.enlpot.notix.data.repository
+package com.enlpot.notix.data.repository
 
 import android.content.Context
 import android.util.Log
@@ -11,7 +11,10 @@ import com.enlpot.notix.data.entity.NotificationChangeEntity
 import com.enlpot.notix.data.entity.NotificationGroupEntity
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.enlpot.notix.OngoingMergeStorage
+import com.enlpot.notix.data.dao.OngoingAppRow
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 通知历史仓库层（Room 实现）。
@@ -29,6 +32,13 @@ class NotificationHistoryRepository(context: Context) {
     // 减少频繁更新导致的数据库写入和UI刷新（如下载进度、音乐播放等）
     private val ongoingLastRefresh = mutableMapOf<String, Long>()
     private val ONGOING_REFRESH_INTERVAL_MS = 30_000L
+
+    // v8.48.3：常驻通知生命周期合并设置（全局开关 + 按包名例外）
+    private val ongoingMergeStorage = OngoingMergeStorage(context)
+    // v8.48.3：生命周期边界——各 sbnKey 最后一次从通知栏移除的时间（由 Service.onNotificationRemoved 写入）。
+    // 合并模式下：移除后重新出现且间隔 > LIFECYCLE_GAP_MS 视为新生命周期，记录一条 change（保留状态变化痕迹）。
+    private val ongoingRemovedAt = ConcurrentHashMap<String, Long>()
+    private val LIFECYCLE_GAP_MS = 5_000L
 
     private val TAG = "NotificationHistoryRepo"
     private val gson = Gson()
@@ -71,51 +81,88 @@ class NotificationHistoryRepository(context: Context) {
         val blockedInt = if (blocked) 1 else 0
 
         return if (existing != null) {
-            // v8.42.2：常驻通知内容去重——连续内容相同（标题+内容）的更新只刷新时间戳，不增加计数
-            val latestChange = changeDao.getLatestByGroupId(existing.id)
-            val contentSame = latestChange != null &&
-                latestChange.title == notification.title &&
-                latestChange.text == notification.text
-
-            if (contentSame) {
-                // 内容相同：刷新 last_timestamp 排序，同时把最新 change 的时间戳同步为当前时间，
-                // 使卡片显示时间跟随最新更新（不新增 change、不增加 count）
-                groupDao.update(existing.copy(last_timestamp = notification.timestamp))
-                val latestUpdated = latestChange.copy(timestamp = notification.timestamp)
-                changeDao.insert(latestUpdated)
-                Log.d(TAG, "Ongoing notification content same, skip count but refresh timestamp: sbnKey=$sbnKey")
-                return false
-            }
-
-            // v8.42.0：常驻通知更新限流——30秒内只更新count，不刷新lastTimestamp
             val now = System.currentTimeMillis()
-            val lastRefresh = ongoingLastRefresh[sbnKey] ?: 0L
-            val shouldRefreshTimestamp = (now - lastRefresh) >= ONGOING_REFRESH_INTERVAL_MS
+            // v8.48.3：生命周期感知的常驻通知合并。
+            // 生命周期 = 同一 sbnKey 通知从首次出现在通知栏到从通知栏移除的区间。
+            // 合并模式（全局默认开 / 按包名例外）：生命周期内所有刷新合并为一条（只更新最新内容+时间，不增 count）；
+            // 移除后重新出现且间隔 > 5s 视为新生命周期 → 记录一条 change（保留连接状态变化痕迹）。
+            if (ongoingMergeStorage.shouldMerge(notification.packageName ?: "")) {
+                val lastRemovedAt = ongoingRemovedAt[sbnKey] ?: 0L
+                val isNewLifecycle = lastRemovedAt > 0L && (now - lastRemovedAt) > LIFECYCLE_GAP_MS
 
-            val updatedGroup = if (shouldRefreshTimestamp) {
-                // 超过限流间隔：正常更新 lastTimestamp（会触发UI刷新）
-                ongoingLastRefresh[sbnKey] = now
-                existing.copy(
-                    count = existing.count + 1,
+                val updatedGroup = existing.copy(
+                    app_label = notification.appLabel,
+                    title = notification.title,
+                    count = if (isNewLifecycle) existing.count + 1 else existing.count,
                     last_timestamp = notification.timestamp,
                     blocked = blockedInt,
                     was_ongoing = 1
                 )
+                groupDao.update(updatedGroup)
+
+                if (isNewLifecycle) {
+                    // 新生命周期（重连/状态恢复）：记录一条 change，保留状态变化痕迹
+                    val change = notification.toChangeEntity(updatedGroup.id)
+                    changeDao.insert(change)
+                    ongoingRemovedAt[sbnKey] = 0L
+                    Log.d(TAG, "Ongoing new lifecycle recorded: sbnKey=$sbnKey, count=${updatedGroup.count}")
+                } else {
+                    // 生命周期内：合并——更新最新 change 的内容与时间戳，不新增 change、不增加 count
+                    val latestChange = changeDao.getLatestByGroupId(existing.id)
+                    if (latestChange != null) {
+                        val updatedChange = latestChange.copy(
+                            title = notification.title,
+                            text = notification.text,
+                            timestamp = notification.timestamp
+                        )
+                        changeDao.insert(updatedChange)
+                    }
+                    Log.d(TAG, "Ongoing merged in lifecycle: sbnKey=$sbnKey, count=${updatedGroup.count}")
+                }
+                false
             } else {
-                // 限流期间：只更新count，不刷新lastTimestamp（不触发UI刷新）
-                existing.copy(
-                    count = existing.count + 1,
-                    blocked = blockedInt,
-                    was_ongoing = 1
-                )
+                // ===== 不合并模式（旧逻辑）：内容去重 + 30s 限流 + count+1 =====
+                // v8.42.2：常驻通知内容去重——连续内容相同（标题+内容）的更新只刷新时间戳，不增加计数
+                val latestChange = changeDao.getLatestByGroupId(existing.id)
+                val contentSame = latestChange != null &&
+                    latestChange.title == notification.title &&
+                    latestChange.text == notification.text
+
+                if (contentSame) {
+                    groupDao.update(existing.copy(last_timestamp = notification.timestamp))
+                    val latestUpdated = latestChange.copy(timestamp = notification.timestamp)
+                    changeDao.insert(latestUpdated)
+                    Log.d(TAG, "Ongoing notification content same, skip count but refresh timestamp: sbnKey=$sbnKey")
+                    return false
+                }
+
+                // v8.42.0：常驻通知更新限流——30秒内只更新count，不刷新lastTimestamp
+                val lastRefresh = ongoingLastRefresh[sbnKey] ?: 0L
+                val shouldRefreshTimestamp = (now - lastRefresh) >= ONGOING_REFRESH_INTERVAL_MS
+
+                val updatedGroup = if (shouldRefreshTimestamp) {
+                    ongoingLastRefresh[sbnKey] = now
+                    existing.copy(
+                        count = existing.count + 1,
+                        last_timestamp = notification.timestamp,
+                        blocked = blockedInt,
+                        was_ongoing = 1
+                    )
+                } else {
+                    existing.copy(
+                        count = existing.count + 1,
+                        blocked = blockedInt,
+                        was_ongoing = 1
+                    )
+                }
+                groupDao.update(updatedGroup)
+
+                val change = notification.toChangeEntity(updatedGroup.id)
+                changeDao.insert(change)
+
+                Log.d(TAG, "Ongoing notification aggregated: sbnKey=$sbnKey, count=${updatedGroup.count}, refreshTimestamp=$shouldRefreshTimestamp")
+                false
             }
-            groupDao.update(updatedGroup)
-
-            val change = notification.toChangeEntity(updatedGroup.id)
-            changeDao.insert(change)
-
-            Log.d(TAG, "Ongoing notification aggregated: sbnKey=$sbnKey, count=${updatedGroup.count}, refreshTimestamp=$shouldRefreshTimestamp")
-            false
         } else {
             // 没找到：新建组 + 新建 change
             val groupId = UUID.randomUUID().toString()
@@ -140,6 +187,17 @@ class NotificationHistoryRepository(context: Context) {
             true
         }
     }
+
+    /** Service 在通知移除时调用，记录该 sbnKey 的生命周期结束时间（内存态，重启丢失可接受）。 */
+    fun markOngoingRemoved(sbnKey: String, removedAt: Long = System.currentTimeMillis()) {
+        ongoingRemovedAt[sbnKey] = removedAt
+    }
+
+    /** 常驻通知涉及的 App 列表（设置页"高频常驻应用"管理用）。 */
+    suspend fun getOngoingApps(): List<OngoingAppRow> = groupDao.getOngoingApps()
+
+    /** 常驻通知合并开关实例（设置页读写用）。 */
+    fun mergeStorage(): OngoingMergeStorage = ongoingMergeStorage
 
     /** 普通通知：仅头部同 pkg+同 title+同 blocked 才聚合。 */
     private suspend fun saveNormalNotification(

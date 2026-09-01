@@ -1148,6 +1148,14 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         DebugLogManager.i("Notify", "通知移除: key=${sbn?.key} pkg=${sbn?.packageName}")
+        // v8.48.3：记录常驻通知的生命周期结束时间，供 Repository 判定"新生命周期"（重连/状态变化）
+        if (sbn != null && (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) {
+            try {
+                notificationHistoryRepository.markOngoingRemoved(sbn.key)
+            } catch (e: Exception) {
+                Log.w(TAG, "markOngoingRemoved failed", e)
+            }
+        }
         // v7.11: no stack handling; nothing to do
     }
 

@@ -1,4 +1,4 @@
-﻿package com.enlpot.notix.data.dao
+package com.enlpot.notix.data.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -93,7 +93,29 @@ interface NotificationGroupDao {
         """
     )
     suspend fun markBlockedBySbnKeyAndPostTime(sbnKey: String, postTime: Long)
+
+    /**
+     * v8.48.3：常驻通知涉及的 App 列表（按包名去重，按最近常驻时间倒序）。
+     * 供设置页"高频常驻应用"管理弹窗使用。
+     */
+    @Query(
+        """
+        SELECT package_name, app_label, MAX(last_timestamp) AS last_timestamp
+        FROM notification_group
+        WHERE was_ongoing = 1 AND package_name IS NOT NULL
+        GROUP BY package_name
+        ORDER BY last_timestamp DESC
+        """
+    )
+    suspend fun getOngoingApps(): List<OngoingAppRow>
 }
+
+/** 常驻通知 App 行（设置页高频常驻应用管理）。 */
+data class OngoingAppRow(
+    val package_name: String,
+    val app_label: String?,
+    val last_timestamp: Long
+)
 
 
 
