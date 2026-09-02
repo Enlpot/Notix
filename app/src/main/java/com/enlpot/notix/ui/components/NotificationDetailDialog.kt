@@ -460,9 +460,9 @@ private fun MediaControlsSection(sbnKey: String?) {
 
     DisposableEffect(controller, callback) {
         onDispose {
+            // 只做资源清理；不要在此置空 state（controller/callback 由 remember 生命周期管理，
+            // 置 null 会导致重连瞬间进度条消失、弹窗闪一下）
             callback?.let { controller?.unregisterCallback(it) }
-            controller = null
-            callback = null
         }
     }
 
