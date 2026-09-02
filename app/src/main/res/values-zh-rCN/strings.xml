@@ -165,9 +165,6 @@
     <string name="app_version">Notix v%s</string>
     <!-- Settings sections and descriptions -->
     <string name="settings_section_general">常规</string>
-
-    <string name="settings_extract_remoteviews_title">提取无文本通知的按钮文字</string>
-    <string name="settings_extract_remoteviews_desc">开启后，无标题无正文的通知会尝试提取按钮文字参与规则匹配（默认关）</string>
     <string name="settings_dynamic_color_title">动态取色</string>
     <string name="settings_dynamic_color_desc">根据应用图标自动生成通知卡片背景色（默认开）</string>
     <string name="settings_unmonitored_apps_title">未监控应用</string>

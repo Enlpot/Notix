@@ -106,9 +106,6 @@
     <string name="report_an_issue">問題を報告</string>
     <string name="app_version">Notix v%s</string>
     <string name="settings_section_general">一般</string>
-
-    <string name="settings_extract_remoteviews_title">テキストのない通知のボタン文字を抽出</string>
-    <string name="settings_extract_remoteviews_desc">有効にすると、タイトルも本文もない通知のボタン文字を抽出してルールマッチングに使用します（初期状態はオフ）</string>
     <string name="settings_section_rules">ルールとデータ</string>
     <string name="settings_section_about">サポートと情報</string>
     <string name="history_retention">履歴の保持</string>

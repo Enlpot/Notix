@@ -106,9 +106,6 @@
     <string name="report_an_issue">Signaler un problème</string>
     <string name="app_version">Notix v%s</string>
     <string name="settings_section_general">Général</string>
-
-    <string name="settings_extract_remoteviews_title">Extraire le texte des boutons des notifications sans texte</string>
-    <string name="settings_extract_remoteviews_desc">Une fois activé, les notifications sans titre ni texte tenteront d\'extraire le texte des boutons pour la correspondance des règles (désactivé par défaut)</string>
     <string name="settings_section_rules">Règles et données</string>
     <string name="settings_section_about">Soutien et à propos</string>
     <string name="history_retention">Conservation de l\'historique</string>

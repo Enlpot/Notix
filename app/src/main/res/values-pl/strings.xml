@@ -106,9 +106,6 @@
     <string name="report_an_issue">Zgłoś problem</string>
     <string name="app_version">Notix v%s</string>
     <string name="settings_section_general">Ogólne</string>
-
-    <string name="settings_extract_remoteviews_title">Wyodrębnij tekst przycisków z powiadomień bez tekstu</string>
-    <string name="settings_extract_remoteviews_desc">Po włączeniu powiadomienia bez tytułu i treści spróbują wyodrębnić tekst przycisków do dopasowania reguł (domyślnie wyłączone)</string>
     <string name="settings_section_rules">Reguły i dane</string>
     <string name="settings_section_about">Wsparcie i informacje</string>
     <string name="history_retention">Przechowywanie historii</string>

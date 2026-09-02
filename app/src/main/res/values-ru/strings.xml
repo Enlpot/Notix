@@ -106,9 +106,6 @@
     <string name="report_an_issue">Сообщить о проблеме</string>
     <string name="app_version">Notix v%s</string>
     <string name="settings_section_general">Общие</string>
-
-    <string name="settings_extract_remoteviews_title">Извлекать текст кнопок из уведомлений без текста</string>
-    <string name="settings_extract_remoteviews_desc">При включении уведомления без заголовка и текста будут пытаться извлечь текст кнопок для сопоставления правил (по умолчанию выключено)</string>
     <string name="settings_section_rules">Правила и данные</string>
     <string name="settings_section_about">Поддержка и о приложении</string>
     <string name="history_retention">Хранение истории</string>
