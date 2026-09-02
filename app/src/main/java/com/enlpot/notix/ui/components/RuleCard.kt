@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.enlpot.notix.ui.components.NotixSwitch
 import androidx.compose.material3.Text
@@ -160,24 +161,24 @@ fun RuleCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    if (hitCount > 0) {
-                        TextButton(
-                            onClick = onResetHitCount,
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = clickableFg,
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.reset_hit_counters),
-                                style = t.label,
-                                color = clickableFg,
-                            )
-                        }
+                    // 命中计数：无命中显示「无命中」，命中显示「命中N次」
+                    Text(
+                        text = if (hitCount > 0) {
+                            stringResource(R.string.hits_count, hitCount)
+                        } else {
+                            stringResource(R.string.no_hits)
+                        },
+                        style = t.caption,
+                        color = tertiaryFg,
+                    )
+                    // 重置：纯图标按钮（始终显示）
+                    IconButton(onClick = onResetHitCount) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.reset_hit_counters),
+                            modifier = Modifier.size(18.dp),
+                            tint = clickableFg,
+                        )
                     }
                 }
             }
@@ -202,12 +203,14 @@ fun RuleCard(
                     if (keywordSummary.isNotBlank()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Top,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Label,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier
+                                    .padding(top = 3.dp)
+                                    .size(14.dp),
                                 tint = actionFg,
                             )
                             Spacer(Modifier.width(6.dp))
@@ -230,12 +233,14 @@ fun RuleCard(
                     if (phoneStateSummary.isNotBlank()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Top,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PhoneAndroid,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier
+                                    .padding(top = 3.dp)
+                                    .size(14.dp),
                                 tint = weakFg,
                             )
                             Spacer(Modifier.width(6.dp))
@@ -258,12 +263,14 @@ fun RuleCard(
                     if (timeSummary.isNotBlank()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Top,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AccessTime,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier
+                                    .padding(top = 3.dp)
+                                    .size(14.dp),
                                 tint = weakFg,
                             )
                             Spacer(Modifier.width(6.dp))
@@ -299,16 +306,6 @@ fun RuleCard(
                         )
                     }
 
-                    // 第五行：命中次数
-                    Text(
-                        text = if (hitCount > 0) {
-                            stringResource(R.string.hits_count, hitCount)
-                        } else {
-                            stringResource(R.string.no_hits)
-                        },
-                        style = t.caption,
-                        color = tertiaryFg,
-                    )
                 }
             }
         }
