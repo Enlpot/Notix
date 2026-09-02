@@ -76,7 +76,7 @@
     <string name="notification_status_ended">已结束</string>
     <string name="reason_rule_hit">规则命中</string>
     <string name="reason_click">用户点击</string>
-    <string name="reason_cancel">已清除</string>
+    <string name="reason_cancel">用户移除</string>
     <string name="reason_cancel_all">全部清除</string>
     <string name="reason_error">系统错误</string>
     <string name="reason_package_changed">应用更新</string>
@@ -684,4 +684,5 @@
     <string name="rule_wizard_action_delete_message">Delete this action?</string>
     <string name="rule_wizard_action_drag_hint">Drag to reorder</string>
 </resources>
+
 
