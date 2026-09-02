@@ -1199,6 +1199,9 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                 kotlinx.coroutines.runBlocking {
                     notificationHistoryRepository.markCancelReason(key, reasonCode)
                 }
+                // v8.52.x：取消原因写库后补发广播，否则 UI 的 historyEntries 不刷新，
+                // 详情弹窗读到旧快照（cancel_reason=null）误显示「已结束」。
+                sendBroadcast(Intent(ACTION_HISTORY_UPDATED))
             }
         } catch (e: Exception) {
             Log.w(TAG, "markRemovedReasonAsync failed", e)
