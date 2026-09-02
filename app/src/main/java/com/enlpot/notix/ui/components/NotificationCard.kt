@@ -92,15 +92,17 @@ fun NotificationCard(
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            RealAppIcon(
-                packageName = packageName,
-                appName = data.appName,
-                size = 28.dp,
-                shape = NotixCorner.Sm,
-            )
-            Spacer(Modifier.width(sp.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (packageName != null) {
+                        RealAppIcon(
+                            packageName = packageName,
+                            appName = data.appName,
+                            size = 14.dp,
+                            shape = RoundedCornerShape(4.dp),
+                            modifier = Modifier.padding(end = 6.dp),
+                        )
+                    }
                     Text(
                         text = data.appName,
                         style = t.cardTitle,
