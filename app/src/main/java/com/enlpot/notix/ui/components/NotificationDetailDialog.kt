@@ -39,9 +39,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -398,9 +400,11 @@ private fun MediaControlsSection(sbnKey: String?) {
     var durationMs by remember { mutableStateOf(0L) }
     var positionMs by remember { mutableStateOf(0L) }
     var callback by remember { mutableStateOf<MediaController.Callback?>(null) }
+    var refreshKey by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
 
-    // 1) 拿 actions + 轮询重试拿 token 建立 MediaController
-    LaunchedEffect(sbnKey) {
+    // 1) 拿 actions + 轮询重试拿 token 建立 MediaController（refreshKey 变化时重连）
+    LaunchedEffect(sbnKey, refreshKey) {
         if (sbnKey == null) return@LaunchedEffect
         actions = try {
             NotificationBlockerService.instance?.getNotificationActions(sbnKey)?.takeIf { it.isNotEmpty() }
@@ -437,15 +441,20 @@ private fun MediaControlsSection(sbnKey: String?) {
         } catch (e: Exception) { }
     }
 
-    // 2) 定时推进播放进度（仅播放中）
+    // 2) 定时主动读播放状态 + 推进进度（1s；不依赖 callback，覆盖 session 更新/重建场景）
     LaunchedEffect(controller, playing) {
         val mc = controller ?: return@LaunchedEffect
         val speed = try { mc.playbackState?.playbackSpeed?.toFloat() ?: 1f } catch (e: Exception) { 1f }
         while (isActive) {
-            if (playing && durationMs > 0) {
-                positionMs = (positionMs + (speed * 500).toLong()).coerceAtMost(durationMs)
+            val st = try { mc.playbackState } catch (e: Exception) { null }
+            if (st != null) {
+                playing = st.state == PlaybackState.STATE_PLAYING
+                if (st.position != null) positionMs = st.position
             }
-            delay(500)
+            if (playing && durationMs > 0) {
+                positionMs = (positionMs + (speed * 1000).toLong()).coerceAtMost(durationMs)
+            }
+            delay(1000)
         }
     }
 
@@ -501,7 +510,14 @@ private fun MediaControlsSection(sbnKey: String?) {
                     else if (isToggle) Icons.Filled.PlayArrow
                     else iconVector
                     Button(
-                        onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
+                        onClick = {
+                            runCatching { action.actionIntent?.send(context, 0, null) }
+                            // 点击后稍等片刻强制重连，读取最新播放状态（覆盖 session 更新/重建场景）
+                            scope.launch {
+                                delay(700)
+                                refreshKey++
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(10.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -518,7 +534,13 @@ private fun MediaControlsSection(sbnKey: String?) {
                     }
                 } else if (label.isNotBlank()) {
                     Button(
-                        onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
+                        onClick = {
+                            runCatching { action.actionIntent?.send(context, 0, null) }
+                            scope.launch {
+                                delay(700)
+                                refreshKey++
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                         colors = ButtonDefaults.buttonColors(
