@@ -291,24 +291,21 @@ class ActionFlowExecutor(
                     }
 
                     RuleAction.TTS -> {
-                        if (spec.params == null) {
-                            completeAction(exec, index, ActionFailure(index, spec.type, "params missing"), onComplete)
-                        } else {
-                            // ★ 必须等 onDone/onError 回调后才推进，绝不 speak 后立即 next
-                            asyncRunner.runTts(exec.context, spec) { success ->
-                                completeAction(
-                                    exec, index,
-                                    if (success) null else ActionFailure(index, spec.type, "tts failed"),
-                                    onComplete
-                                )
-                            }
+                        // ★ 必须等 onDone/onError 回调后才推进，绝不 speak 后立即 next
+                        // params 为 null 时 template 走默认模板，无需强制非空
+                        asyncRunner.runTts(exec.context, spec) { success ->
+                            completeAction(
+                                exec, index,
+                                if (success) null else ActionFailure(index, spec.type, "tts failed"),
+                                onComplete
+                            )
                         }
                     }
 
                     RuleAction.STRONG_REMIND -> {
                         // v8.10 新增：执行层留待 v8.11+ 接入 heads-up + 响铃 + 震动
-                        log("Action #${index} ${spec.type} skipped (execution TODO)")
-                        completeAction(exec, index, null, onComplete)
+                        // 未实现前显式失败，避免静默假成功
+                        completeAction(exec, index, ActionFailure(index, spec.type, "not implemented"), onComplete)
                     }
 
                     RuleAction.DELAY -> {
@@ -325,8 +322,8 @@ class ActionFlowExecutor(
 
                     RuleAction.POSTPONE -> {
                         // v8.10 新增：执行层留待 v8.11+ 接入 Handler.postDelayed 重新投递通知
-                        log("Action #${index} ${spec.type} skipped (execution TODO)")
-                        completeAction(exec, index, null, onComplete)
+                        // 未实现前显式失败，避免静默假成功
+                        completeAction(exec, index, ActionFailure(index, spec.type, "not implemented"), onComplete)
                     }
                 }
             } catch (e: Exception) {
