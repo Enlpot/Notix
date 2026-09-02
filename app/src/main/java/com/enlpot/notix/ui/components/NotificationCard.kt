@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -145,19 +146,21 @@ fun NotificationCard(
             }
         }
         if (blocked) {
+            // v8.51.0：「已过滤」tag 改纯漏斗图标（去文字，更紧凑）
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = sp.md, bottom = sp.md)
                     .clip(NotixCorner.Sm)
                     .background(c.error)
-                    .padding(horizontal = sp.sm, vertical = 2.dp),
+                    .padding(horizontal = sp.xs, vertical = 3.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = stringResource(R.string.history_blocked_badge),
-                    style = t.label,
-                    color = c.onError,
+                Icon(
+                    imageVector = Icons.Filled.FilterAlt,
+                    contentDescription = stringResource(R.string.history_blocked_badge),
+                    tint = c.onError,
+                    modifier = Modifier.size(12.dp)
                 )
             }
         }

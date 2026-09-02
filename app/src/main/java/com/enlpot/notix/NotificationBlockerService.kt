@@ -86,6 +86,9 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         /** v7.23 常驻通知 ID */
         private const val NOTIFICATION_ID_KEEPALIVE = 0x4B41
 
+        /** v8.51.0：规则命中的自定义取消原因码（避开系统 NLS.REASON_* 0~23） */
+        const val RULE_HIT_REASON = 100
+
         /** TTS 默认模板 */
         private const val DEFAULT_TTS_TEMPLATE = "收到{title}的{app}消息，{text}"
         /** TTS 兜底文本（所有字段均缺失时） */
@@ -506,7 +509,9 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             sbnKey = sbn.key,
             postTime = sbn.postTime,
             matchedRuleIds = hitRuleIds,
-            channelId = sbn.notification.channelId
+            channelId = sbn.notification.channelId,
+            // v8.51.0：规则命中（任何动作）初始标记"规则命中"，移除后系统回调不覆盖
+            cancelReason = if (matchedRule != null) RULE_HIT_REASON else null
         )
 
         DebugLogManager.i("Notify", "记录决策: pkg=$packageName key=${sbn.key} ongoing=$isOngoing handled=$isHandled rules=$hitRuleIds")
@@ -704,6 +709,8 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
     // ============ ActionFlowHost 实现（阶段2C：为 ActionFlowExecutor 真实执行体提供 Android 副作用） ============
 
     override fun cancelNotificationCompat(key: String) {
+        // v8.51.0：规则命中（移除动作）→ 标记"规则命中"
+        markRemovedReasonAsync(key, RULE_HIT_REASON)
         cancelNotification(key)
     }
 
@@ -1145,6 +1152,27 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         }.start()
     }
 
+    /**
+     * v8.51.0：三参 onNotificationRemoved(int reason)——公开 SDK 可编译。
+     * Android 13+ 系统调用 NotificationCancelData 版本时，父类默认实现会转发到本 int 版本，
+     * 从而拿到真实取消原因（NLS.REASON_*）。规则命中已在保存/取消入口标记 [RULE_HIT_REASON]，
+     * Repository 保护不覆盖规则命中标记。
+     */
+    @Deprecated("Deprecated in Java")
+    override fun onNotificationRemoved(
+        sbn: StatusBarNotification?,
+        rankingMap: NotificationListenerService.RankingMap?,
+        reason: Int
+    ) {
+        super.onNotificationRemoved(sbn, rankingMap, reason)
+        // 复用单参逻辑（ongoing 生命周期等）
+        onNotificationRemoved(sbn)
+        // v8.51.0：记录真实取消原因
+        if (sbn != null) {
+            markRemovedReasonAsync(sbn.key, reason)
+        }
+    }
+
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         DebugLogManager.i("Notify", "通知移除: key=${sbn?.key} pkg=${sbn?.packageName}")
@@ -1157,6 +1185,24 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
             }
         }
         // v7.11: no stack handling; nothing to do
+    }
+
+    /**
+     * v8.50.0：规则（动作流 DISMISS/移除）主动取消通知时，异步标记取消原因"被规则移除"（reason=6）。
+     * 说明：系统其余移除原因（用户清除/点击/超时/应用取消）受当前精简 SDK（android.jar 无
+     * NotificationCancelData）限制，无法通过 onNotificationRemoved 三参回调取得 reason code，
+     * 统一走详情「已结束」展示。
+     */
+    private fun markRemovedReasonAsync(key: String, reasonCode: Int) {
+        try {
+            historyExecutor.execute {
+                kotlinx.coroutines.runBlocking {
+                    notificationHistoryRepository.markCancelReason(key, reasonCode)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "markRemovedReasonAsync failed", e)
+        }
     }
 
     override fun onListenerDisconnected() {

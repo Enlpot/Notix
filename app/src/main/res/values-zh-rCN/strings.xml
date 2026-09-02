@@ -9,7 +9,7 @@
     <!-- History sub-tabs -->
     <string name="history_tab_by_time">按时间</string>
     <string name="history_tab_by_app">按应用</string>
-    <string name="history_tab_filtered">已过滤</string>
+    <string name="history_tab_filtered">按规则</string>
 
     <!-- Common actions -->
     <string name="cancel">取消</string>

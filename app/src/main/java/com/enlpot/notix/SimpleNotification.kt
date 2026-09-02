@@ -21,6 +21,10 @@ data class SimpleNotification(
     // v7.36：命中规则 id（被过滤历史按规则分组依据），旧数据为空列表时归「未知规则」组
     val matchedRuleIds: List<String> = emptyList(),
     // v8.43.0：通知渠道 ID（用于按渠道聚合分析和详情展示）
-    val channelId: String? = null
+    val channelId: String? = null,
+    // v8.50.0：通知被移除时的取消原因（系统 reason code，null=未记录/仍在通知栏）
+    val cancelReason: Int? = null,
+    // v8.50.0：打开详情时该通知是否仍在系统通知栏（用于「当前状态」展示）
+    val isActive: Boolean = false
 ) : Parcelable
 

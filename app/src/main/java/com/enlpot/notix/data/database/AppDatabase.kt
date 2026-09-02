@@ -15,7 +15,7 @@ import com.enlpot.notix.data.entity.WordFrequencyEntity
 
 @Database(
     entities = [NotificationGroupEntity::class, NotificationChangeEntity::class, WordFrequencyEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -45,6 +45,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v8.50.0：数据库 v5 -> v6 迁移，notification_change 表新增 cancel_reason 字段（通知取消原因）
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE notification_change ADD COLUMN cancel_reason INTEGER")
+            }
+        }
+
         // v8.43.0：数据库 v3 -> v4 迁移，notification_change 表新增 channel_id 字段
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(database: SupportSQLiteDatabase) {
@@ -64,7 +71,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "notix.db"
             )
-                .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .fallbackToDestructiveMigration()
                 .build()
         }

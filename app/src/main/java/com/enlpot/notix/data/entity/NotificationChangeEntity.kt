@@ -55,6 +55,9 @@ data class NotificationChangeEntity(
     val matched_rule_ids: String? = null,
 
     // v8.43.0：通知渠道 ID
-    val channel_id: String? = null
+    val channel_id: String? = null,
+
+    // v8.50.0：通知被移除时的取消原因（系统 reason code，对应 NotificationListenerService 的 REASON_* 常量）
+    val cancel_reason: Int? = null
 )
 

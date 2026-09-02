@@ -20,7 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -158,18 +158,12 @@ fun NotificationDetailDialog(
                                 )
                                 if (blocked) {
                                     Spacer(modifier = Modifier.width(4.dp))
+                                    // v8.51.0：「已过滤」tag 改纯漏斗图标（去文字）
                                     Icon(
-                                        imageVector = Icons.Default.NotificationsOff,
-                                        contentDescription = null,
+                                        imageVector = Icons.Filled.FilterAlt,
+                                        contentDescription = stringResource(R.string.history_blocked_badge),
                                         tint = errorColor,
                                         modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(sp.xs))
-                                    Text(
-                                        text = stringResource(R.string.history_blocked_badge),
-                                        style = MaterialTheme.notixType.caption,
-                                        fontWeight = FontWeight.Bold,
-                                        color = errorColor
                                     )
                                 }
                             }
@@ -225,6 +219,18 @@ fun NotificationDetailDialog(
                                         )
                                     }
                                 }
+                                // v8.51.0：当前状态（取消原因优先：规则命中/系统原因 > 正显示 > 已结束）
+                                val statusText = when {
+                                    notification.cancelReason != null -> cancelReasonText(notification.cancelReason!!)
+                                    notification.isActive -> stringResource(R.string.notification_status_active)
+                                    else -> stringResource(R.string.notification_status_ended)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(R.string.notification_status_label, statusText),
+                                    style = MaterialTheme.notixType.caption,
+                                    color = c.contentSecondary
+                                )
                             }
                         }
                     }
@@ -307,4 +313,36 @@ fun NotificationDetailDialog(
     }
 }
 
-
+/**
+ * v8.51.0：通知取消原因 code -> 中文文案。
+ * 与 [NotificationListenerService] 的 REASON_* 常量（公开 SDK 三参回调 int reason）对应；
+ * 100 = 自定义"规则命中"。
+ */
+@Composable
+private fun cancelReasonText(reason: Int): String = when (reason) {
+    1 -> stringResource(R.string.reason_click)
+    2 -> stringResource(R.string.reason_cancel)
+    3 -> stringResource(R.string.reason_cancel_all)
+    4 -> stringResource(R.string.reason_error)
+    5 -> stringResource(R.string.reason_package_changed)
+    6 -> stringResource(R.string.reason_user_stopped)
+    7 -> stringResource(R.string.reason_package_banned)
+    8 -> stringResource(R.string.reason_app_cancel)
+    9 -> stringResource(R.string.reason_app_cancel_all)
+    10 -> stringResource(R.string.reason_listener_cancel)
+    11 -> stringResource(R.string.reason_listener_cancel_all)
+    12 -> stringResource(R.string.reason_group_summary_canceled)
+    13 -> stringResource(R.string.reason_group_optimization)
+    14 -> stringResource(R.string.reason_package_suspended)
+    15 -> stringResource(R.string.reason_profile_turned_off)
+    16 -> stringResource(R.string.reason_unautobundled)
+    17 -> stringResource(R.string.reason_channel_banned)
+    18 -> stringResource(R.string.reason_snoozed)
+    19 -> stringResource(R.string.reason_timeout)
+    20 -> stringResource(R.string.reason_channel_removed)
+    21 -> stringResource(R.string.reason_clear_data)
+    22 -> stringResource(R.string.reason_assistant_cancel)
+    23 -> stringResource(R.string.reason_lockdown)
+    100 -> stringResource(R.string.reason_rule_hit)
+    else -> stringResource(R.string.reason_unknown)
+}

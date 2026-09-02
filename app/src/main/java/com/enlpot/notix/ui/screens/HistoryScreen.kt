@@ -1925,6 +1925,20 @@ private fun RuleGroupHeader(
 // v6（Stage 6）：History 列表通知卡包装器——使用 NotificationCard 组件（accent 整卡底色），
 // 页面层计算 accent/onAccent 注入，详情弹窗由包装器内部管理。
 // v7.45：新增 indent 参数——折叠展开后的卡片水平缩进（宽度略缩），与未折叠卡片区分
+/**
+ * v8.50.0：查询该 sbnKey 通知是否仍在系统通知栏（用于详情弹窗「当前状态」）。
+ * 服务未运行或查询失败时视为不在通知栏。
+ */
+private fun isNotificationCurrentlyActive(context: android.content.Context, sbnKey: String?): Boolean {
+    if (sbnKey == null) return false
+    return try {
+        com.enlpot.notix.NotificationBlockerService.instance
+            ?.activeNotifications?.any { it.key == sbnKey } == true
+    } catch (e: Exception) {
+        false
+    }
+}
+
 @Composable
 private fun HistoryNotificationCard(
     entry: NotificationHistoryEntry,
@@ -1938,7 +1952,9 @@ private fun HistoryNotificationCard(
     compact: Boolean = false,
     indent: Dp = 0.dp,
 ) {
-    val notification = entry.latest ?: return
+    val latestBase = entry.latest ?: return
+    // v8.50.0：详情「当前状态」——打开时判断该通知是否仍在系统通知栏
+    val notification = latestBase.copy(isActive = isNotificationCurrentlyActive(context, latestBase.sbnKey))
     val packageName = notification.packageName
     var menuExpanded by remember { mutableStateOf(false) }
 

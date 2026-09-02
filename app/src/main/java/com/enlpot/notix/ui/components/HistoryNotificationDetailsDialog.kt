@@ -21,7 +21,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -310,21 +310,13 @@ private fun ChangeNotificationCard(
                     .padding(horizontal = sp.sm, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.NotificationsOff,
-                        contentDescription = null,
-                        tint = errorFg,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = stringResource(R.string.history_blocked_badge),
-                        style = MaterialTheme.notixType.bodySecondary,
-                        fontWeight = FontWeight.Bold,
-                        color = errorFg
-                    )
-                }
+                // v8.51.0：「已过滤」tag 改纯漏斗图标（去文字）
+                Icon(
+                    imageVector = Icons.Filled.FilterAlt,
+                    contentDescription = stringResource(R.string.history_blocked_badge),
+                    tint = errorFg,
+                    modifier = Modifier.size(12.dp)
+                )
             }
         }
 

@@ -92,6 +92,12 @@ interface NotificationChangeDao {
     suspend fun getLatestByGroupId(groupId: String): NotificationChangeEntity?
 
     /**
+     * v8.50.0：按 sbnKey 获取最新的一条变更记录（用于写入通知取消原因）。
+     */
+    @Query("SELECT * FROM notification_change WHERE sbn_key = :sbnKey ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestBySbnKey(sbnKey: String): NotificationChangeEntity?
+
+    /**
      * v8.43.0：查询最近的 N 条通知变更（用于词频全量重建）。
      */
     @Query("SELECT * FROM notification_change ORDER BY timestamp DESC LIMIT :limit")

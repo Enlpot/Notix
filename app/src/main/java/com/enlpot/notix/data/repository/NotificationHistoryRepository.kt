@@ -217,6 +217,21 @@ class NotificationHistoryRepository(context: Context) {
         ongoingRemovedAt[sbnKey] = removedAt
     }
 
+    /**
+     * v8.50.0：通知被移除时记录取消原因。按 sbnKey 关联到该通知最新一条变更记录并写入 cancel_reason。
+     * 找不到对应记录（如从未入库的通知）时静默跳过。
+     */
+    suspend fun markCancelReason(sbnKey: String, reasonCode: Int) {
+        try {
+            val latest = changeDao.getLatestBySbnKey(sbnKey) ?: return
+            // v8.51.0：规则命中(100)优先，后续系统取消原因不覆盖（复制/TTS 等命中后仍显示"规则命中"）
+            if (latest.cancel_reason == com.enlpot.notix.NotificationBlockerService.RULE_HIT_REASON) return
+            changeDao.insert(latest.copy(cancel_reason = reasonCode))
+        } catch (e: Exception) {
+            Log.w(TAG, "markCancelReason failed: sbnKey=$sbnKey", e)
+        }
+    }
+
     /** 常驻通知涉及的 App 列表（设置页"高频常驻应用"管理用）。 */
     suspend fun getOngoingApps(): List<OngoingAppRow> = groupDao.getOngoingApps()
 
@@ -468,7 +483,8 @@ class NotificationHistoryRepository(context: Context) {
             matched_rule_ids = if (this.matchedRuleIds.isNotEmpty()) {
                 gson.toJson(this.matchedRuleIds)
             } else null,
-            channel_id = this.channelId
+            channel_id = this.channelId,
+            cancel_reason = this.cancelReason
         )
     }
 
@@ -492,7 +508,8 @@ class NotificationHistoryRepository(context: Context) {
             sbnKey = this.sbn_key,
             postTime = this.post_time,
             matchedRuleIds = matchedIds,
-            channelId = this.channel_id
+            channelId = this.channel_id,
+            cancelReason = this.cancel_reason
         )
     }
 

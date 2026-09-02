@@ -9,7 +9,7 @@
     <!-- History sub-tabs -->
     <string name="history_tab_by_time">By Time</string>
     <string name="history_tab_by_app">By App</string>
-    <string name="history_tab_filtered">Filtered</string>
+    <string name="history_tab_filtered">By Rules</string>
 
     <!-- Common actions -->
     <string name="cancel">Cancel</string>
@@ -70,6 +70,35 @@
     <string name="channel_restored">已还原的通知</string>
     <string name="toast_notification_restored">通知已还原到通知栏</string>
     <string name="toast_failed_to_restore">还原通知失败</string>
+    <!-- v8.51.0：通知详情「当前状态」与取消原因（映射 NotificationListenerService.REASON_*，100=规则命中） -->
+    <string name="notification_status_label">当前状态：%1$s</string>
+    <string name="notification_status_active">正显示</string>
+    <string name="notification_status_ended">已结束</string>
+    <string name="reason_rule_hit">规则命中</string>
+    <string name="reason_click">用户点击</string>
+    <string name="reason_cancel">已清除</string>
+    <string name="reason_cancel_all">全部清除</string>
+    <string name="reason_error">系统错误</string>
+    <string name="reason_package_changed">应用更新</string>
+    <string name="reason_user_stopped">应用停止</string>
+    <string name="reason_package_banned">应用被禁用/卸载</string>
+    <string name="reason_app_cancel">应用取消</string>
+    <string name="reason_app_cancel_all">应用清空</string>
+    <string name="reason_listener_cancel">规则移除</string>
+    <string name="reason_listener_cancel_all">规则批量移除</string>
+    <string name="reason_group_summary_canceled">组摘要取消</string>
+    <string name="reason_group_optimization">组优化</string>
+    <string name="reason_package_suspended">应用被暂停</string>
+    <string name="reason_profile_turned_off">配置文件关闭</string>
+    <string name="reason_unautobundled">未捆绑</string>
+    <string name="reason_channel_banned">通知渠道被关闭</string>
+    <string name="reason_snoozed">已休眠</string>
+    <string name="reason_timeout">超时消失</string>
+    <string name="reason_channel_removed">渠道被移除</string>
+    <string name="reason_clear_data">数据已清除</string>
+    <string name="reason_assistant_cancel">助手取消</string>
+    <string name="reason_lockdown">锁定模式</string>
+    <string name="reason_unknown">未知原因</string>
 
     <!-- History screen -->
     <string name="no_notifications_yet">No Notifications Yet</string>
