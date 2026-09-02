@@ -98,6 +98,14 @@ interface NotificationChangeDao {
     suspend fun getLatestBySbnKey(sbnKey: String): NotificationChangeEntity?
 
     /**
+     * v8.52.x：按 sbnKey 批量更新取消原因，覆盖同 key 的全部记录。
+     * 修复：同 sbnKey（如高频刷新/聚合折叠）存在多条记录时，仅更新最新一条导致其余记录
+     * cancel_reason 为 null，详情显示「已结束」。规则命中（100=RULE_HIT_REASON）优先不覆盖。
+     */
+    @Query("UPDATE notification_change SET cancel_reason = :reason WHERE sbn_key = :sbnKey AND (cancel_reason IS NULL OR cancel_reason != 100)")
+    suspend fun updateCancelReasonBySbnKey(sbnKey: String, reason: Int)
+
+    /**
      * v8.43.0：查询最近的 N 条通知变更（用于词频全量重建）。
      */
     @Query("SELECT * FROM notification_change ORDER BY timestamp DESC LIMIT :limit")

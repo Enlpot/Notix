@@ -223,10 +223,10 @@ class NotificationHistoryRepository(context: Context) {
      */
     suspend fun markCancelReason(sbnKey: String, reasonCode: Int) {
         try {
-            val latest = changeDao.getLatestBySbnKey(sbnKey) ?: return
-            // v8.51.0：规则命中(100)优先，后续系统取消原因不覆盖（复制/TTS 等命中后仍显示"规则命中"）
-            if (latest.cancel_reason == com.enlpot.notix.NotificationBlockerService.RULE_HIT_REASON) return
-            changeDao.insert(latest.copy(cancel_reason = reasonCode))
+            // v8.52.x：全量更新该 sbnKey 的所有记录（不只看最新一条）。
+            // 修复：同 sbnKey 高频刷新/聚合折叠产生多条记录时，仅更新最新一条会让其余记录
+            // cancel_reason 保持 null，详情误显示「已结束」。规则命中(100)由 SQL 排除，不覆盖。
+            changeDao.updateCancelReasonBySbnKey(sbnKey, reasonCode)
         } catch (e: Exception) {
             Log.w(TAG, "markCancelReason failed: sbnKey=$sbnKey", e)
         }
