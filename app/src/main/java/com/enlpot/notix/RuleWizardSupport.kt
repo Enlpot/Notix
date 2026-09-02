@@ -158,6 +158,14 @@ object RuleWizardSupport {
         return actions.mapIndexed { i, s -> if (i == index) spec else s }
     }
 
+    /** 用新类型动作替换指定 index 的 Action（替换后按新类型生成默认参数）。 */
+    fun actionFlowReplace(actions: List<ActionSpec>, index: Int, type: RuleAction): List<ActionSpec> {
+        if (index !in actions.indices) return actions
+        return actions.mapIndexed { i, s ->
+            if (i == index) ActionSpec(type = type, params = defaultParamsFor(type)) else s
+        }
+    }
+
     /** 拖动排序：将 from 处动作移动到 to 处（保持其余相对顺序）。 */
     fun actionFlowMove(actions: List<ActionSpec>, from: Int, to: Int): List<ActionSpec> {
         if (from !in actions.indices || to !in actions.indices || from == to) return actions

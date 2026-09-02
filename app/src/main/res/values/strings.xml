@@ -442,7 +442,7 @@
     <string name="rule_wizard_section_description">Description</string>
     <string name="rule_wizard_at_least_one_action">至少添加一个动作</string>
     <string name="rule_wizard_action_flow_empty">暂无动作，点击下方按钮添加</string>
-    <string name="rule_wizard_action_flow_add">+ 添加动作</string>
+    <string name="rule_wizard_action_flow_add">添加动作</string>
     <string name="rule_wizard_action_flow_edit">编辑</string>
     <string name="rule_wizard_action_flow_move_up">上移</string>
     <string name="rule_wizard_action_flow_move_down">下移</string>
@@ -450,6 +450,8 @@
     <string name="rule_wizard_action_flow_cancel">取消</string>
     <string name="rule_wizard_action_flow_save">保存</string>
     <string name="rule_wizard_action_flow_done">完成</string>
+    <string name="rule_wizard_action_flow_menu_title">动作操作</string>
+    <string name="rule_wizard_action_flow_replace">替换</string>
     <string name="rule_wizard_action_flow_pick_title">添加动作</string>
     <string name="rule_wizard_action_flow_pick_hint">选择要执行的动作，触发时按顺序执行</string>
     <string name="rule_flow_total_actions">共 %1$d 个动作</string>

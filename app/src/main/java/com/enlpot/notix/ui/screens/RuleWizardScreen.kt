@@ -524,6 +524,14 @@ fun RuleWizardScreen(
                         actionFlow = RuleWizardSupport.actionFlowUpdate(actionFlow, index, spec)
                     },
                     onCloseEdit = { editingActionIndex = -1 },
+                    onReplace = { index, type ->
+                        actionFlow = RuleWizardSupport.actionFlowReplace(actionFlow, index, type)
+                        if (RuleWizardSupport.hasActionParams(type)) {
+                            editingActionIndex = index
+                        } else {
+                            if (editingActionIndex == index) editingActionIndex = -1
+                        }
+                    },
                 )
 
                 if (actionFlow.isEmpty()) {
@@ -1952,29 +1960,48 @@ private fun ActionFlowSection(
     onMove: (Int, Int) -> Unit,
     onUpdate: (Int, ActionSpec) -> Unit,
     onCloseEdit: () -> Unit,
+    onReplace: (Int, RuleAction) -> Unit,
 ) {
     var showPicker by remember { mutableStateOf(false) }
+    var replaceIndex by remember { mutableStateOf<Int?>(null) }
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (actions.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = NotixCorner.Control,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f)),
+        // v8.50：添加动作卡片置顶，与其他按钮卡片（来源/关键字）风格一致
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(NotixCorner.Control)
+                .clickable { showPicker = true },
+            shape = NotixCorner.Control,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.notix.surfaceVariant.copy(alpha = 0.4f),
+            ),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = MaterialTheme.notixSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(R.string.rule_wizard_action_flow_empty),
+                    text = stringResource(R.string.rule_wizard_action_flow_add),
                     style = MaterialTheme.notixType.bodySecondary,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.notix.contentSecondary,
-                    modifier = Modifier.padding(MaterialTheme.notixSpacing.lg),
+                )
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.notix.contentSecondary,
+                    modifier = Modifier.size(20.dp),
                 )
             }
-        } else {
-            Text(
-                text = stringResource(R.string.rule_wizard_action_flow_order_hint),
-                style = MaterialTheme.notixType.caption,
-                color = MaterialTheme.notix.contentSecondary,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
+        }
+        Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
+        Text(
+            text = stringResource(R.string.rule_wizard_action_flow_order_hint),
+            style = MaterialTheme.notixType.caption,
+            color = MaterialTheme.notix.contentSecondary,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
 
             // v8.11：动作流列表迁移到 LazyColumn + sh.calvin.reorderable 接管拖动排序，
             // 实现「被拖卡片实时偏移 + 其他卡片让出 gap + spring 过渡」的完整动画指示
@@ -2017,6 +2044,7 @@ private fun ActionFlowSection(
                             isDragging = isDragging,
                             onClick = { onEditIndex(index) },
                             onDelete = { onRemove(index) },
+                            onReplace = { replaceIndex = index },
                             dragHandleModifier = dragHandleModifier,
                         )
 
@@ -2045,26 +2073,30 @@ private fun ActionFlowSection(
                     }
                 }
             }
-        }
-        Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
-        OutlinedButton(
-            onClick = { showPicker = true },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.rule_wizard_action_flow_add))
-        }
     }
     if (showPicker) {
         ActionPickerDialog(
+            title = stringResource(R.string.rule_wizard_action_flow_pick_title),
             onDismiss = { showPicker = false },
             onSelect = { type ->
                 showPicker = false
                 onAdd(type)
             },
         )
+    }
+    replaceIndex?.let { index ->
+        if (index in actions.indices) {
+            ActionPickerDialog(
+                title = stringResource(R.string.rule_wizard_action_flow_replace),
+                onDismiss = { replaceIndex = null },
+                onSelect = { type ->
+                    replaceIndex = null
+                    onReplace(index, type)
+                },
+            )
+        } else {
+            replaceIndex = null
+        }
     }
     // v8.10：编辑中的动作以 NotixDialog 形式打开（不内联展开）
     if (editingIndex >= 0 && editingIndex < actions.size) {
@@ -2097,11 +2129,13 @@ private fun ActionCard(
     isDragging: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onReplace: () -> Unit,
     dragHandleModifier: Modifier,
 ) {
     val accent = actionAccent(spec.type)
-    // v8.6：长按删除动作前二次确认（与崩溃日志弹窗统一风格）
+    // v8.6：长按弹出「替换/删除」操作菜单；删除仍走二次确认
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showActionMenu by remember { mutableStateOf(false) }
 
     // v8.11 拖动反馈：拖动期间抬升 6dp + primaryContainer30% + primary 描边；
     // 释放后 animateDpAsState 150ms tween 平滑回落
@@ -2136,7 +2170,7 @@ private fun ActionCard(
                     .clip(NotixCorner.Control)
                     .combinedClickable(
                         onClick = onClick,
-                        onLongClick = { showDeleteConfirm = true },
+                        onLongClick = { showActionMenu = true },
                     )
                     .padding(start = MaterialTheme.notixSpacing.md, top = 10.dp, end = MaterialTheme.notixSpacing.xs, bottom = 10.dp),
             ) {
@@ -2194,6 +2228,66 @@ private fun ActionCard(
                 )
             }
         }
+    }
+
+    if (showActionMenu) {
+        NotixDialog(
+            onDismiss = { showActionMenu = false },
+            title = stringResource(R.string.rule_wizard_action_flow_menu_title),
+            content = {
+                // 替换：用其他动作替换当前动作
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(NotixCorner.Control)
+                        .clickable {
+                            showActionMenu = false
+                            onReplace()
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SwapHoriz,
+                        contentDescription = null,
+                        tint = MaterialTheme.notix.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
+                    Text(
+                        text = stringResource(R.string.rule_wizard_action_flow_replace),
+                        style = MaterialTheme.notixType.bodySecondary,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+                // 删除：进入二次确认
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(NotixCorner.Control)
+                        .clickable {
+                            showActionMenu = false
+                            showDeleteConfirm = true
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.notix.error,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
+                    Text(
+                        text = stringResource(R.string.rule_wizard_action_flow_delete),
+                        style = MaterialTheme.notixType.bodySecondary,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.notix.error,
+                    )
+                }
+            },
+        )
     }
 
     if (showDeleteConfirm) {
@@ -2596,12 +2690,13 @@ private fun ActionConfigDialog(
 
 @Composable
 private fun ActionPickerDialog(
+    title: String,
     onDismiss: () -> Unit,
     onSelect: (RuleAction) -> Unit,
 ) {
     NotixDialog(
         onDismiss = onDismiss,
-        title = stringResource(R.string.rule_wizard_action_flow_pick_title),
+        title = title,
         content = {
             Text(
                 text = stringResource(R.string.rule_wizard_action_flow_pick_hint),
