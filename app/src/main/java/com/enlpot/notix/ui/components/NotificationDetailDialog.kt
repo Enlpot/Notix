@@ -27,9 +27,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import android.media.session.MediaController
+import android.media.MediaMetadata
 import android.media.session.PlaybackState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -39,6 +41,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -375,11 +379,14 @@ private fun cancelReasonText(reason: Int): String = when (reason) {
 
 
 /**
- * v8.53.2：通知 action 按钮（方案A-actions，替代原 MediaSession 控制方案）。
+ * v8.53.2/v8.54.1：通知 action 按钮 + 播放进度条。
  * 从 Service 缓存取该 sbnKey 的 Notification.Action 列表，渲染可点击按钮（如网易云 喜欢/上一首/播放/下一首/词）。
  * 点击等价于点系统通知上的 action 按钮（PendingIntent.send）。
- * 另连接 MediaSession 只读播放状态，使"播放/暂停"按钮按状态切换 Pause/PlayArrow 图标。
- * 无 action、或通知不在通知栏（缓存被清理）时返回空 UI。
+ * 另连接 MediaSession 只读播放状态：
+ *  - 播放/暂停按钮按状态切换 Pause/PlayArrow 图标
+ *  - 显示可拖动进度条（seekTo）
+ * token 缓存可能因服务重启清空，打开弹窗后每 1 秒轮询重试拿 token（弹窗关闭即停）。
+ * 无 action 时返回空 UI；无 token/时长时不显示进度条。
  */
 @Composable
 private fun MediaControlsSection(sbnKey: String?) {
@@ -388,32 +395,57 @@ private fun MediaControlsSection(sbnKey: String?) {
     var actions by remember { mutableStateOf<List<Notification.Action>?>(null) }
     var controller by remember { mutableStateOf<MediaController?>(null) }
     var playing by remember { mutableStateOf(false) }
+    var durationMs by remember { mutableStateOf(0L) }
+    var positionMs by remember { mutableStateOf(0L) }
     var callback by remember { mutableStateOf<MediaController.Callback?>(null) }
 
+    // 1) 拿 actions + 轮询重试拿 token 建立 MediaController
     LaunchedEffect(sbnKey) {
         if (sbnKey == null) return@LaunchedEffect
         actions = try {
             NotificationBlockerService.instance?.getNotificationActions(sbnKey)?.takeIf { it.isNotEmpty() }
         } catch (e: Exception) { null }
-        // 连接 MediaSession 只读播放状态（仅用于 toggle 图标切换）
-        val token = try {
-            NotificationBlockerService.instance?.getMediaSessionToken(sbnKey)
-        } catch (e: Exception) { null }
-        if (token != null) {
-            val mc = try { MediaController(context.applicationContext, token) } catch (e: Exception) { null }
-            if (mc != null) {
-                val cb = object : MediaController.Callback() {
-                    override fun onPlaybackStateChanged(state: PlaybackState?) {
-                        playing = state?.state == PlaybackState.STATE_PLAYING
-                    }
-                }
-                try {
-                    mc.registerCallback(cb)
-                    callback = cb
-                    controller = mc
-                    playing = mc.playbackState?.state == PlaybackState.STATE_PLAYING
-                } catch (e: Exception) { }
+
+        // 轮询直到拿到 token（服务重启后缓存为空，等下一次 posted 回调写入；弹窗关闭自动取消）
+        var mc: MediaController? = null
+        while (mc == null) {
+            val token = try {
+                NotificationBlockerService.instance?.getMediaSessionToken(sbnKey)
+            } catch (e: Exception) { null }
+            if (token != null) {
+                mc = try { MediaController(context.applicationContext, token) } catch (e: Exception) { null }
             }
+            if (mc == null) delay(1000)
+        }
+        val media = mc
+        val cb = object : MediaController.Callback() {
+            override fun onPlaybackStateChanged(state: PlaybackState?) {
+                playing = state?.state == PlaybackState.STATE_PLAYING
+                positionMs = state?.position ?: 0L
+            }
+        }
+        try {
+            media.registerCallback(cb)
+            callback = cb
+            controller = media
+            val st = media.playbackState
+            playing = st?.state == PlaybackState.STATE_PLAYING
+            positionMs = st?.position ?: 0L
+            durationMs = try {
+                media.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
+            } catch (e: Exception) { 0L }
+        } catch (e: Exception) { }
+    }
+
+    // 2) 定时推进播放进度（仅播放中）
+    LaunchedEffect(controller, playing) {
+        val mc = controller ?: return@LaunchedEffect
+        val speed = try { mc.playbackState?.playbackSpeed?.toFloat() ?: 1f } catch (e: Exception) { 1f }
+        while (isActive) {
+            if (playing && durationMs > 0) {
+                positionMs = (positionMs + (speed * 500).toLong()).coerceAtMost(durationMs)
+            }
+            delay(500)
         }
     }
 
@@ -426,59 +458,93 @@ private fun MediaControlsSection(sbnKey: String?) {
     }
 
     val actList = actions ?: return
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        actList.forEach { action ->
-            val label = action.title?.toString().orEmpty()
-            // v8.53.2：按 action.title 映射 Material 图标（跨 app 资源图标运行时无法加载）。
-            // 未知动作回退文字按钮。
-            val iconVector = mediaActionIcon(label)
-            if (iconVector != null) {
-                // toggle：按播放状态切换 播放/暂停 图标
-                val t = label.lowercase()
-                val isToggle = t.contains("toggle") || t.contains("播放") || t.contains("暂停")
-                    || t.contains("play") || t.contains("pause")
-                val showVector = if (isToggle && playing) Icons.Filled.Pause
-                else if (isToggle) Icons.Filled.PlayArrow
-                else iconVector
-                Button(
-                    onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = c.surfaceVariant,
-                        contentColor = c.contentPrimary
-                    )
-                ) {
-                    Icon(
-                        imageVector = showVector,
-                        contentDescription = label,
-                        tint = c.contentPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            } else if (label.isNotBlank()) {
-                Button(
-                    onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = c.surfaceVariant,
-                        contentColor = c.contentPrimary
-                    )
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.notixType.caption,
-                        maxLines = 1
-                    )
+    Column {
+        // 进度条（有 controller 且 duration>0 才显示）
+        if (controller != null && durationMs > 0) {
+            var dragging by remember { mutableStateOf(false) }
+            var dragValue by remember { mutableStateOf(0f) }
+            val shown = if (dragging) dragValue.toLong() else positionMs.coerceIn(0L, durationMs)
+            Slider(
+                value = shown.toFloat(),
+                onValueChange = { dragging = true; dragValue = it },
+                onValueChangeFinished = {
+                    runCatching { controller?.transportControls?.seekTo(dragValue.toLong()) }
+                    dragging = false
+                },
+                valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(formatDuration(shown), style = MaterialTheme.notixType.caption)
+                Text(formatDuration(durationMs), style = MaterialTheme.notixType.caption)
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            actList.forEach { action ->
+                val label = action.title?.toString().orEmpty()
+                // 按 action.title 映射 Material 图标（跨 app 资源图标运行时无法加载）。
+                // 未知动作回退文字按钮。
+                val iconVector = mediaActionIcon(label)
+                if (iconVector != null) {
+                    // toggle：按播放状态切换 播放/暂停 图标
+                    val t = label.lowercase()
+                    val isToggle = t.contains("toggle") || t.contains("播放") || t.contains("暂停")
+                        || t.contains("play") || t.contains("pause")
+                    val showVector = if (isToggle && playing) Icons.Filled.Pause
+                    else if (isToggle) Icons.Filled.PlayArrow
+                    else iconVector
+                    Button(
+                        onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = c.surfaceVariant,
+                            contentColor = c.contentPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = showVector,
+                            contentDescription = label,
+                            tint = c.contentPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                } else if (label.isNotBlank()) {
+                    Button(
+                        onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = c.surfaceVariant,
+                            contentColor = c.contentPrimary
+                        )
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.notixType.caption,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+/** v8.54.1：毫秒转 mm:ss。 */
+private fun formatDuration(ms: Long): String {
+    if (ms <= 0) return "0:00"
+    val total = ms / 1000
+    val m = total / 60
+    val s = total % 60
+    return "$m:${s.toString().padStart(2, '0')}"
 }
 
 /** v8.53.2：把常见的通知 action 标题映射为 Material 图标；无法识别返回 null（回退文字）。 */
