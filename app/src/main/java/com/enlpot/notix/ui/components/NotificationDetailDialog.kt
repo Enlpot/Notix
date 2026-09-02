@@ -19,14 +19,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import android.media.session.MediaController
+import android.media.session.PlaybackState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,11 +41,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import android.app.Notification
+import android.os.Build
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import com.enlpot.notix.NotificationBlockerService
 import com.enlpot.notix.R
 import com.enlpot.notix.SimpleNotification
 import com.enlpot.notix.ui.theme.NotixCorner
@@ -219,6 +237,14 @@ fun NotificationDetailDialog(
                                         )
                                     }
                                 }
+                                // v8.53.1：媒体播放控制（方案A）——当前在通知栏的媒体通知显示 上一首/播放暂停/下一首
+                                if (notification.isActive && sbnKeyStr != null) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    HorizontalDivider(color = c.outlineVariant)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    MediaControlsSection(sbnKey = sbnKeyStr)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                }
                                 // v8.51.0：当前状态（取消原因优先：规则命中/系统原因 > 正显示 > 已结束）
                                 val statusText = when {
                                     notification.cancelReason != null -> cancelReasonText(notification.cancelReason!!)
@@ -346,3 +372,127 @@ private fun cancelReasonText(reason: Int): String = when (reason) {
     100 -> stringResource(R.string.reason_rule_hit)
     else -> stringResource(R.string.reason_unknown)
 }
+
+
+/**
+ * v8.53.2：通知 action 按钮（方案A-actions，替代原 MediaSession 控制方案）。
+ * 从 Service 缓存取该 sbnKey 的 Notification.Action 列表，渲染可点击按钮（如网易云 喜欢/上一首/播放/下一首/词）。
+ * 点击等价于点系统通知上的 action 按钮（PendingIntent.send）。
+ * 另连接 MediaSession 只读播放状态，使"播放/暂停"按钮按状态切换 Pause/PlayArrow 图标。
+ * 无 action、或通知不在通知栏（缓存被清理）时返回空 UI。
+ */
+@Composable
+private fun MediaControlsSection(sbnKey: String?) {
+    val context = LocalContext.current
+    val c = MaterialTheme.notix
+    var actions by remember { mutableStateOf<List<Notification.Action>?>(null) }
+    var controller by remember { mutableStateOf<MediaController?>(null) }
+    var playing by remember { mutableStateOf(false) }
+    var callback by remember { mutableStateOf<MediaController.Callback?>(null) }
+
+    LaunchedEffect(sbnKey) {
+        if (sbnKey == null) return@LaunchedEffect
+        actions = try {
+            NotificationBlockerService.instance?.getNotificationActions(sbnKey)?.takeIf { it.isNotEmpty() }
+        } catch (e: Exception) { null }
+        // 连接 MediaSession 只读播放状态（仅用于 toggle 图标切换）
+        val token = try {
+            NotificationBlockerService.instance?.getMediaSessionToken(sbnKey)
+        } catch (e: Exception) { null }
+        if (token != null) {
+            val mc = try { MediaController(context.applicationContext, token) } catch (e: Exception) { null }
+            if (mc != null) {
+                val cb = object : MediaController.Callback() {
+                    override fun onPlaybackStateChanged(state: PlaybackState?) {
+                        playing = state?.state == PlaybackState.STATE_PLAYING
+                    }
+                }
+                try {
+                    mc.registerCallback(cb)
+                    callback = cb
+                    controller = mc
+                    playing = mc.playbackState?.state == PlaybackState.STATE_PLAYING
+                } catch (e: Exception) { }
+            }
+        }
+    }
+
+    DisposableEffect(controller, callback) {
+        onDispose {
+            callback?.let { controller?.unregisterCallback(it) }
+            controller = null
+            callback = null
+        }
+    }
+
+    val actList = actions ?: return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        actList.forEach { action ->
+            val label = action.title?.toString().orEmpty()
+            // v8.53.2：按 action.title 映射 Material 图标（跨 app 资源图标运行时无法加载）。
+            // 未知动作回退文字按钮。
+            val iconVector = mediaActionIcon(label)
+            if (iconVector != null) {
+                // toggle：按播放状态切换 播放/暂停 图标
+                val t = label.lowercase()
+                val isToggle = t.contains("toggle") || t.contains("播放") || t.contains("暂停")
+                    || t.contains("play") || t.contains("pause")
+                val showVector = if (isToggle && playing) Icons.Filled.Pause
+                else if (isToggle) Icons.Filled.PlayArrow
+                else iconVector
+                Button(
+                    onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = c.surfaceVariant,
+                        contentColor = c.contentPrimary
+                    )
+                ) {
+                    Icon(
+                        imageVector = showVector,
+                        contentDescription = label,
+                        tint = c.contentPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else if (label.isNotBlank()) {
+                Button(
+                    onClick = { runCatching { action.actionIntent?.send(context, 0, null) } },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = c.surfaceVariant,
+                        contentColor = c.contentPrimary
+                    )
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.notixType.caption,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** v8.53.2：把常见的通知 action 标题映射为 Material 图标；无法识别返回 null（回退文字）。 */
+private fun mediaActionIcon(label: String): ImageVector? {
+    val t = label.lowercase().trim()
+    return when {
+        t.contains("like") || t.contains("heart") || t.contains("favorite")
+        || t.contains("喜") || t.contains("赞") -> Icons.Filled.Favorite
+        t.contains("pre") || t.contains("previous") || t.contains("上一") -> Icons.Filled.SkipPrevious
+        t.contains("next") || t.contains("下一") -> Icons.Filled.SkipNext
+        t.contains("toggle") || t.contains("play") || t.contains("pause")
+        || t.contains("播放") || t.contains("暂停") -> Icons.Filled.PlayArrow
+        t.contains("lyric") || t.contains("词") -> Icons.Filled.MusicNote
+        else -> null
+    }
+}
+

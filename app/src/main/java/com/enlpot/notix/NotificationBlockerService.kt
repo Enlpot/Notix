@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.media.session.MediaSession
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -276,6 +277,25 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
     /** 阶段2C：进行中的 Action Flow 集合（Service 销毁时统一 cancel，防止回调继续推进） */
     private val activeFlows = java.util.concurrent.CopyOnWriteArrayList<FlowExecution>()
 
+    /**
+     * v8.53.2：自维护"当前通知栏"状态——不依赖 getActiveNotifications()（ColorOS 等系统会过滤前台服务通知，
+     * 导致 isActive 误判"已取消"）。onNotificationPosted 增、onNotificationRemoved 减、onListenerConnected 尽力初始化。
+     */
+    private val activeSbnKeys: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    /**
+     * v8.53.2：媒体会话 token 缓存（sbnKey → MediaSession.Token）。
+     * onNotificationPosted 时缓存，供详情弹窗媒体控制使用（同样不依赖被系统过滤的 getActiveNotifications）。
+     */
+    private val mediaSessionTokens = java.util.concurrent.ConcurrentHashMap<String, MediaSession.Token>()
+
+    /**
+     * v8.53.2：通知 action 按钮缓存（sbnKey → Notification.Action 列表）。
+     * onNotificationPosted 时缓存，供详情弹窗渲染可点击的 action 按钮（如网易云 播放/上一首/下一首/喜欢/词）。
+     * 同样不依赖被 ColorOS 过滤的 getActiveNotifications。
+     */
+    private val notificationActions = java.util.concurrent.ConcurrentHashMap<String, List<Notification.Action>>()
+
     /** 阶段2C：服务销毁标记——销毁后不再启动新 Flow（阶段2D：internal 供测试恢复） */
     @Volatile
     internal var isDestroyed = false
@@ -412,6 +432,19 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         }
 
         val notification = sbn.notification
+        // v8.53.2：登记到自维护通知栏状态 + 缓存 MediaSession token（供媒体控制）
+        activeSbnKeys.add(sbn.key)
+        runCatching {
+            @Suppress("DEPRECATION")
+            val token = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notification.extras.getParcelable(Notification.EXTRA_MEDIA_SESSION, MediaSession.Token::class.java)
+            } else {
+                notification.extras.getParcelable<MediaSession.Token>(Notification.EXTRA_MEDIA_SESSION)
+            }
+            if (token != null) mediaSessionTokens[sbn.key] = token
+        }
+        // v8.53.2：缓存 action 按钮（如网易云 播放/上一首/下一首）
+        notification.actions?.takeIf { it.isNotEmpty() }?.let { notificationActions[sbn.key] = it.toList() }
         var title = notification.extras.getCharSequence("android.title")?.toString()
         var text = notification.extras.getCharSequence("android.text")?.toString()
         val currentTime = System.currentTimeMillis()
@@ -1005,6 +1038,13 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                     return@Thread
                 }
                 Log.i(TAG, "Sync active notifications: found  in shade, starting sync")
+                // v8.53.2：尽力初始化自维护集合（ColorOS 可能过滤 FGS，后续靠回调增量维护）
+                active.forEach { sbn ->
+                    activeSbnKeys.add(sbn.key)
+                    // v8.53.2：尽力恢复 action 缓存（ColorOS 可能过滤 FGS，后续靠回调增量维护）
+                    sbn.notification.actions?.takeIf { it.isNotEmpty() }
+                        ?.let { notificationActions[sbn.key] = it.toList() }
+                }
                 var synced = 0
                 var skipped = 0
                 for (sbn in active) {
@@ -1169,6 +1209,12 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         DebugLogManager.i("Notify", "通知移除: key=${sbn?.key} pkg=${sbn?.packageName}")
+        // v8.53.2：从自维护状态移除
+        if (sbn != null) {
+            activeSbnKeys.remove(sbn.key)
+            mediaSessionTokens.remove(sbn.key)
+            notificationActions.remove(sbn.key)
+        }
         // v8.48.3：记录常驻通知的生命周期结束时间，供 Repository 判定"新生命周期"（重连/状态变化）
         // v8.53.0：与 onNotificationPosted 的 isOngoing 判定保持一致（含 FLAG_FOREGROUND_SERVICE）
         if (sbn != null && (sbn.notification.flags and
@@ -1188,6 +1234,17 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
      * NotificationCancelData）限制，无法通过 onNotificationRemoved 三参回调取得 reason code，
      * 统一走详情「已结束」展示。
      */
+    /**
+     * v8.53.2：查询 sbnKey 是否仍在系统通知栏（自维护集合，不依赖 getActiveNotifications 实时查询）。
+     */
+    fun isSbnKeyActive(key: String): Boolean = activeSbnKeys.contains(key)
+
+    /** v8.53.2：取该 sbnKey 的媒体会话 token（onNotificationPosted 时缓存）。 */
+    fun getMediaSessionToken(key: String): MediaSession.Token? = mediaSessionTokens[key]
+
+    /** v8.53.2：取该 sbnKey 的通知 action 按钮列表（onNotificationPosted 时缓存）。 */
+    fun getNotificationActions(key: String): List<Notification.Action>? = notificationActions[key]
+
     private fun markRemovedReasonAsync(key: String, reasonCode: Int) {
         try {
             historyExecutor.execute {

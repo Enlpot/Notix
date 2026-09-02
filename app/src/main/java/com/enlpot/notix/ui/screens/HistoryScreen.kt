@@ -1932,8 +1932,9 @@ private fun RuleGroupHeader(
 private fun isNotificationCurrentlyActive(context: android.content.Context, sbnKey: String?): Boolean {
     if (sbnKey == null) return false
     return try {
+        // v8.53.2：改用 Service 自维护集合判断（getActiveNotifications 在 ColorOS 上会过滤前台服务通知）
         com.enlpot.notix.NotificationBlockerService.instance
-            ?.activeNotifications?.any { it.key == sbnKey } == true
+            ?.isSbnKeyActive(sbnKey) == true
     } catch (e: Exception) {
         false
     }
