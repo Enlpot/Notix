@@ -239,8 +239,6 @@
     <string name="app_version">Notix v%s</string>
     <!-- Settings sections and descriptions -->
     <string name="settings_section_general">常规</string>
-    <string name="settings_extract_remoteviews_title">Extract button text from textless notifications</string>
-    <string name="settings_extract_remoteviews_desc">When enabled, notifications without title/text will try to extract button text for rule matching (off by default)</string>
     <string name="settings_dynamic_color_title">Dynamic color theming</string>
     <string name="settings_dynamic_color_desc">Generate notification card background colors from app icons (on by default)</string>
     <string name="settings_unmonitored_apps_title">Unmonitored apps</string>

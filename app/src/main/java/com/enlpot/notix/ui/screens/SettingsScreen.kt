@@ -180,11 +180,6 @@ fun SettingsScreen(
     var showDebugLogDialog by remember { mutableStateOf(false) }
     var debugLogEnabled by remember { mutableStateOf(DebugLogManager.isEnabled(context)) }
 
-    // v7.45：无文本通知文字提取开关（默认关）
-    var extractRemoteViewsEnabled by remember {
-        mutableStateOf(NotificationBlockerService.isRemoteViewsTextExtractionEnabled(context))
-    }
-
     // v8.20：动态取色开关（默认开）
     var dynamicColorEnabled by remember {
         mutableStateOf(NotificationColorEngine.isDynamicColorEnabled(context))
@@ -1545,22 +1540,6 @@ fun SettingsScreen(
 
             // ===== 通知：通知处理与通知历史数据管理 =====
             SettingsSection(title = stringResource(R.string.settings_section_notification)) {
-                SettingsRow(
-                    icon = Icons.Filled.TextFields,
-                    title = stringResource(R.string.settings_extract_remoteviews_title),
-                    subtitle = stringResource(R.string.settings_extract_remoteviews_desc),
-                    onClick = null,
-                    trailing = {
-                        NotixSwitch(
-                            checked = extractRemoteViewsEnabled,
-                            onCheckedChange = { enabled ->
-                                extractRemoteViewsEnabled = enabled
-                                NotificationBlockerService.setRemoteViewsTextExtractionEnabled(context, enabled)
-                            }
-                        )
-                    }
-                )
-
                 SettingsRow(
                     icon = Icons.Filled.Notifications,
                     title = stringResource(R.string.settings_restore_snoozed),

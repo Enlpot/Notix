@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -105,7 +106,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
         private const val PREFS_SETTINGS = "settings"
         private const val KEY_LISTENER_PAUSED = "listener_paused"
-        private const val KEY_EXTRACT_REMOTEVIEWS_TEXT = "extract_remoteviews_text"
 
         /** v8.13+：被冻结常驻通知 key 持久化（snooze 为系统级、跨 Service 重启仍有效，需落盘以便恢复） */
         private const val PREFS_SNOOZED = "snoozed_ongoing"
@@ -126,20 +126,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         fun isListenerPaused(context: Context): Boolean =
             context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
                 .getBoolean(KEY_LISTENER_PAUSED, false)
-
-        /**
-         * v7.45：无文本通知的文字提取开关（默认关）。
-         * 开启后，无 title/text 的通知会尝试提取按钮/自定义视图文字，
-         * 拼入 text 参与规则匹配与历史记录；关闭时维持原有忽略行为。
-         */
-        fun isRemoteViewsTextExtractionEnabled(context: Context): Boolean =
-            context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
-                .getBoolean(KEY_EXTRACT_REMOTEVIEWS_TEXT, false)
-
-        fun setRemoteViewsTextExtractionEnabled(context: Context, enabled: Boolean) {
-            context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
-                .edit().putBoolean(KEY_EXTRACT_REMOTEVIEWS_TEXT, enabled).apply()
-        }
 
         /**
          * 暂停通知监听：置位标记 → 停止服务 → 请求系统解绑监听。
@@ -435,19 +421,23 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         val recordTime = if (sbn.postTime > 0L) sbn.postTime else currentTime
 
         if (title.isNullOrBlank() && text.isNullOrBlank()) {
-            // v7.45：无文本通知增强版（设置开关，默认关）——尝试提取按钮/自定义视图文字
-            if (isRemoteViewsTextExtractionEnabled(this)) {
-                val extracted = RemoteViewsTextExtractor.extract(notification)
-                if (extracted != null) {
-                    Log.i(TAG, "No title/text, extracted RemoteViews text from ${sbn.packageName}: $extracted")
-                    text = extracted
-                } else {
-                    Log.i(TAG, "Ignoring notification with no title and text from ${sbn.packageName}")
-                    return
-                }
+            // v8.53.0：无文字通知——总是尝试提取自定义视图/按钮文字（移除设置开关）。
+            // 提取失败 → 用「app 名称 + 渠道名」作标题兜底记录，保证这类通知（如云盘快捷入口）不漏记录。
+            val extracted = RemoteViewsTextExtractor.extract(notification)
+            if (extracted != null) {
+                Log.i(TAG, "No title/text, extracted RemoteViews text from ${sbn.packageName}: $extracted")
+                text = extracted
             } else {
-                Log.i(TAG, "Ignoring notification with no title and text from ${sbn.packageName}")
-                return
+                // 第三方 app 的渠道显示名运行时拿不到（NotificationManager 仅可查本包渠道），拿不到则仅用 app 名称
+                val channelName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    runCatching {
+                        getSystemService(NotificationManager::class.java)
+                            ?.getNotificationChannel(sbn.notification.channelId)?.name?.toString()
+                    }.getOrNull().orEmpty()
+                } else ""
+                val appName = resolveAppName(this, sbn).toString()
+                title = if (channelName.isNotBlank() && channelName != appName) "$appName · $channelName" else appName
+                Log.i(TAG, "No title/text & no extractable text, fallback title: $title")
             }
         }
 
