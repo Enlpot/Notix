@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material3.Icon
@@ -147,13 +148,16 @@ fun NotificationCard(
         }
         if (blocked) {
             // v8.51.0：「已过滤」tag 改纯漏斗图标（去文字，更紧凑）
+            // v8.51.1：漏斗底块改扁圆（10dp），与变更聚合窗口一致
             Box(
                 modifier = Modifier
+                    // v8.51.2：漏斗徽标右对齐变更计数（去掉重复 end padding，
+                    // 否则 align(BottomEnd) 后再缩 12dp 会左移，与右上角变更计数错位）
                     .align(Alignment.BottomEnd)
-                    .padding(end = sp.md, bottom = sp.md)
-                    .clip(NotixCorner.Sm)
+                    .padding(bottom = sp.md)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(c.error)
-                    .padding(horizontal = sp.xs, vertical = 3.dp),
+                    .padding(horizontal = sp.sm, vertical = 2.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
