@@ -58,6 +58,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Warning
@@ -90,6 +91,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -260,6 +262,8 @@ fun SettingsScreen(
     // v8.6：权限管理二级界面路由 + 主界面聚合状态（进入前台/返回时刷新）
     var showPermissionScreen by remember { mutableStateOf(false) }
     var permissionRefreshTick by remember { mutableStateOf(0) }
+    // v7.50→v8.56.0：存储占用刷新 tick（进入前台/打开弹窗时 ++，修复更新不及时）
+    var storageRefreshTick by remember { mutableStateOf(0) }
 
     val permListenerGranted = remember(permissionRefreshTick) { SetupState.isNotificationListenerEnabled(context) }
     val permPostNotifGranted = remember(permissionRefreshTick) { SetupState.isPostNotificationsGranted(context) }
@@ -273,7 +277,11 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) permissionRefreshTick++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                permissionRefreshTick++
+                // v8.56.0：进入设置页/返回前台时顺带刷新存储占用（修复更新不及时）
+                storageRefreshTick++
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -306,7 +314,6 @@ fun SettingsScreen(
 
     // v7.50：存储占用——二级界面路由与总占用（刷新时重算）
     var showStorageUsageScreen by remember { mutableStateOf(false) }
-    var storageRefreshTick by remember { mutableStateOf(0) }
     val storageTotalBytes = remember(context, storageRefreshTick) {
         computeStorageUsageBytes(context)
     }
@@ -955,22 +962,11 @@ fun SettingsScreen(
         )
     }
 
-    // v8.14：恢复常驻通知——确认弹窗（确认后恢复所有被规则冻结的常驻通知）
+    // v8.56.0：恢复常驻通知——列表弹窗（显示被冻结常驻通知 + 支持单独/全部恢复）
     if (showRestoreSnoozedDialog) {
-        NotixConfirmDialog(
+        RestoreSnoozedDialog(
             onDismiss = { showRestoreSnoozedDialog = false },
-            onConfirm = {
-                val n = NotificationBlockerService.instance?.restoreAllSnoozedNotifications() ?: 0
-                showRestoreSnoozedDialog = false
-                showMessage(
-                    if (n > 0) context.getString(R.string.settings_restore_snoozed_done, n)
-                    else context.getString(R.string.settings_restore_snoozed_none)
-                )
-            },
-            title = stringResource(R.string.settings_restore_snoozed_confirm_title),
-            body = stringResource(R.string.settings_restore_snoozed_confirm_body),
-            confirmText = stringResource(R.string.confirm),
-            danger = false,
+            onShowMessage = { showMessage(it) }
         )
     }
 
@@ -1594,7 +1590,11 @@ fun SettingsScreen(
                     icon = Icons.Filled.Storage,
                     title = stringResource(R.string.settings_storage_usage),
                     subtitle = formatStorageBytes(storageTotalBytes),
-                    onClick = { showStorageUsageScreen = true },
+                    onClick = {
+                        // v8.56.0：打开弹窗时先刷新一次，避免显示上次的旧值
+                        storageRefreshTick++
+                        showStorageUsageScreen = true
+                    },
                 )
             }
 
@@ -2307,7 +2307,114 @@ fun PermissionScreen(
                             )
                         }
                     )
+                    Spacer(Modifier.height(8.dp))
                 }
+                // v8.56.0：网络访问（普通权限，安装即授予，无需开启）
+                item {
+                    PermissionCard(
+                        icon = Icons.Filled.Public,
+                        title = stringResource(R.string.settings_permission_internet_title),
+                        desc = stringResource(R.string.settings_permission_internet_desc),
+                        granted = true,
+                        permName = "INTERNET",
+                        usedBy = stringResource(R.string.settings_permission_internet_usedby),
+                        fixLabel = stringResource(R.string.settings_permission_status_normal),
+                        onFix = {}
+                    )
+                }
+            }
+        }
+    )
+}
+
+/**
+ * v8.56.0：恢复常驻通知列表弹窗——显示被规则冻结（移除）的常驻通知，支持单独恢复与全部恢复。
+ */
+@Composable
+private fun RestoreSnoozedDialog(
+    onDismiss: () -> Unit,
+    onShowMessage: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var keys by remember { mutableStateOf<List<String>>(emptyList()) }
+    var refreshTick by remember { mutableIntStateOf(0) }
+    val appInfo = remember { AppInfoStorage(context) }
+    LaunchedEffect(refreshTick) {
+        keys = NotificationBlockerService.instance?.getSnoozedKeys() ?: emptyList()
+    }
+    NotixDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.settings_restore_snoozed),
+        content = {
+            if (keys.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.settings_restore_snoozed_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.settings_restore_snoozed_list_desc, keys.size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(keys, key = { it }) { key ->
+                        val pkg = key.split("|").getOrNull(1) ?: key
+                        val label = appInfo.isAppInfoSaved(pkg) ?: pkg
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            TextButton(
+                                onClick = {
+                                    val ok = NotificationBlockerService.instance?.restoreSnoozedKey(key) ?: false
+                                    onShowMessage(
+                                        if (ok) context.getString(R.string.settings_restore_one_done, label)
+                                        else context.getString(R.string.settings_restore_snoozed_none)
+                                    )
+                                    refreshTick++
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Text(
+                                    stringResource(R.string.settings_restore_one),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        buttons = {
+            if (keys.isNotEmpty()) {
+                NotixDangerButton(
+                    onClick = {
+                        val n = NotificationBlockerService.instance?.restoreAllSnoozedNotifications() ?: 0
+                        onShowMessage(
+                            if (n > 0) context.getString(R.string.settings_restore_snoozed_done, n)
+                            else context.getString(R.string.settings_restore_snoozed_none)
+                        )
+                        refreshTick++
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = stringResource(R.string.settings_restore_all)
+                )
             }
         }
     )

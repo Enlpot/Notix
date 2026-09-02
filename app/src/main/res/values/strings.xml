@@ -255,6 +255,10 @@
     <string name="settings_restore_snoozed_confirm_body">This will restore all ongoing notifications that were frozen (removed) by rules, such as music, foreground services or picture-in-picture.</string>
     <string name="settings_restore_snoozed_done">Restored %1$d ongoing notification(s)</string>
     <string name="settings_restore_snoozed_none">No frozen ongoing notifications to restore</string>
+    <string name="settings_restore_snoozed_list_desc">共 %1$d 条被冻结的常驻通知，可单独或全部恢复</string>
+    <string name="settings_restore_one">恢复</string>
+    <string name="settings_restore_all">全部恢复</string>
+    <string name="settings_restore_one_done">已恢复：%1$s</string>
     <string name="settings_section_plugins">插件</string>
     <string name="settings_section_notification">通知</string>
     <string name="settings_section_statistics">统计</string>
@@ -338,6 +342,9 @@
     <string name="settings_permission_postnotif_usedby">NotificationBlockerService (alerts), HealthCheckWorker, MainActivity</string>
     <string name="settings_permission_battery_usedby">Keep-alive foreground service, Settings one-tap</string>
     <string name="settings_permission_foreground_usedby">NotificationBlockerService (specialUse foreground service)</string>
+    <string name="settings_permission_internet_title">网络访问</string>
+    <string name="settings_permission_internet_desc">用于 GitHub 插件下载、镜像源测速与更新检查。普通权限，安装即授予，无需手动开启。</string>
+    <string name="settings_permission_internet_usedby">WordTokenizerManager（插件下载）、插件镜像源、更新检查</string>
     <string name="settings_permission_battery_one_click">Set Up</string>
     <string name="settings_privacy_security_title">Privacy &amp; Security</string>
     <string name="settings_privacy_item_1">All notification data is stored locally only</string>
@@ -645,6 +652,8 @@
     <string name="storage_usage_rules_desc">Filter rules and configurations. Clearing deletes all rules.</string>
     <string name="storage_usage_other">Other</string>
     <string name="storage_usage_other_desc">Crash logs and .bak/.corrupt/.tmp temporary files. Settings and statistics are kept.</string>
+    <string name="storage_usage_plugin">插件</string>
+    <string name="storage_usage_plugin_desc">分词插件（HanLP 词典与数据）。卸载请在「插件」栏目操作。</string>
     <string name="storage_clear">Clear</string>
     <string name="storage_clear_all">Clear All</string>
     <string name="storage_clear_all_confirm_title">Clear All Data?</string>

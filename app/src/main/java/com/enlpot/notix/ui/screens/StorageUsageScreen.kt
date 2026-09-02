@@ -80,10 +80,10 @@ private fun isTempBackupFile(name: String): Boolean =
 /** filesDir + databases 目录下全部文件大小之和（总占用，v8.23 包含 Room 数据库） */
 internal fun computeStorageUsageBytes(context: Context): Long {
     var total = 0L
-    // filesDir 下的文件
+    // filesDir 下的文件与子目录（v8.56.0：递归，含插件目录等）
     val dir = context.filesDir
     if (dir.exists() && dir.isDirectory) {
-        total += dir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
+        total += dirBytes(dir)
     }
     // databases 目录下的 Room 数据库文件
     val dbDir = context.getDatabasePath("notix.db").parentFile
@@ -100,6 +100,19 @@ internal fun formatStorageBytes(bytes: Long): String = when {
     bytes < 1024L * 1024L -> String.format(Locale.US, "%.1f KB", bytes / 1024.0)
     else -> String.format(Locale.US, "%.1f MB", bytes / 1024.0 / 1024.0)
 }
+
+/** v8.56.0：递归统计目录大小（含子目录） */
+private fun dirBytes(dir: File): Long =
+    dir.listFiles()?.sumOf {
+        if (it.isFile) it.length()
+        else if (it.isDirectory) dirBytes(it)
+        else 0L
+    } ?: 0L
+
+/** v8.56.0：插件目录占用（filesDir 下以 plugin_ 开头的目录，如 plugin_hanlp） */
+private fun pluginBytes(context: Context): Long =
+    context.filesDir.listFiles()?.filter { it.isDirectory && it.name.startsWith("plugin_") }
+        ?.sumOf { dirBytes(it) } ?: 0L
 
 private fun filesDirFiles(context: Context): List<File> =
     context.filesDir.listFiles()?.filter { it.isFile } ?: emptyList()
@@ -157,6 +170,8 @@ fun StorageUsageScreen(
     val historySize = remember(refreshTick) { historyBytes(context) }
     val rulesSize = remember(refreshTick) { rulesBytes(context) }
     val otherSize = remember(refreshTick) { otherBytes(context) }
+    // v8.56.0：插件目录占用（分词插件 HanLP 词典与数据）
+    val pluginSize = remember(refreshTick) { pluginBytes(context) }
 
     // 二次确认弹窗状态
     var confirmClearHistory by remember { mutableStateOf(false) }
@@ -191,6 +206,12 @@ fun StorageUsageScreen(
                 sizeText = formatStorageBytes(rulesSize),
                 desc = stringResource(R.string.storage_usage_rules_desc),
                 onClear = { confirmClearRules = true }
+            )
+            Spacer(Modifier.height(12.dp))
+            StorageItemCard(
+                title = stringResource(R.string.storage_usage_plugin),
+                sizeText = formatStorageBytes(pluginSize),
+                desc = stringResource(R.string.storage_usage_plugin_desc)
             )
             Spacer(Modifier.height(12.dp))
             StorageItemCard(
@@ -270,7 +291,7 @@ private fun StorageItemCard(
     title: String,
     sizeText: String,
     desc: String,
-    onClear: () -> Unit,
+    onClear: (() -> Unit)? = null,
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -292,13 +313,15 @@ private fun StorageItemCard(
                     )
                 }
                 Spacer(Modifier.width(12.dp))
-                TextButton(
-                    onClick = onClear,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.storage_clear), fontWeight = FontWeight.SemiBold)
+                if (onClear != null) {
+                    TextButton(
+                        onClick = onClear,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text(stringResource(R.string.storage_clear), fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))

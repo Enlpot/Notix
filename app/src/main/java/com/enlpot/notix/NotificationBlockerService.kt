@@ -809,6 +809,30 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         return allKeys.size
     }
 
+    /**
+     * v8.56.0：单独恢复一条被冻结的常驻通知（设置页「恢复常驻通知」列表逐项恢复）。
+     * 从分组表移除该 key 并落盘；key 不存在则返回 false。
+     */
+    fun restoreSnoozedKey(key: String): Boolean {
+        val removed = synchronized(snoozedByRule) {
+            var found = false
+            val it = snoozedByRule.entries.iterator()
+            while (it.hasNext()) {
+                val e = it.next()
+                if (e.value.remove(key)) {
+                    found = true
+                    if (e.value.isEmpty()) it.remove()
+                }
+            }
+            found
+        }
+        if (!removed) return false
+        restoreKeys(listOf(key))
+        persistSnoozedKeys()
+        Log.i(TAG, "Restored snoozed ongoing key=$key")
+        return true
+    }
+
     /** 对一批 key 执行短时长 re-snooze（恢复），单个失败不阻断后续 */
     private fun restoreKeys(keys: List<String>) {
         if (android.os.Build.VERSION.SDK_INT < 26) {
