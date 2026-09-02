@@ -412,6 +412,8 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
     var positionMs by remember { mutableStateOf(0L) }
     var callback by remember { mutableStateOf<MediaController.Callback?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
+    // v8.55.2：当前歌曲是否已标红心（来自 PlaybackState.customActions 推断，实测后校准）
+    var liked by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // 1) 拿 actions + 建立 MediaController（refreshKey 变化时重连）
@@ -458,6 +460,7 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
             durationMs = try {
                 media.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
             } catch (e: Exception) { 0L }
+            readLikedState(media)?.let { liked = it }
         } catch (e: Exception) { }
     }
 
@@ -471,6 +474,8 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
                 playing = st.state == PlaybackState.STATE_PLAYING
                 if (st.position != null) positionMs = st.position
             }
+            // v8.55.2：定时同步红心状态（customActions 变化时自动切换）
+            readLikedState(mc)?.let { liked = it }
             if (playing && durationMs > 0) {
                 positionMs = (positionMs + (speed * 1000).toLong()).coerceAtMost(durationMs)
             }
@@ -530,8 +535,13 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
                     val showVector = if (isToggle && playing) Icons.Filled.Pause
                     else if (isToggle) Icons.Filled.PlayArrow
                     else iconVector
+                    // v8.55.2：红心按钮——已标红心填充红色，未标保持主题色
+                    val isLike = iconVector == Icons.Filled.Favorite
+                    val iconTint = if (isLike && liked) Color(0xFFE53935) else c.contentPrimary
                     Button(
                         onClick = {
+                            // v8.55.2：红心本地乐观切换（立即反馈），随后重连校准
+                            if (isLike) liked = !liked
                             runCatching { action.actionIntent?.send(context, 0, null) }
                             // 点击后稍等片刻强制重连，读取最新播放状态（覆盖 session 更新/重建场景）
                             scope.launch {
@@ -549,7 +559,7 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
                         Icon(
                             imageVector = showVector,
                             contentDescription = label,
-                            tint = c.contentPrimary,
+                            tint = iconTint,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -579,6 +589,30 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
             }
         }
     }
+}
+
+/**
+ * v8.55.2：从 MediaController 判断当前歌曲是否已标红心。
+ * 依据 PlaybackState.customActions：存在"取消喜欢"类动作 → 已标（true）；存在"喜欢"类动作 → 未标（false）；
+ * 两者都没有 → null（无法判断，保持现状）。
+ * 说明：无标准 API，此为平台惯例推断，真实匹配规则可能因音乐 app 而异，真机实测后校准。
+ */
+private fun readLikedState(mc: MediaController): Boolean? {
+    return runCatching {
+        val strs = (mc.playbackState?.customActions ?: emptyList()).map { it.action.lowercase() }
+        val hasUnlike = strs.any {
+            it.contains("unlike") || it.contains("unfavorite") || it.contains("unheart") ||
+            it.contains("unmark") || it.contains("cancel_like") || it.contains("cancel_love") ||
+            it.contains("remove_favorite") || it.contains("dislike")
+        }
+        if (hasUnlike) return@runCatching true
+        val hasLike = strs.any {
+            it.contains("like") || it.contains("favorite") || it.contains("heart") ||
+            it.contains("mark") || it.contains("love")
+        }
+        if (hasLike) return@runCatching false
+        null
+    }.getOrNull()
 }
 
 /**
