@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import android.media.session.MediaController
 import android.media.MediaMetadata
+import android.media.Rating
 import android.media.session.PlaybackState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -599,6 +600,12 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
  */
 private fun readLikedState(mc: MediaController): Boolean? {
     return runCatching {
+        // v8.55.3：首选标准 API——MediaMetadata USER_RATING + HeartRating（无歧义，多数音乐 app 遵循）
+        val rating = mc.metadata?.getRating(MediaMetadata.METADATA_KEY_USER_RATING)
+        if (rating != null && rating.ratingStyle == Rating.RATING_HEART) {
+            return@runCatching rating.isRated && rating.hasHeart()
+        }
+        // 兜底：PlaybackState.customActions 推断（常见命名：like/unlike、favorite、heart、thumbs_up、save_to_favorites 等）
         val strs = (mc.playbackState?.customActions ?: emptyList()).map { it.action.lowercase() }
         val hasUnlike = strs.any {
             it.contains("unlike") || it.contains("unfavorite") || it.contains("unheart") ||
@@ -608,7 +615,8 @@ private fun readLikedState(mc: MediaController): Boolean? {
         if (hasUnlike) return@runCatching true
         val hasLike = strs.any {
             it.contains("like") || it.contains("favorite") || it.contains("heart") ||
-            it.contains("mark") || it.contains("love")
+            it.contains("mark") || it.contains("love") || it.contains("thumbs") ||
+            it.contains("save_to_favorites") || it.contains("star")
         }
         if (hasLike) return@runCatching false
         null

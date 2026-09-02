@@ -1,4 +1,9 @@
 ﻿# Notix 发布说明
+## v8.55.3 (2026-09-02)
+
+### 优化
+- **红心收藏状态判断更可靠**：优先读取标准 API（MediaMetadata USER_RATING + HeartRating，无歧义），读不到再退回 PlaybackState 自定义动作推断（覆盖 like/favorite/heart/thumbs_up 等常见命名）
+
 ## v8.55.2 (2026-09-02)
 
 ### 新增
