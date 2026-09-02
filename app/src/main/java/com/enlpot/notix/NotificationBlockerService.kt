@@ -502,7 +502,10 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         // 原 3s 防抖会导致聊天消息等内容变化的短时间更新被漏记录，故删除。
         // v7.15：携带 sbnKey/postTime 供存储层按"同一条通知"去重，不再按 pkg+title 误吞
         // v8.22：wasOngoing 从 notification.flags 读取真实状态，不再硬编码 false
-        val isOngoing = (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+        // v8.53.0：兼容前台服务播放通知（如网易云音乐，flags=NO_CLEAR|FOREGROUND_SERVICE，未设 FLAG_ONGOING_EVENT），
+        //          FLAG_ONGOING_EVENT 或 FLAG_FOREGROUND_SERVICE 任一命中即视为常驻通知
+        val isOngoing = (sbn.notification.flags and
+            (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
         val simpleNotification = SimpleNotification(
             appLabel, packageName, title, text, recordTime,
             wasOngoing = isOngoing,
@@ -1177,7 +1180,9 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         super.onNotificationRemoved(sbn)
         DebugLogManager.i("Notify", "通知移除: key=${sbn?.key} pkg=${sbn?.packageName}")
         // v8.48.3：记录常驻通知的生命周期结束时间，供 Repository 判定"新生命周期"（重连/状态变化）
-        if (sbn != null && (sbn.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) {
+        // v8.53.0：与 onNotificationPosted 的 isOngoing 判定保持一致（含 FLAG_FOREGROUND_SERVICE）
+        if (sbn != null && (sbn.notification.flags and
+                (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0) {
             try {
                 notificationHistoryRepository.markOngoingRemoved(sbn.key)
             } catch (e: Exception) {
