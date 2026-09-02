@@ -1929,12 +1929,18 @@ private fun RuleGroupHeader(
  * v8.50.0：查询该 sbnKey 通知是否仍在系统通知栏（用于详情弹窗「当前状态」）。
  * 服务未运行或查询失败时视为不在通知栏。
  */
-private fun isNotificationCurrentlyActive(context: android.content.Context, sbnKey: String?): Boolean {
+private fun isNotificationCurrentlyActive(
+    context: android.content.Context,
+    sbnKey: String?,
+    packageName: String?,
+): Boolean {
     if (sbnKey == null) return false
     return try {
-        // v8.53.2：改用 Service 自维护集合判断（getActiveNotifications 在 ColorOS 上会过滤前台服务通知）
+        // v8.53.2：Service 自维护集合判断（getActiveNotifications 在 ColorOS 上会过滤前台服务通知）
+        // v8.55.0：方案B——媒体通知被 ColorOS 收纳后 removed 会移除自维护集合，但只要该包名仍有活跃
+        // MediaSession（音乐还在播），仍视为"正显示"。普通 app 无活跃 session，此"或"不影响其判定。
         com.enlpot.notix.NotificationBlockerService.instance
-            ?.isSbnKeyActive(sbnKey) == true
+            ?.let { svc -> svc.isSbnKeyActive(sbnKey) || svc.hasActiveMediaSession(packageName) } == true
     } catch (e: Exception) {
         false
     }
@@ -1955,7 +1961,10 @@ private fun HistoryNotificationCard(
 ) {
     val latestBase = entry.latest ?: return
     // v8.50.0：详情「当前状态」——打开时判断该通知是否仍在系统通知栏
-    val notification = latestBase.copy(isActive = isNotificationCurrentlyActive(context, latestBase.sbnKey))
+    // v8.55.0：传入 packageName，媒体通知用 MediaSession 活跃度判断（ColorOS 收纳后通知栏已移除但 session 存活）
+    val notification = latestBase.copy(
+        isActive = isNotificationCurrentlyActive(context, latestBase.sbnKey, latestBase.packageName)
+    )
     val packageName = notification.packageName
     var menuExpanded by remember { mutableStateOf(false) }
 

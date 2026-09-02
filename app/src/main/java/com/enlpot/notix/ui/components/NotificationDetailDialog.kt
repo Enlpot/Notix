@@ -248,7 +248,7 @@ fun NotificationDetailDialog(
                                     Spacer(modifier = Modifier.height(12.dp))
                                     HorizontalDivider(color = c.outlineVariant)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    MediaControlsSection(sbnKey = sbnKeyStr)
+                                    MediaControlsSection(sbnKey = sbnKeyStr, packageName = packageName)
                                     Spacer(modifier = Modifier.height(4.dp))
                                 }
                                 // v8.51.0：当前状态（取消原因优先：规则命中/系统原因 > 正显示 > 已结束）
@@ -391,7 +391,7 @@ private fun cancelReasonText(reason: Int): String = when (reason) {
  * 无 action 时返回空 UI；无 token/时长时不显示进度条。
  */
 @Composable
-private fun MediaControlsSection(sbnKey: String?) {
+private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
     val context = LocalContext.current
     val c = MaterialTheme.notix
     var actions by remember { mutableStateOf<List<Notification.Action>?>(null) }
@@ -403,21 +403,30 @@ private fun MediaControlsSection(sbnKey: String?) {
     var refreshKey by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    // 1) 拿 actions + 轮询重试拿 token 建立 MediaController（refreshKey 变化时重连）
-    LaunchedEffect(sbnKey, refreshKey) {
-        if (sbnKey == null) return@LaunchedEffect
-        actions = try {
+    // 1) 拿 actions + 建立 MediaController（refreshKey 变化时重连）
+    LaunchedEffect(sbnKey, packageName, refreshKey) {
+        if (sbnKey == null && packageName == null) return@LaunchedEffect
+        actions = if (sbnKey != null) try {
             NotificationBlockerService.instance?.getNotificationActions(sbnKey)?.takeIf { it.isNotEmpty() }
-        } catch (e: Exception) { null }
+        } catch (e: Exception) { null } else null
 
-        // 轮询直到拿到 token（服务重启后缓存为空，等下一次 posted 回调写入；弹窗关闭自动取消）
+        // v8.55.0 方案B：优先主动枚举活跃 MediaSession（getActiveSessions），不依赖通知 posted 缓存——
+        // ColorOS 收纳媒体通知后会 removed 清空 token 缓存，但 MediaSession 仍活着，仍可枚举控制。
+        // 拿不到再回退到 token 缓存；都拿不到则 1s 轮询重试（弹窗关闭自动取消）。
         var mc: MediaController? = null
         while (mc == null) {
-            val token = try {
-                NotificationBlockerService.instance?.getMediaSessionToken(sbnKey)
-            } catch (e: Exception) { null }
-            if (token != null) {
-                mc = try { MediaController(context.applicationContext, token) } catch (e: Exception) { null }
+            if (packageName != null) {
+                mc = try {
+                    NotificationBlockerService.instance?.getActiveMediaController(packageName)
+                } catch (e: Exception) { null }
+            }
+            if (mc == null && sbnKey != null) {
+                val token = try {
+                    NotificationBlockerService.instance?.getMediaSessionToken(sbnKey)
+                } catch (e: Exception) { null }
+                if (token != null) {
+                    mc = try { MediaController(context.applicationContext, token) } catch (e: Exception) { null }
+                }
             }
             if (mc == null) delay(1000)
         }

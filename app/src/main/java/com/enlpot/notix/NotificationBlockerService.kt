@@ -11,7 +11,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.media.session.MediaController
 import android.media.session.MediaSession
+import android.media.session.MediaSessionManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -1244,6 +1246,28 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
 
     /** v8.53.2：取该 sbnKey 的通知 action 按钮列表（onNotificationPosted 时缓存）。 */
     fun getNotificationActions(key: String): List<Notification.Action>? = notificationActions[key]
+
+    /**
+     * v8.55.0：该包名当前是否有活跃的 MediaSession（方案B）。实时枚举 getActiveSessions，不依赖通知栏/缓存。
+     * 说明：不使用 OnActiveSessionsChangedListener（当前精简 SDK 的接口泛型元数据缺失，Kotlin 无法 override）；
+     * 本方法调用频率低（详情打开/卡片渲染时短路判断），实时枚举开销可忽略。
+     */
+    fun hasActiveMediaSession(packageName: String?): Boolean {
+        if (packageName == null) return false
+        return runCatching {
+            val msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            msm.getActiveSessions(null)?.any { it.packageName == packageName } ?: false
+        }.getOrElse { false }
+    }
+
+    /** v8.55.0：枚举活跃 MediaSession，返回包名匹配的 MediaController（方案B：媒体控制不依赖通知 posted 缓存）。 */
+    fun getActiveMediaController(packageName: String?): MediaController? {
+        if (packageName == null) return null
+        return runCatching {
+            val msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            msm.getActiveSessions(null)?.firstOrNull { it.packageName == packageName }
+        }.getOrNull()
+    }
 
     private fun markRemovedReasonAsync(key: String, reasonCode: Int) {
         try {
