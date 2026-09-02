@@ -73,6 +73,7 @@
     <!-- v8.51.0：通知详情「当前状态」与取消原因（映射 NotificationListenerService.REASON_*，100=规则命中） -->
     <string name="notification_status_label">当前状态：%1$s</string>
     <string name="notification_status_active">正显示</string>
+    <string name="notification_status_playing">正在播放</string>
     <string name="notification_status_ended">已结束</string>
     <string name="reason_rule_hit">规则命中</string>
     <string name="reason_click">用户点击</string>

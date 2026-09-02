@@ -1,6 +1,9 @@
 ﻿package com.enlpot.notix.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +49,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -252,7 +259,11 @@ fun NotificationDetailDialog(
                                     Spacer(modifier = Modifier.height(4.dp))
                                 }
                                 // v8.51.0：当前状态（取消原因优先：规则命中/系统原因 > 正显示 > 已结束）
+                                // v8.55.1：媒体正在播放 → 定制"正在播放"状态（优先于取消原因，解决系统收纳媒体通知后误显示"应用取消"）
                                 val statusText = when {
+                                    packageName != null &&
+                                        (NotificationBlockerService.instance?.isPackageMediaPlaying(packageName) == true) ->
+                                        stringResource(R.string.notification_status_playing)
                                     notification.cancelReason != null -> cancelReasonText(notification.cancelReason!!)
                                     notification.isActive -> stringResource(R.string.notification_status_active)
                                     else -> stringResource(R.string.notification_status_ended)
@@ -480,16 +491,17 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
         // 进度条（有 controller 且 duration>0 才显示）
         if (controller != null && durationMs > 0) {
             var dragging by remember { mutableStateOf(false) }
-            var dragValue by remember { mutableStateOf(0f) }
-            val shown = if (dragging) dragValue.toLong() else positionMs.coerceIn(0L, durationMs)
-            Slider(
-                value = shown.toFloat(),
-                onValueChange = { dragging = true; dragValue = it },
-                onValueChangeFinished = {
-                    runCatching { controller?.transportControls?.seekTo(dragValue.toLong()) }
+            var dragValue by remember { mutableStateOf(0L) }
+            val shown = if (dragging) dragValue else positionMs.coerceIn(0L, durationMs)
+            // v8.55.1：细轨道+小圆点进度条（原 Material Slider 大圆球上下过高）
+            MediaProgressBar(
+                positionMs = shown,
+                durationMs = durationMs,
+                onPreview = { dragging = true; dragValue = it },
+                onSeek = { target ->
                     dragging = false
+                    runCatching { controller?.transportControls?.seekTo(target) }
                 },
-                valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
                 modifier = Modifier.fillMaxWidth()
             )
             Row(
@@ -566,6 +578,71 @@ private fun MediaControlsSection(sbnKey: String?, packageName: String?) {
                 }
             }
         }
+    }
+}
+
+/**
+ * v8.55.1：细轨道（3dp）+ 小圆点（8dp）可拖动进度条。
+ * 设计参考：YouTube Music / 主流播放器「细线 + 圆点」风格，比 Material Slider 默认大圆球更紧凑。
+ * onPreview：拖动过程更新本地显示值（不触发 seek）；onSeek：点击/松手时提交 seekTo。
+ */
+@Composable
+private fun MediaProgressBar(
+    positionMs: Long,
+    durationMs: Long,
+    onPreview: (Long) -> Unit,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val c = MaterialTheme.notix
+    val total = durationMs.coerceAtLeast(1L)
+    val fraction = (positionMs.toFloat() / total).coerceIn(0f, 1f)
+    var lastDrag by remember { mutableStateOf(positionMs) }
+    Canvas(
+        modifier = modifier
+            .height(24.dp)
+            .pointerInput(total) {
+                fun seekValue(x: Float): Long {
+                    val r = (x / size.width).coerceIn(0f, 1f)
+                    return (r * total).toLong().coerceIn(0L, durationMs)
+                }
+                fun preview(x: Float) {
+                    val v = seekValue(x)
+                    lastDrag = v
+                    onPreview(v)
+                }
+                detectTapGestures { offset ->
+                    preview(offset.x)
+                    onSeek(lastDrag)
+                }
+                detectHorizontalDragGestures(
+                    onDragStart = { offset -> preview(offset.x) },
+                    onHorizontalDrag = { change, _ ->
+                        change.consume()
+                        preview(change.position.x)
+                    },
+                    onDragEnd = { onSeek(lastDrag) },
+                    onDragCancel = {},
+                )
+            }
+    ) {
+        val trackH = 3.dp.toPx()
+        val thumbR = 4.dp.toPx()
+        val trackY = size.height / 2f
+        val x = size.width * fraction
+        drawRoundRect(
+            color = c.surfaceVariant,
+            topLeft = Offset(0f, trackY - trackH / 2),
+            size = Size(size.width, trackH),
+            cornerRadius = CornerRadius(trackH / 2)
+        )
+        drawRoundRect(
+            color = c.primary,
+            topLeft = Offset(0f, trackY - trackH / 2),
+            size = Size(x, trackH),
+            cornerRadius = CornerRadius(trackH / 2)
+        )
+        drawCircle(color = c.primary, radius = thumbR, center = Offset(x, trackY))
     }
 }
 

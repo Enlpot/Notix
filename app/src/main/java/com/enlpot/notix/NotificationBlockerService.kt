@@ -14,6 +14,7 @@ import android.media.AudioManager
 import android.media.session.MediaController
 import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -1257,6 +1258,20 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         return runCatching {
             val msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
             msm.getActiveSessions(null)?.any { it.packageName == packageName } ?: false
+        }.getOrElse { false }
+    }
+
+    /**
+     * v8.55.1：该包名当前是否有正在播放（MediaSession state=PLAYING）的会话。
+     * 用于详情弹窗「当前状态」定制"正在播放"（优先于取消原因，解决系统收纳媒体通知后误显示"应用取消"）。
+     */
+    fun isPackageMediaPlaying(packageName: String?): Boolean {
+        if (packageName == null) return false
+        return runCatching {
+            val msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+            msm.getActiveSessions(null)?.any {
+                it.packageName == packageName && it.playbackState?.state == PlaybackState.STATE_PLAYING
+            } ?: false
         }.getOrElse { false }
     }
 
