@@ -1,4 +1,4 @@
-﻿*.iml
+*.iml
 .gradle
 .kotlin
 /local.properties
@@ -42,8 +42,8 @@ CLAUDE.md
 keystore_base64.txt
 keystore_secrets.txt
 
-# WorkBuddy local workspace (tool cache, screenshots, agent memory — not source)
-/.workbuddy/
+# Local scratch (tool cache, screenshots, agent memory — not source)
+/.scratch/
 
 # 项目待办清单（仅本地，不推送远程）
 TODO.md
