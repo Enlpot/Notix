@@ -24,7 +24,7 @@ Most notification apps are either too simple (just a mute toggle) or too intrusi
 
 **Core engine**
 - Real-time capture via `NotificationListenerService`, backed by a foreground service and health checks
-- Ordered action chains per rule: **Dismiss · Silent (re-post low-priority) · Open · Click Button · Copy (title / text / both) · TTS speak · Delay**
+- Ordered action chains per rule: **Dismiss (optional ongoing) · Open · Click Button · Copy (title / text / both) · TTS speak · Delay** (strong-remind / postpone are not implemented in the executor yet)
 - Flexible matching: target one or more apps, with `contains any / contains all / not contains any / not contains all`, plus mixed `contains A but not B`
 - Context conditions: screen on/off, charging state, Do Not Disturb, Bluetooth headset (optional device names), time window + weekday
 
@@ -85,15 +85,17 @@ Signing credentials are read from `local.properties` (`KEYSTORE_NOTIX_*`) or env
 
 Developer and contributor docs live in [`docs/`](docs/):
 
+- [Docs index](docs/README.md)
 - [Architecture & Codebase Overview](docs/ARCHITECTURE.md)
-- [API Reference](docs/API_REFERENCE.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
+
+Historical docs (including the old API reference) live in [docs/archive/](docs/archive/).
 
 Version history is tracked in [VERSION_HISTORY.md](VERSION_HISTORY.md); per-release notes in [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Status & roadmap
 
-Notix is at **v8.9** and actively developed. The v1 scope focuses on the notification capture/history pipeline, the visual drag-and-drop rule editor (AND/OR), OTP auto-copy, automatic removal of unimportant notifications, and Bluetooth / driving TTS announcements.
+Notix is at **v8.57.0** and actively developed. Recent work covers action chains, ongoing-notification snooze/restore, media controls, and history aggregation. The word-cloud/tokenizer plugin stack was removed in 8.57; the app has no network permission again.
 
 ## License
 

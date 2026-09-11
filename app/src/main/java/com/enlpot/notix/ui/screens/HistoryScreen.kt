@@ -2090,16 +2090,31 @@ private fun FoldToggleCard(
 ) {
     val sp = MaterialTheme.notixSpacing
     val context = LocalContext.current
-    // v8.18 优化：折叠提示卡改用同应用动态取色（品牌色半透明），与整体风格连贯
+    // v8.57：方案2——保留品牌色，提高不透明合成对比。
+    // 品牌底按 α 叠在页面 background 上得到不透明近似底，再用 WCAG 选字色；
+    // 避免旧实现「25% 半透明底 + 整卡黑白字」在浅色/深色主题下糊成一片。
     val colors by produceState<NotificationColors?>(initialValue = null, key1 = packageName to NotificationColorEngine.colorVersion) {
         value = withContext(Dispatchers.Default) {
             NotificationColorEngine.getNotificationColors(context, packageName)
         }
     }
-    val foldBg = colors?.backgroundColor?.let { Color(it).copy(alpha = 0.25f) }
-        ?: MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
-    val foldFg = colors?.primaryTextColor?.let { Color(it) }
-        ?: MaterialTheme.colorScheme.onSurfaceVariant
+    val pageBg = MaterialTheme.colorScheme.background
+    val foldBrandAlpha = 0.48f
+    val foldBg: Color
+    val foldFg: Color
+    if (colors != null) {
+        val brand = Color(colors!!.backgroundColor)
+        foldBg = Color(
+            red = brand.red * foldBrandAlpha + pageBg.red * (1f - foldBrandAlpha),
+            green = brand.green * foldBrandAlpha + pageBg.green * (1f - foldBrandAlpha),
+            blue = brand.blue * foldBrandAlpha + pageBg.blue * (1f - foldBrandAlpha),
+            alpha = 1f,
+        )
+        foldFg = Color(NotificationColorEngine.chooseTextColor(foldBg.toArgb()))
+    } else {
+        foldBg = MaterialTheme.notix.surfaceElevated
+        foldFg = MaterialTheme.notix.contentSecondary
+    }
     Card(
         onClick = onClick,
         modifier = Modifier

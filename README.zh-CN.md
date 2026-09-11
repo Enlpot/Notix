@@ -24,7 +24,7 @@ Notix 是一款**完全离线**的 Android 通知管理工具，面向重度手�
 
 **核心引擎**
 - 基于 `NotificationListenerService` 的实时捕获，由前台服务与健康检查支撑
-- 每条规则执行有序动作链：**消除（Dismiss）· 静默（低优先级重发）· 打开（Open）· 点击按钮（Click Button）· 复制（标题 / 正文 / 标题+正文）· TTS 朗读 · 延迟（Delay）**
+- 每条规则执行有序动作链：**消除（Dismiss，含常驻可选）· 打开（Open）· 点击按钮（Click Button）· 复制（标题 / 正文 / 标题+正文）· TTS 朗读 · 延迟（Delay）**（强提醒 / 延迟重发动作暂未在执行层实现）
 - 灵活匹配：指定一个或多个来源 App，支持 `包含任一 / 包含全部 / 不包含任一 / 不包含全部`，以及混合的 `包含 A 且不包含 B`
 - 情境条件：屏幕亮灭、充电状态、勿扰模式、蓝牙耳机连接（可选指定设备名）、时间段 + 星期多选
 
@@ -85,15 +85,17 @@ Notix 是一款**完全离线**的 Android 通知管理工具，面向重度手�
 
 面向开发者与贡献者的详细文档位于 [`docs/`](docs/)：
 
-- [架构与代码库概览](docs/ARCHITECTURE.md)
-- [API 参考](docs/API_REFERENCE.md)
-- [开发者指南](docs/DEVELOPER_GUIDE.md)
+- [文档索引](docs/README.md)
+- [架构与代码库概览](docs/ARCHITECTURE.zh-CN.md)
+- [开发者指南](docs/DEVELOPER_GUIDE.zh-CN.md)
+
+历史文档（含旧 API 参考）见 [docs/archive/](docs/archive/)。
 
 版本历史见 [VERSION_HISTORY.md](VERSION_HISTORY.md)；各版本发布说明见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
 ## 状态与路线
 
-Notix 当前为 **v8.9**，处于活跃开发阶段。v1 范围聚焦于通知捕获/历史管线、可视化拖拽规则编辑器（AND/OR）、OTP 自动复制、不重要通知自动移除，以及蓝牙 / 驾驶场景的 TTS 播报。
+Notix 当前为 **v8.57.0**，处于活跃开发阶段。近期版本完善了规则动作链、常驻通知 snooze/恢复、媒体控制与历史聚合；词频词云与分词插件已于 8.57 移除，应用恢复无网络权限。
 
 ## License
 
