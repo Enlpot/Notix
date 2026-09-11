@@ -42,7 +42,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
     private val TAG = "NotificationBlockerService"
     private lateinit var ruleStorage: RuleStorage
     private lateinit var notificationHistoryRepository: com.enlpot.notix.data.repository.NotificationHistoryRepository
-    private lateinit var wordFrequencyRepository: com.enlpot.notix.data.repository.WordFrequencyRepository
     private lateinit var blockedNotificationHistoryStorage: BlockedNotificationHistoryStorage
     private lateinit var statsStorage: StatsStorage
     private lateinit var unmonitoredAppsStorage: UnmonitoredAppsStorage
@@ -321,7 +320,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         instance = this
         ruleStorage = RuleStorage(this)
         notificationHistoryRepository = com.enlpot.notix.data.repository.NotificationHistoryRepository(this)
-        wordFrequencyRepository = com.enlpot.notix.data.repository.WordFrequencyRepository(this)
         blockedNotificationHistoryStorage = BlockedNotificationHistoryStorage(this)
         statsStorage = StatsStorage(this)
         unmonitoredAppsStorage = UnmonitoredAppsStorage(this)
@@ -561,12 +559,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                         val isNew = kotlinx.coroutines.runBlocking {
                             notificationHistoryRepository.saveNotification(simpleNotification, blocked = true)
                         }
-                        // v8.43.0：词频增量更新
-                        Thread {
-                            kotlinx.coroutines.runBlocking {
-                                wordFrequencyRepository.incrementForNotification(simpleNotification.title, simpleNotification.text)
-                            }
-                        }.start()
                         if (isNew) {
                             statsStorage.incrementBlockedNotificationsCount()
                         }
@@ -575,12 +567,6 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
                             kotlinx.coroutines.runBlocking {
                                 notificationHistoryRepository.saveNotification(simpleNotification)
                             }
-                            // v8.43.0：词频增量更新
-                            Thread {
-                                kotlinx.coroutines.runBlocking {
-                                    wordFrequencyRepository.incrementForNotification(simpleNotification.title, simpleNotification.text)
-                                }
-                            }.start()
                             statsStorage.recordNotification(currentTime)
                     }
                     }

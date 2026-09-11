@@ -35,21 +35,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BatteryAlert
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ImportExport
-import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -58,7 +54,6 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Warning
@@ -67,8 +62,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -194,32 +187,6 @@ fun SettingsScreen(
     }
     var showOngoingAppsDialog by remember { mutableStateOf(false) }
     var ongoingApps by remember { mutableStateOf<List<com.enlpot.notix.data.dao.OngoingAppRow>>(emptyList()) }
-
-    // v8.43.0：词云相关设置
-    var dailyRebuildEnabled by remember {
-        mutableStateOf(com.enlpot.notix.data.repository.WordFrequencyRepository.isDailyRebuildEnabled(context))
-    }
-    var pluginInstalled by remember {
-        mutableStateOf(com.enlpot.notix.plugin.WordTokenizerManager.isPluginLoaded())
-    }
-    var pluginInstalling by remember { mutableStateOf(false) }
-    var pluginInstallProgress by remember { mutableStateOf(0) }
-    var pluginStage by remember { mutableStateOf<com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?>(null) }
-    // v8.47.1：插件安装状态（单行覆盖，含下载速度/进度）+ 下载进度条
-    var pluginStatus by remember { mutableStateOf<String?>(null) }
-    var pluginDownloadProgress by remember { mutableStateOf<Float?>(null) }
-    val pluginScope = rememberCoroutineScope()
-    // v8.45.1：插件市场弹窗状态
-    var showPluginMarketDialog by remember { mutableStateOf(false) }
-    var pluginMarketQuery by remember { mutableStateOf("") }
-    var pluginToUninstall by remember { mutableStateOf<PluginInfo?>(null) }
-    // v8.46.0：镜像源管理
-    var showMirrorDialog by remember { mutableStateOf(false) }
-    var mirrorLatencies by remember { mutableStateOf<Map<String, Long?>>(emptyMap()) }
-    var mirrorTesting by remember { mutableStateOf(false) }
-    var mirrorAddMode by remember { mutableStateOf(false) }
-    var mirrorInput by remember { mutableStateOf("") }
-    var pluginInstallError by remember { mutableStateOf<String?>(null) }
 
     // v8.21：未监控应用管理（v8.31：状态由 MainActivity 统一管理，确保历史页和设置页同步刷新）
     val unmonitoredStorage = remember { UnmonitoredAppsStorage(context) }
@@ -970,278 +937,6 @@ fun SettingsScreen(
         )
     }
 
-    // v8.45.1：添加插件弹窗（搜索 + 插件清单，已安装变灰）
-    if (showPluginMarketDialog) {
-        NotixDialog(
-            onDismiss = {
-                showPluginMarketDialog = false
-                pluginMarketQuery = ""
-                pluginInstallError = null
-            },
-            title = "添加插件",
-            titleTrailing = {
-                // v8.46.0：镜像源管理入口（标题行右侧）
-                Text(
-                    text = "镜像源",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.notix.primary,
-                    modifier = Modifier
-                        .clip(NotixCorner.Control)
-                        .clickable {
-                            pluginInstallError = null
-                            showMirrorDialog = true
-                        }
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                )
-            },
-            contentScrollable = false,
-            content = {
-                OutlinedTextField(
-                    value = pluginMarketQuery,
-                    onValueChange = { pluginMarketQuery = it },
-                    label = { Text("搜索插件") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(12.dp))
-                val filteredPlugins = pluginCatalog.filter {
-                    pluginMarketQuery.isBlank() ||
-                        it.title.contains(pluginMarketQuery.trim(), ignoreCase = true) ||
-                        it.description.contains(pluginMarketQuery.trim(), ignoreCase = true)
-                }
-                if (filteredPlugins.isEmpty()) {
-                    Text(
-                        text = "未找到相关插件",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
-                        items(filteredPlugins) { plugin ->
-                            val installed = pluginInstalled && plugin.id == "hanlp"
-                            PluginMarketRow(
-                                plugin = plugin,
-                                installed = installed,
-                                installing = pluginInstalling,
-                                installProgress = pluginInstallProgress,
-                                installStage = pluginStage,
-                                statusText = pluginStatus,
-                                downloadProgress = pluginDownloadProgress,
-                                onInstall = {
-                                    if (!installed && !pluginInstalling) {
-                                        pluginInstalling = true
-                                        pluginInstallProgress = 0
-                                        pluginStage = com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING
-                                        pluginInstallError = null
-                                        pluginStatus = "准备安装"
-                                        pluginDownloadProgress = null
-                                        pluginScope.launch {
-                                            val result = com.enlpot.notix.plugin.WordTokenizerManager.downloadAndInstallPlugin(
-                                                context,
-                                                { stage, progress ->
-                                                    pluginStage = stage
-                                                    if (stage == com.enlpot.notix.plugin.WordTokenizerManager.InstallStage.DOWNLOADING) {
-                                                        pluginInstallProgress = progress
-                                                    }
-                                                },
-                                                { _ -> },
-                                                { msg ->
-                                                    pluginStatus = msg
-                                                    pluginDownloadProgress = null
-                                                },
-                                                { speed, pct ->
-                                                    pluginStatus = "下载中 $pct% · $speed"
-                                                    pluginDownloadProgress = pct / 100f
-                                                }
-                                            )
-                                            pluginInstalling = false
-                                            pluginStage = null
-                                            when (result) {
-                                                is com.enlpot.notix.plugin.WordTokenizerManager.PluginInstallResult.Success -> {
-                                                    pluginInstalled = true
-                                                    pluginInstallError = null
-                                                }
-                                                is com.enlpot.notix.plugin.WordTokenizerManager.PluginInstallResult.Failure -> {
-                                                    pluginInstalled = false
-                                                    pluginInstallError = result.reason
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-                // v8.46.0：安装失败错误提示 + 切换镜像源入口
-                pluginInstallError?.let { err ->
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "安装失败：$err",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        NotixDialogButton(
-                            onClick = { showMirrorDialog = true },
-                            text = "切换镜像源",
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-        )
-    }
-
-    // v8.45.1：卸载插件二次确认
-    pluginToUninstall?.let { plugin ->
-        NotixConfirmDialog(
-            onDismiss = { pluginToUninstall = null },
-            onConfirm = {
-                com.enlpot.notix.plugin.WordTokenizerManager.unloadPlugin(context)
-                pluginInstalled = false
-                pluginToUninstall = null
-                showMessage("已卸载「${plugin.title}」")
-            },
-            title = "卸载插件",
-            body = "确定卸载「${plugin.title}」吗？卸载后将恢复内置简单分词。",
-            confirmText = "卸载",
-        )
-    }
-
-    // v8.46.0：镜像源管理弹窗（打开自动测连通；添加/删除；官方固定）
-    if (showMirrorDialog) {
-        LaunchedEffect(showMirrorDialog) {
-            if (showMirrorDialog) {
-                mirrorTesting = true
-                val sources = listOf(com.enlpot.notix.plugin.WordTokenizerManager.getOfficialPrefix()) +
-                    com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context)
-                val result = mutableMapOf<String, Long?>()
-                sources.forEach { p ->
-                    result[p] = com.enlpot.notix.plugin.WordTokenizerManager.testLatency(p)
-                }
-                mirrorLatencies = result
-                mirrorTesting = false
-            }
-        }
-        NotixDialog(
-            onDismiss = {
-                showMirrorDialog = false
-                mirrorAddMode = false
-                mirrorInput = ""
-            },
-            title = "镜像源管理",
-            titleTrailing = {
-                Text(
-                    text = "添加（${com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context).size}/${com.enlpot.notix.plugin.WordTokenizerManager.MAX_MIRROR_COUNT}）",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.notix.primary,
-                    modifier = Modifier
-                        .clip(NotixCorner.Control)
-                        .clickable {
-                            if (com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context).size >= com.enlpot.notix.plugin.WordTokenizerManager.MAX_MIRROR_COUNT) {
-                                showMessage("最多可添加 ${com.enlpot.notix.plugin.WordTokenizerManager.MAX_MIRROR_COUNT} 个镜像源")
-                            } else {
-                                mirrorAddMode = !mirrorAddMode
-                                mirrorInput = ""
-                            }
-                        }
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                )
-            },
-            contentScrollable = false,
-            content = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // 官方源（固定不可删）
-                    MirrorSourceRow(
-                        label = "GitHub 官方",
-                        latency = mirrorLatencies[""],
-                        fixed = true,
-                        onRemove = null
-                    )
-                    // 用户镜像源
-                    com.enlpot.notix.plugin.WordTokenizerManager.getMirrorPrefixes(context).forEach { prefix ->
-                        MirrorSourceRow(
-                            label = prefix,
-                            latency = mirrorLatencies[prefix],
-                            fixed = false,
-                            onRemove = {
-                                com.enlpot.notix.plugin.WordTokenizerManager.removeMirror(context, prefix)
-                                mirrorLatencies = mirrorLatencies - prefix
-                            }
-                        )
-                    }
-                    if (mirrorTesting) {
-                        Text(
-                            text = "正在测试连通性…",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.notix.contentSecondary,
-                            modifier = Modifier.padding(vertical = 6.dp)
-                        )
-                    }
-                }
-                // 添加镜像源模式
-                if (mirrorAddMode) {
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = mirrorInput,
-                        onValueChange = {
-                            // v8.46.0：输入法可能把英文标点转成全角，统一转半角再保存
-                            mirrorInput = toHalfWidth(it)
-                        },
-                        label = { Text("镜像源前缀（如 https://gh-proxy.com）") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    // v8.46.1：添加源无需先测连通性——输入后直接添加，添加完自动测延迟
-                    NotixDialogButton(
-                        onClick = {
-                            val p = mirrorInput.trim().trimEnd('/')
-                            if (p.isNotBlank()) {
-                                val err = com.enlpot.notix.plugin.WordTokenizerManager.addMirror(context, p)
-                                if (err == null) {
-                                    mirrorLatencies = mirrorLatencies + (p to null)  // 先标记测试中
-                                    mirrorInput = ""
-                                    mirrorAddMode = false
-                                    showMessage("已添加镜像源")
-                                    // 自动测连通性并更新列表
-                                    pluginScope.launch {
-                                        val lat = com.enlpot.notix.plugin.WordTokenizerManager.testLatency(p)
-                                        mirrorLatencies = mirrorLatencies + (p to lat)
-                                    }
-                                } else {
-                                    showMessage(err)
-                                }
-                            } else {
-                                showMessage("请输入镜像源前缀")
-                            }
-                        },
-                        text = "添加",
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.notix.primary,
-                        contentColor = MaterialTheme.notix.onPrimary
-                    )
-                }
-            }
-        )
-    }
-
     // v8.31：刷新应用信息——确认弹窗（清除缓存的应用名称和图标）
     if (showRefreshAppInfoDialog) {
         NotixConfirmDialog(
@@ -1497,43 +1192,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ===== 插件：可选功能插件 =====
-            SettingsSection(title = stringResource(R.string.settings_section_plugins)) {
-                // v8.45.1：添加插件入口（置顶）
-                SettingsRow(
-                    icon = Icons.Filled.Extension,
-                    title = "添加插件",
-                    subtitle = "浏览并安装更多插件",
-                    onClick = { showPluginMarketDialog = true },
-                    trailing = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.notix.contentTertiary)
-                    }
-                )
-
-                // v8.45.1：已安装插件卡片（右侧卸载，二次确认）
-                if (pluginInstalled) {
-                    SettingsRow(
-                        icon = Icons.Filled.TextFields,
-                        title = "高级分词插件",
-                        subtitle = "HanLP 高级分词，分词更精准",
-                        onClick = null,
-                        trailing = {
-                            Text(
-                                text = "卸载",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier
-                                    .clip(NotixCorner.Card)
-                                    .clickable { pluginToUninstall = pluginCatalog.first() }
-                                    .padding(horizontal = 10.dp, vertical = 8.dp)
-                            )
-                        }
-                    )
-                }
-
-            }
-
             // ===== 通知：通知处理与通知历史数据管理 =====
             SettingsSection(title = stringResource(R.string.settings_section_notification)) {
                 SettingsRow(
@@ -1605,25 +1263,6 @@ fun SettingsScreen(
                     title = stringResource(R.string.export_import_rules),
                     subtitle = stringResource(R.string.export_import_rules_desc),
                     onClick = { showExportImportDialog = true },
-                )
-            }
-
-            // ===== 统计 =====
-            SettingsSection(title = stringResource(R.string.settings_section_statistics)) {
-                SettingsRow(
-                    icon = Icons.Filled.Refresh,
-                    title = "每日重建词频",
-                    subtitle = "每天凌晨3点全量重建词频，防止增量误差（默认关闭）",
-                    onClick = null,
-                    trailing = {
-                        NotixSwitch(
-                            checked = dailyRebuildEnabled,
-                            onCheckedChange = { enabled ->
-                                dailyRebuildEnabled = enabled
-                                com.enlpot.notix.data.repository.WordFrequencyRepository.setDailyRebuildEnabled(context, enabled)
-                            }
-                        )
-                    }
                 )
             }
 
@@ -1727,210 +1366,6 @@ fun SettingsScreen(
             onClearHistory = onClearHistory,
             onClearRules = onClearRules
         )
-    }
-}
-
-/** v8.46.0：全角字符转半角（输入法可能把英文标点自动转成全角，如 ：→: 。→. ） */
-private fun toHalfWidth(input: String): String {
-    val sb = StringBuilder(input.length)
-    for (ch in input) {
-        val c = ch.code
-        sb.append(
-            when (c) {
-                0x3002 -> '.' // 。（CJK 句号，不在 FF01..FF5E 范围）
-                0x3001 -> ',' // 、
-                0x3000 -> ' ' // 全角空格
-                in 0xFF01..0xFF5E -> (c - 0xFEE0).toChar() // 全角 ASCII 转半角
-                else -> ch
-            }
-        )
-    }
-    return sb.toString()
-}
-
-@Composable
-private fun MirrorSourceRow(
-    label: String,
-    latency: Long?,
-    fixed: Boolean,
-    onRemove: (() -> Unit)?
-) {
-    val c = MaterialTheme.notix
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // 连通性指示灯：绿=正常(<300ms) 黄=较慢(<1000ms) 红=超时 灰=测试中
-        Box(
-            modifier = Modifier
-                .size(9.dp)
-                .clip(CircleShape)
-                .background(
-                    when {
-                        latency == null -> c.contentTertiary
-                        latency < 0 -> MaterialTheme.colorScheme.error
-                        latency < 300 -> Color(0xFF4CAF50)
-                        latency < 1000 -> Color(0xFFFFC107)
-                        else -> MaterialTheme.colorScheme.error
-                    }
-                )
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = c.contentPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(Modifier.width(8.dp))
-        // v8.46.0：延迟列固定宽度右对齐（ms 右端对齐，数字往左增长）
-        Box(modifier = Modifier.width(76.dp)) {
-            Text(
-                text = when {
-                    latency == null -> "测试中"
-                    latency < 0 -> "超时"
-                    else -> "${latency}ms"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = c.contentSecondary,
-                maxLines = 1,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        Spacer(Modifier.width(10.dp))
-        // v8.46.0：操作列固定宽度右对齐（官方源空占位），保证延迟列右端一致、ms 上下对齐
-        Box(modifier = Modifier.width(56.dp), contentAlignment = Alignment.CenterEnd) {
-            if (!fixed && onRemove != null) {
-                Text(
-                    text = "删除",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier
-                        .clip(NotixCorner.Control)
-                        .clickable { onRemove() }
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                )
-            }
-        }
-    }
-}
-
-// v8.45.1：插件市场——插件清单数据（可扩展）
-private data class PluginInfo(
-    val id: String,
-    val title: String,
-    val description: String,
-    val icon: ImageVector,
-)
-
-private val pluginCatalog = listOf(
-    PluginInfo(
-        id = "hanlp",
-        title = "高级分词插件",
-        description = "HanLP 高级分词，分词更精准",
-        icon = Icons.Filled.TextFields
-    )
-)
-
-@Composable
-private fun PluginMarketRow(
-    plugin: PluginInfo,
-    installed: Boolean,
-    installing: Boolean,
-    installProgress: Int,
-    installStage: com.enlpot.notix.plugin.WordTokenizerManager.InstallStage?,
-    statusText: String?,
-    downloadProgress: Float?,
-    onInstall: () -> Unit
-) {
-    val c = MaterialTheme.notix
-    val sp = MaterialTheme.notixSpacing
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(c.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = plugin.icon,
-                contentDescription = null,
-                tint = c.onPrimaryContainer,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(sp.lg))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = plugin.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = if (installed) c.contentTertiary else c.contentPrimary
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = plugin.description,
-                style = MaterialTheme.typography.bodyMedium,
-                lineHeight = 18.sp,
-                color = if (installed) c.contentTertiary else c.contentSecondary
-            )
-        }
-        Spacer(modifier = Modifier.width(sp.md))
-        when {
-            installed -> Text(
-                text = "已安装",
-                style = MaterialTheme.typography.labelMedium,
-                color = c.contentTertiary
-            )
-            // v8.47.1：安装中按钮变加载圆圈
-            installing -> CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
-                strokeWidth = 2.5.dp,
-                color = MaterialTheme.colorScheme.primary
-            )
-            else -> NotixDialogButton(
-                onClick = onInstall,
-                text = "安装",
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
-    // v8.47.1：插件安装状态（单行覆盖：尝试源→下载速度/进度→下载成功→解压→加载→安装完成/失败）
-    if (statusText != null) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 40.dp + sp.lg)
-        ) {
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.labelSmall,
-                lineHeight = 15.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (downloadProgress != null) {
-                Spacer(Modifier.height(4.dp))
-                LinearProgressIndicator(
-                    progress = { downloadProgress },
-                    modifier = Modifier.fillMaxWidth().height(3.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            }
-        }
     }
 }
 
@@ -2309,24 +1744,10 @@ fun PermissionScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                 }
-                // v8.56.0：网络访问（普通权限，安装即授予，无需开启）
-                item {
-                    PermissionCard(
-                        icon = Icons.Filled.Public,
-                        title = stringResource(R.string.settings_permission_internet_title),
-                        desc = stringResource(R.string.settings_permission_internet_desc),
-                        granted = true,
-                        permName = "INTERNET",
-                        usedBy = stringResource(R.string.settings_permission_internet_usedby),
-                        fixLabel = stringResource(R.string.settings_permission_status_normal),
-                        onFix = {}
-                    )
-                }
             }
         }
     )
 }
-
 /**
  * v8.56.0：恢复常驻通知列表弹窗——显示被规则冻结（移除）的常驻通知，支持单独恢复与全部恢复。
  */

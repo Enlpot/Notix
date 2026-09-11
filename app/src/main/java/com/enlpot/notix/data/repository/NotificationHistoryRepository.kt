@@ -45,7 +45,6 @@ class NotificationHistoryRepository(context: Context) {
     private val db = AppDatabase.getInstance(context)
     private val groupDao: NotificationGroupDao = db.notificationGroupDao()
     private val changeDao: NotificationChangeDao = db.notificationChangeDao()
-    private val wordFrequencyRepository: WordFrequencyRepository = WordFrequencyRepository(context)
 
     // ========== 核心写入 ==========
 
@@ -390,8 +389,6 @@ class NotificationHistoryRepository(context: Context) {
     /** 清除全部历史。 */
     suspend fun clearHistory() {
         groupDao.clearAll()
-        // v8.43.0：清空词频表
-        wordFrequencyRepository.clearAll()
         // change 表通过外键 CASCADE 自动删除
         Log.i(TAG, "All history cleared")
     }
@@ -440,10 +437,6 @@ class NotificationHistoryRepository(context: Context) {
         val allGroups = groupDao.getAllOrderedByTime()
         val toDelete = allGroups.filter {
             it.package_name == notification.packageName && it.title == notification.title
-        }
-        // v8.43.0：词频递减
-        toDelete.forEach { group ->
-            wordFrequencyRepository.decrementForNotification(group.title, null)
         }
         toDelete.forEach { groupDao.delete(it) }
         Log.i(TAG, "Notification deleted: pkg=${notification.packageName}, title=${notification.title}")

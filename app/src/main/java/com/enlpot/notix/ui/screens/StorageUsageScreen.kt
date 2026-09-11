@@ -109,11 +109,6 @@ private fun dirBytes(dir: File): Long =
         else 0L
     } ?: 0L
 
-/** v8.56.0：插件目录占用（filesDir 下以 plugin_ 开头的目录，如 plugin_hanlp） */
-private fun pluginBytes(context: Context): Long =
-    context.filesDir.listFiles()?.filter { it.isDirectory && it.name.startsWith("plugin_") }
-        ?.sumOf { dirBytes(it) } ?: 0L
-
 private fun filesDirFiles(context: Context): List<File> =
     context.filesDir.listFiles()?.filter { it.isFile } ?: emptyList()
 
@@ -170,8 +165,6 @@ fun StorageUsageScreen(
     val historySize = remember(refreshTick) { historyBytes(context) }
     val rulesSize = remember(refreshTick) { rulesBytes(context) }
     val otherSize = remember(refreshTick) { otherBytes(context) }
-    // v8.56.0：插件目录占用（分词插件 HanLP 词典与数据）
-    val pluginSize = remember(refreshTick) { pluginBytes(context) }
 
     // 二次确认弹窗状态
     var confirmClearHistory by remember { mutableStateOf(false) }
@@ -206,12 +199,6 @@ fun StorageUsageScreen(
                 sizeText = formatStorageBytes(rulesSize),
                 desc = stringResource(R.string.storage_usage_rules_desc),
                 onClear = { confirmClearRules = true }
-            )
-            Spacer(Modifier.height(12.dp))
-            StorageItemCard(
-                title = stringResource(R.string.storage_usage_plugin),
-                sizeText = formatStorageBytes(pluginSize),
-                desc = stringResource(R.string.storage_usage_plugin_desc)
             )
             Spacer(Modifier.height(12.dp))
             StorageItemCard(

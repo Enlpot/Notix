@@ -66,8 +66,6 @@ import com.enlpot.notix.ui.theme.NotixCorner
 import com.enlpot.notix.ui.theme.notix
 import com.enlpot.notix.ui.theme.notixSpacing
 import com.enlpot.notix.ui.theme.notixType
-import com.enlpot.notix.ui.components.WordCloud
-import com.enlpot.notix.data.repository.WordFrequencyRepository
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
@@ -91,14 +89,13 @@ import java.time.format.DateTimeFormatter
  */
 
 /** v8.48：统计页可开关模块 */
-private enum class StatModule(val key: String, val title: String, val needPlugin: Boolean) {
-    HOTWORDS("hotwords", "通知热词", true),
-    HEALTH("health", "通知健康度", false),
-    TREND("trend", "通知趋势", false),
-    HEATMAP("heatmap", "24小时分布", false),
-    PIE("pie", "App 通知占比", false),
-    RULE_RANK("rule_rank", "规则效果排行", false),
-    APP_RANK("app_rank", "App 通知排行", false),
+private enum class StatModule(val key: String, val title: String) {
+    HEALTH("health", "通知健康度"),
+    TREND("trend", "通知趋势"),
+    HEATMAP("heatmap", "24小时分布"),
+    PIE("pie", "App 通知占比"),
+    RULE_RANK("rule_rank", "规则效果排行"),
+    APP_RANK("app_rank", "App 通知排行"),
 }
 @Composable
 fun StatisticsScreen(
@@ -109,11 +106,7 @@ fun StatisticsScreen(
 ) {
     val listState = rememberLazyListState()
 
-    // v8.43.0：词云数据
     val context = LocalContext.current
-
-    // v8.48：统计模块开关（右上角按钮打开弹窗设置；热词模块依赖分词插件）
-    val pluginLoaded = com.enlpot.notix.plugin.WordTokenizerManager.isPluginLoaded()
     val statPrefs = context.getSharedPreferences("stat_module_prefs", Context.MODE_PRIVATE)
     var moduleEnabled by remember {
         mutableStateOf(StatModule.entries.associateWith { statPrefs.getBoolean(it.key, true) })
@@ -124,18 +117,6 @@ fun StatisticsScreen(
         moduleEnabled = moduleEnabled + (m to on)
     }
 
-    var wordCloudWords by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
-    var selectedTimeRange by remember { mutableStateOf(WordFrequencyRepository.TIME_RANGE_WEEK) }
-    var wordCloudLoading by remember { mutableStateOf(true) }
-
-    // 加载词云数据
-    LaunchedEffect(selectedTimeRange) {
-        wordCloudLoading = true
-        val repo = WordFrequencyRepository(context)
-        val topWords = repo.getTopWords(selectedTimeRange, 50)
-        wordCloudWords = topWords.map { it.word to it.count }
-        wordCloudLoading = false
-    }
     var selectedHeatmapCell by remember { mutableStateOf<Pair<LocalDate, Int>?>(null) }
 
     LaunchedEffect(scrollToTopTrigger) {
@@ -282,107 +263,6 @@ fun StatisticsScreen(
             )
         }
 
-                if (moduleEnabled[StatModule.HOTWORDS] == true && pluginLoaded) {
-// v8.43.0：通知热词词云卡片
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = NotixCorner.Card,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.notix.surface,
-                ),
-            ) {
-                Column(modifier = Modifier.padding(MaterialTheme.notixSpacing.md)) {
-                    // 标题行
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalFireDepartment,
-                            contentDescription = null,
-                            tint = MaterialTheme.notix.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(MaterialTheme.notixSpacing.sm))
-                        Text(
-                            text = "通知热词",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.notix.contentPrimary,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        // 时间范围切换
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            listOf(
-                                "今日" to WordFrequencyRepository.TIME_RANGE_TODAY,
-                                "本周" to WordFrequencyRepository.TIME_RANGE_WEEK,
-                                "本月" to WordFrequencyRepository.TIME_RANGE_MONTH,
-                                "全部" to WordFrequencyRepository.TIME_RANGE_ALL,
-                            ).forEach { (label, range) ->
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (selectedTimeRange == range) {
-                                        MaterialTheme.notix.primary
-                                    } else {
-                                        MaterialTheme.notix.contentTertiary
-                                    },
-                                    fontWeight = if (selectedTimeRange == range) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier
-                                        .clickable { selectedTimeRange = range }
-                                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(MaterialTheme.notixSpacing.md))
-
-                    // 词云内容
-                    if (wordCloudLoading) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "加载中...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.notix.contentTertiary,
-                            )
-                        }
-                    } else {
-                        WordCloud(
-                            words = wordCloudWords,
-                            onWordClick = { word ->
-                                // 点击词语跳转到通知历史页搜索（后续实现）
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp),
-                        )
-                    }
-
-                    Spacer(Modifier.height(MaterialTheme.notixSpacing.sm))
-
-                    // 底部统计
-                    Text(
-                        text = if (wordCloudWords.isNotEmpty()) {
-                            "共提取 ${wordCloudWords.size} 个热词"
-                        } else {
-                            "暂无热词数据，发送通知后自动分析"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.notix.contentTertiary,
-                    )
-                }
-            }
-        }
-        }
 
         // 过滤与规则命中卡片
         item {
@@ -937,34 +817,23 @@ fun StatisticsScreen(
             text = {
                 Column {
                     StatModule.entries.forEach { m ->
-                        val pluginMissing = m.needPlugin && !pluginLoaded
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    text = m.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (pluginMissing) MaterialTheme.notix.contentTertiary
-                                            else MaterialTheme.notix.contentPrimary,
-                                )
-                                if (pluginMissing) {
-                                    Text(
-                                        text = "需安装分词插件",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.notix.contentTertiary,
-                                    )
-                                }
-                            }
+                            Text(
+                                text = m.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.notix.contentPrimary,
+                                modifier = Modifier.weight(1f),
+                            )
                             Spacer(Modifier.width(12.dp))
                             Switch(
                                 checked = moduleEnabled[m] == true,
                                 onCheckedChange = { toggleModule(m, it) },
-                                enabled = !pluginMissing,
                             )
                         }
                     }

@@ -104,12 +104,6 @@ interface NotificationChangeDao {
      */
     @Query("UPDATE notification_change SET cancel_reason = :reason WHERE sbn_key = :sbnKey AND (cancel_reason IS NULL OR cancel_reason != 100)")
     suspend fun updateCancelReasonBySbnKey(sbnKey: String, reason: Int)
-
-    /**
-     * v8.43.0：查询最近的 N 条通知变更（用于词频全量重建）。
-     */
-    @Query("SELECT * FROM notification_change ORDER BY timestamp DESC LIMIT :limit")
-    suspend fun getRecentChanges(limit: Int): List<NotificationChangeEntity>
 }
 
 
