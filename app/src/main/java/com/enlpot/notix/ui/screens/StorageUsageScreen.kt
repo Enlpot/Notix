@@ -54,8 +54,7 @@ import java.util.Locale
 
 // v7.50：存储占用计算与格式化（供设置主页 + 二级界面共用）
 
-/** 通知历史相关文件（与 NotificationHistoryStorage / BlockedNotificationHistoryStorage 保持一致） */
-/** 通知历史相关文件（Room 数据库 + 应用信息库 + 旧版 JSON 兼容） */
+/** 通知历史相关文件（Room 数据库 + 应用信息库 + 旧版 JSON 兼容残留） */
 private val HISTORY_FILE_NAMES = setOf(
     // Room 通知历史数据库（v8.23+ 主存储）
     "notix.db",

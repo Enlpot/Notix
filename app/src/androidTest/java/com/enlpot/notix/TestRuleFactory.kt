@@ -32,7 +32,6 @@ object TestRuleFactory {
 
     val dismiss: ActionSpec = action(RuleAction.DISMISS)
 
-    val silent: ActionSpec = action(RuleAction.SILENT)
 
     fun rule(
         actions: List<ActionSpec>,

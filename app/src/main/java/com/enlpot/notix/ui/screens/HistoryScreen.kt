@@ -1501,7 +1501,7 @@ private fun SearchButton(onClick: () -> Unit, onLongClick: () -> Unit = {}) {
 }
 
 // --- "By Time" tab --- 聚合条目列表（LazyListScope 扩展，供外层 LazyColumn 使用） ---
-// v7.45：改为按折叠分段渲染（连续同 app 且 count 合计 >= 4 时折叠）
+// v7.45：改为按折叠分段渲染（连续同 app 且 entries.size >= FOLD_THRESHOLD 时折叠）
 private fun LazyListScope.byTimeItems(
     segments: List<FoldSegment>,
     expandedFoldPackages: MutableState<Set<String>>,
@@ -1554,7 +1554,7 @@ private fun LazyListScope.byAppItems(
     scope: CoroutineScope
 ) {
     // v7.44：分组结果由上层 remember 缓存传入，此处直接遍历
-    // v7.45：组内按折叠分段渲染（同 app 组内 count 合计 >= 4 时折叠）
+    // v7.45：组内按折叠分段渲染（同 app 组内 entries.size >= FOLD_THRESHOLD 时折叠）
     appGrouped.forEachIndexed { index, (appName, appEntries) ->
         val packageName = appEntries.firstOrNull()?.packageName
         val isExpanded = expandedApps.value.contains(appName)
@@ -2021,7 +2021,7 @@ private fun HistoryNotificationCard(
 }
 
 // ================= v7.45：通知卡片折叠 =================
-// 规则：连续收到同一个 app 的通知（packageName 一致 + 列表连续相邻），段内卡片数（聚合条目算 1 张，即 entries.size）>= 4 时折叠。
+// 规则：连续收到同一个 app 的通知（packageName 一致 + 列表连续相邻），段内卡片数（聚合条目算 1 张，即 entries.size）>= FOLD_THRESHOLD（当前为 3）时折叠。
 // 段内最新一条（时间倒序第一位）正常显示，其下方插入折叠卡片；点击展开后其余条目缩宽显示，
 // 收起提示卡带吸顶效果（与应用分组头一致）。不修改聚合逻辑，仅在列表层做折叠。
 
@@ -2151,8 +2151,8 @@ private fun FoldToggleCard(
 
 /**
  * v7.45：通用折叠分段渲染（LazyListScope 扩展，三个 tab 共用）。
- * - 段 count 合计 < 4 或单条段：正常逐条渲染普通卡片；
- * - 段 count 合计 >= 4：最新一条正常显示，其下方插入折叠提示卡；
+ * - 段 entries.size < FOLD_THRESHOLD 或单条段：正常逐条渲染普通卡片；
+ * - 段 entries.size >= FOLD_THRESHOLD：最新一条正常显示，其下方插入折叠提示卡；
  *   展开后其余条目以缩宽卡片渲染，收起提示卡为普通 item（随滚动滚出，仅 sub_tabs 吸顶）。
  */
 @OptIn(ExperimentalFoundationApi::class)

@@ -84,15 +84,6 @@ class RulesScreenFlow4BTest {
         compose.onNodeWithText("注意：如果找不到匹配按钮", substring = true).assertDoesNotExist()
     }
 
-    // 6. SILENT 显示"静默重显"及描述
-    @Test
-    fun test6_silent_shows_name_and_desc() {
-        render(TestRuleFactory.rule(actions = listOf(TestRuleFactory.silent), keywords = listOf("4B-silent")))
-        // 卡片名称 + 卡片摘要均为"静默重显"
-        compose.onAllNodesWithText("静默重显").assertCountEquals(2)
-        compose.onNodeWithText("编辑").performClick()
-        compose.onNodeWithText("取消原通知，并以低打扰方式重新显示。").assertExists()
-    }
 
     // 7. DISMISS 统一显示"消除通知"，不再出现"清除通知"
     @Test

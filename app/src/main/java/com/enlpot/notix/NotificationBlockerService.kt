@@ -201,7 +201,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
          * 阶段2D：仅 Instrumentation 集成测试使用——允许本应用包名通知进入 Action Flow
          * 处理链路（测试以本进程发布真实 Notification 验证 Service→Executor 真实接线）。
          * 默认 false，生产行为完全不变；同时始终跳过 rule_repost 重发通知与 keepalive
-         * 常驻通知，防止 SILENT 重发/保活通知递归触发 Action Flow。
+         * 常驻通知，防止本应用保活通知等递归触发 Action Flow（rule_repost 渠道仍作守卫保留）。
          */
         @Volatile
         internal var allowOwnPackageNotificationsForTest = false
@@ -686,7 +686,7 @@ class NotificationBlockerService : NotificationListenerService(), ActionFlowHost
         return SimpleDateFormat("M月d日", Locale.SIMPLIFIED_CHINESE).format(postTime)
     }
 
-    /** 重发一条通知（用于静音5秒 / SILENT 动作）。阶段2C：至少保留 smallIcon/largeIcon/title/text/contentIntent/ongoing */
+    /** 死代码：旧 SILENT 模型重发通知（RuleAction 已无 SILENT，全库无调用）。保留仅作历史参考，勿新引用。 */
     private fun repostNotification(
         sbn: StatusBarNotification,
         title: String?,

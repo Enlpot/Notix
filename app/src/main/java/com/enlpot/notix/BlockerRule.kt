@@ -166,7 +166,7 @@ data class ClickButtonParams(val buttonLabel: String = "")
  * - List 本身定义顺序，不保存 order 字段：actions[0] 最先执行。
  * - [params] 采用 Gson 原生 [JsonObject]，规避 sealed class 在 Gson 反射下的
  *   反序列化难题；各动作参数 data class 通过 [toParamsJson]/[asParams] 互转。
- * - DISMISS / SILENT / OPEN_NOTIFICATION 无参数（params = null）。
+ * - DISMISS（不含常驻时）/ OPEN_NOTIFICATION 无参数（params = null）。
  */
 data class ActionSpec(
     val type: RuleAction,

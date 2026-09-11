@@ -17,7 +17,7 @@ import org.junit.runner.RunWith
  * 2. 同 key 超窗口 → 允许再次执行
  * 3. 不同 key → 各自执行
  * 4. Service destroy → 防抖状态清理，新生命周期不受旧记录影响
- * 5. SILENT 重发防循环 → 不被新防抖破坏
+ *（原 Test 5 SILENT 重发用例已随 RuleAction.SILENT 移除）
  *
  * 时间控制：覆盖 NotificationBlockerService.flowDebounceNow 为可控 fakeNow，
  * 不使用真实等待 5 秒；每个用例结束重置回系统时钟。
@@ -176,29 +176,4 @@ class ActionFlowDebounceTest : BaseActionFlowTest() {
         }
     }
 
-    /** Test 5：SILENT 重发防循环不被新增 Flow 防抖破坏 */
-    @Test
-    fun test5_silentRepostNotBrokenByDebounce() {
-        ruleStorage.addRules(listOf(TestRuleFactory.rule(
-            listOf(TestRuleFactory.silent, TestRuleFactory.copy(CopyMode.TITLE_AND_TEXT)),
-            keywords = listOf("AFT_DEBOUNCE_SILENT")
-        )))
-        val id = 5025
-        var fakeNow = 50_000L
-        NotificationBlockerService.flowDebounceNow = { fakeNow }
-        try {
-            TestNotificationFactory.notify(
-                context, id,
-                TestNotificationFactory.createNotification(context, "AFT_DEBOUNCE_SILENT 标题", "静默正文")
-            )
-            // SILENT：原通知取消
-            waitForNotificationGone(id, 20000)
-            // 重发到 RULE_REPOST_CHANNEL_ID（防递归：repost 通知跳过规则处理）
-            waitForRepostNotification("AFT_DEBOUNCE_SILENT 标题", 15000)
-            // SILENT 后 COPY 仍执行
-            waitForClipboard("AFT_DEBOUNCE_SILENT 标题 静默正文", 15000)
-        } finally {
-            NotificationBlockerService.flowDebounceNow = { System.currentTimeMillis() }
-        }
-    }
 }

@@ -16,7 +16,7 @@ import com.google.gson.JsonObject
  * 设计约束（阶段 2B 任务）：
  * - 每次 [execute] 创建独立 [FlowExecution]：currentIndex / failedActions / cancelled 均为该 Flow
  *   私有状态，多通知并发 Flow 互不污染；禁止全局 currentIndex、禁止 Executor 级共享 currentAction。
- * - 同步 Action（DISMISS/SILENT/CLICK_BUTTON/OPEN_NOTIFICATION/COPY）执行完立即推进下一个；
+ * - 同步 Action（DISMISS/CLICK_BUTTON/OPEN_NOTIFICATION/COPY）执行完立即推进下一个；
  *   抛异常 → catch → 记录 FAILED → 继续下一个，不终止整个 Flow。
  * - TTS / DELAY 为异步 Action：必须等 onDone/onError 或 postDelayed 到期后才推进，
  *   绝不 speak 后立即 next、绝不 postDelayed 后立即执行后续。
@@ -35,7 +35,7 @@ import com.google.gson.JsonObject
  * 运行时上下文：Flow 开始时创建一次，整条链共享。
  *
  * 数据快照（packageName/appName/title/text/notificationKey/postTime）在 Flow 开始时捕获，
- * DISMISS/SILENT 消除通知后后续 TTS/COPY 仍可读取；运行时对象（sbn/notificationActions/
+ * DISMISS 消除通知后后续 TTS/COPY 仍可读取；运行时对象（sbn/notificationActions/
  * contentIntent）为实时内存引用，仅本次 Flow 使用，绝不落 Rule JSON。
  */
 class ActionContext(
@@ -50,7 +50,7 @@ class ActionContext(
     val includeOngoing: Boolean = false,
     /** v8.14：常驻通知冻结时长（毫秒，用户可选）；仅 includeOngoing=true 时生效 */
     val snoozeDurationMs: Long = SnoozeDurations.DAY_7,
-    /** 实时通知对象（CLICK_BUTTON/OPEN_NOTIFICATION/SILENT 使用；可为 null 便于 JVM 测试） */
+    /** 实时通知对象（DISMISS/CLICK_BUTTON/OPEN_NOTIFICATION 使用；可为 null 便于 JVM 测试） */
     val sbn: StatusBarNotification? = null,
     /** 实时按钮列表（= sbn.notification.actions） */
     val notificationActions: Array<Notification.Action>? = null,

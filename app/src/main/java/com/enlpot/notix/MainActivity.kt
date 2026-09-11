@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
     /**
      * v8.0：历史/规则刷新节流——服务每条通知都发 ACTION_HISTORY_UPDATED，密集推送时若每次都
      * 主线程全量读取+重组会卡顿。这里做 400ms 去抖：高频广播只合并为一次刷新，且读盘在 IO 线程
-     * （配合 NotificationHistoryStorage 的内存缓存，历史文件再大也不阻塞主线程/不掉帧）。
+     * （历史主存储为 Room NotificationHistoryRepository；JSON NotificationHistoryStorage 已不再写入）。
      */
     private var historyRefreshScheduled = false
     private fun scheduleHistoryRefresh() {

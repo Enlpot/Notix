@@ -11,7 +11,7 @@ import android.util.Log
  * RemoteViews 自定义视图渲染（签到/福利/拍照上传/相册备份等），
  * 导致 Notix 原有逻辑直接忽略这类通知。
  *
- * 本提取器在设置开关「提取无文本通知的按钮文字」（默认关）开启时被调用：
+ * v8.53 起：无 title/text 的通知总是尝试调用本提取器（原「提取无文本通知文字」设置开关已移除）：
  * - 优先走公开 API：Notification.Action[].title（通知可见按钮文字）；
  * - 补充反射解析 RemoteViews 的 setText / setContentDescription 动作；
  * 提取结果拼入 text 参与 RuleMatcher 关键字匹配与历史记录。

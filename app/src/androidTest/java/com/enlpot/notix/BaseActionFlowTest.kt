@@ -155,23 +155,9 @@ abstract class BaseActionFlowTest {
             if (findNotification(id) == null) return
             SystemClock.sleep(100)
         }
-        fail("通知 id=$id 在 ${timeoutMs}ms 后仍存在（DISMISS/SILENT 未生效）")
+        fail("通知 id=$id 在 ${timeoutMs}ms 后仍存在（DISMISS 未生效）")
     }
 
-    /** 等待 SILENT 重发通知（rule_repost 频道、指定标题）出现 */
-    protected fun waitForRepostNotification(title: String, timeoutMs: Long = 15000) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < deadline) {
-            val hit = nm.activeNotifications.firstOrNull {
-                it.packageName == BuildConfig.APPLICATION_ID &&
-                    it.notification.channelId == NotificationBlockerService.RULE_REPOST_CHANNEL_ID &&
-                    it.notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() == title
-            }
-            if (hit != null) return
-            SystemClock.sleep(100)
-        }
-        fail("SILENT 重发通知（标题='$title'）未在 ${timeoutMs}ms 内出现")
-    }
 
     // ---------- 剪贴板 ----------
 

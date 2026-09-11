@@ -143,20 +143,4 @@ class ActionFlowBasicTest : BaseActionFlowTest() {
         }
     }
 
-    /** 8. SILENT→COPY：原通知取消、rule_repost 低打扰频道重发、重发后 COPY 执行 */
-    @Test
-    fun test08_silentThenCopy() {
-        ruleStorage.addRules(listOf(TestRuleFactory.rule(
-            listOf(TestRuleFactory.silent, TestRuleFactory.copy(CopyMode.TITLE_AND_TEXT)),
-            keywords = listOf("AFT_SILENT")
-        )))
-        val id = 5008
-        TestNotificationFactory.notify(context, id, TestNotificationFactory.createNotification(context, "AFT_SILENT 标题", "静默正文"))
-        // SILENT 第一步：原通知被取消
-        waitForNotificationGone(id, 20000)
-        // 重发通知出现（低打扰 rule_repost 频道，标题保留）
-        waitForRepostNotification("AFT_SILENT 标题", 15000)
-        // SILENT 后 COPY 执行
-        waitForClipboard("AFT_SILENT 标题 静默正文", 15000)
-    }
 }
