@@ -246,6 +246,17 @@ fun HistoryScreen(
             keyboardController?.show()
         } else {
             keyboardController?.hide()
+            // v8.57：退出搜索时必须关掉增强模式并清空条件。
+            // 否则 advancedMode 仍为 true，列表继续走增强过滤（条件空时整页变空），
+            // 看起来像「关闭搜索后退不出搜索」。
+            advancedMode = false
+            advApp = ""
+            advPkg = ""
+            advTitle = ""
+            advText = ""
+            advChannel = ""
+            advTimeRange = SearchTimeRange.NONE.name
+            advancedResults = null
         }
     }
 

@@ -7,6 +7,13 @@
 
 ---
 
+## 8.57.1 (2026-09-11)
+
+**Fixed**
+- **Cannot exit search after enabling advanced search**: Closing search did not reset `advancedMode` or multi-field filters, so the list stayed on advanced results (empty when filters were blank). Exit now clears advanced mode and conditions.
+
+---
+
 ## 8.57.0 (2026-09-03)
 
 **Removed**
